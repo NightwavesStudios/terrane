@@ -217,6 +217,11 @@ export default function Globe({
               // from nothing between z2 and z3.2 instead of the whole planet
               // snapping into 3D the moment you pass a threshold.
               paint: {
+                // Exaggeration has to CLIMB with zoom, not sit at a constant.
+                // Terra's deep tiles are bilinearly upsampled from a coarser
+                // source, so the slope between neighbouring texels shrinks as you
+                // zoom in: at a fixed exaggeration the shading flattens out and
+                // the map reads as a grey wash with no relief at all.
                 "hillshade-exaggeration": [
                   "interpolate",
                   ["linear"],
@@ -225,14 +230,20 @@ export default function Globe({
                   0,
                   3.2,
                   1.15,
+                  9,
+                  1.6,
+                  12,
+                  2.6,
+                  15,
+                  3.4,
                 ],
                 // Light fixed to the terrain, not the screen: with the default
                 // (viewport) a pitch or rotate swings the shadows across ridges
                 // and the relief appears to slide.
                 "hillshade-illumination-anchor": "map",
-                "hillshade-shadow-color": "#08130d",
-                "hillshade-highlight-color": "#a9bd96",
-                "hillshade-accent-color": "#0b1710",
+                "hillshade-shadow-color": "#030c08",
+                "hillshade-highlight-color": "#46603f",
+                "hillshade-accent-color": "#06120c",
               },
             },
             // Above the landcover fills but below water, roads and labels. It has
