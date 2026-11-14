@@ -9,6 +9,21 @@ import type { StyleSpecification } from "maplibre-gl";
 export const FIRST_SYMBOL_LAYER = "label-country";
 
 /** MapLibre mutates the style spec it is given, so each map needs a copy. */
+export const TERRAIN_SOURCE = {
+  type: "raster-dem" as const,
+  tiles: [
+    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+  ],
+  encoding: "terrarium" as const,
+  tileSize: 256,
+  // Terra goes to z15. This used to be capped at 10 to save tile pyramids, which
+  // meant everything past z10 was one overzoomed blob: the relief visibly died in
+  // the middle of a zoom. Detail is worth the traffic — this is a terrain app.
+  maxzoom: 13,
+  attribution:
+    '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
+};
+
 export function createStyle(): StyleSpecification {
   return structuredClone(MAP_STYLE);
 }
@@ -40,6 +55,12 @@ export const MAP_STYLE: StyleSpecification = {
         },
       },
     },
+    /* The DEM belongs in the style, not in a runtime addSource. A static layer
+       that references a source added later makes MapLibre reject the ENTIRE
+       style — blank map, getStyle() undefined. That is what broke the earlier
+       attempts to declare hillshade statically: the layer was fine, the missing
+       source was not. */
+    relief: { ...TERRAIN_SOURCE, tiles: [...TERRAIN_SOURCE.tiles] },
     openmaptiles: {
       type: "vector",
       url: "https://tiles.openfreemap.org/planet",
@@ -53,7 +74,7 @@ export const MAP_STYLE: StyleSpecification = {
       id: "land-base",
       type: "fill",
       source: "world",
-      paint: { "fill-color": "#17352b" },
+      paint: { "fill-color": "#1c3b2c" },
     },
     {
       id: "landcover-wood",
@@ -61,8 +82,23 @@ export const MAP_STYLE: StyleSpecification = {
       source: "openmaptiles",
       "source-layer": "landcover",
       filter: ["==", ["get", "class"], "wood"],
-      // Kept translucent: the elevation ramp underneath should read through it.
-      paint: { "fill-color": "#1b4030", "fill-opacity": 0.32 },
+      // Kept translucent, and faded hard once the polygons get dense: at regional
+      // zoom the wood fill covers whole ranges in flat colour, which is what made
+      // the map go monotone and lose its relief in the middle of a zoom.
+      paint: {
+        "fill-color": "#0e2c22",
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          0.34,
+          8,
+          0.42,
+          11,
+          0.38,
+        ],
+      },
     },
     {
       id: "landcover-grass",
@@ -70,7 +106,20 @@ export const MAP_STYLE: StyleSpecification = {
       source: "openmaptiles",
       "source-layer": "landcover",
       filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
-      paint: { "fill-color": "#22462f", "fill-opacity": 0.3 },
+      paint: {
+        "fill-color": "#4a5330",
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          0.28,
+          8,
+          0.34,
+          11,
+          0.3,
+        ],
+      },
     },
     {
       id: "landcover-ice",
@@ -79,7 +128,12 @@ export const MAP_STYLE: StyleSpecification = {
       "source-layer": "landcover",
       filter: ["==", ["get", "class"], "ice"],
       // Sea ice and ice caps: bright, so the poles read as snow rather than water.
-      paint: { "fill-color": "#dbe6ec", "fill-opacity": 0.72 },
+      // Close in, glaciers have to stop being white paper and let the hillshade
+      // through, or every icefield reads as a flat cut-out on the mountainside.
+      paint: {
+        "fill-color": "#dbe6ec",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.6, 12, 0.44],
+      },
     },
     {
       id: "landuse-residential",
@@ -87,7 +141,10 @@ export const MAP_STYLE: StyleSpecification = {
       source: "openmaptiles",
       "source-layer": "landuse",
       filter: ["==", ["get", "class"], "residential"],
-      paint: { "fill-color": "#26394d", "fill-opacity": 0.6 },
+      paint: {
+        "fill-color": "#2b3a4e",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 9, 0.42, 12, 0.26],
+      },
     },
     {
       id: "water",
@@ -292,16 +349,4 @@ export const MAP_STYLE: StyleSpecification = {
   ],
 };
 
-export const TERRAIN_SOURCE = {
-  type: "raster-dem" as const,
-  tiles: [
-    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-  ],
-  encoding: "terrarium" as const,
-  tileSize: 256,
-  // Terra goes to z15, but shading beyond z10 is overzoomed detail that costs a
-  // fresh tile pyramid per zoom step; capping it keeps relief stable and cheap.
-  maxzoom: 10,
-  attribution:
-    '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
-};
+

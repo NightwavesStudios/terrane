@@ -6,7 +6,7 @@ import type {
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { TERRAIN_SOURCE, createStyle } from "./style";
+import { createStyle } from "./style";
 import { createContours, type ContourHandle } from "./contours";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
@@ -208,14 +208,6 @@ export default function Globe({
          parsing) and it is added after the map settles. */
       window.setTimeout(() => {
         try {
-          map_.addSource("relief", {
-            ...TERRAIN_SOURCE,
-            tiles: [...TERRAIN_SOURCE.tiles],
-          });
-        } catch {
-          /* already added */
-        }
-        try {
           map_.addLayer(
             {
               id: "relief-hillshade",
@@ -238,20 +230,23 @@ export default function Globe({
                 // (viewport) a pitch or rotate swings the shadows across ridges
                 // and the relief appears to slide.
                 "hillshade-illumination-anchor": "map",
-                "hillshade-shadow-color": "#03100b",
-                "hillshade-highlight-color": "#8cbfad",
-                "hillshade-accent-color": "#05130e",
+                "hillshade-shadow-color": "#08130d",
+                "hillshade-highlight-color": "#a9bd96",
+                "hillshade-accent-color": "#0b1710",
               },
             },
-            // Immediately above the land fill: water, forest, roads and labels
-            // all belong on top of the shade, not buried under it.
-            map_.getLayer("landcover-wood") ? "landcover-wood" : "label-country",
+            // Above the landcover fills but below water, roads and labels. It has
+            // to sit ABOVE vegetation: a flat green fill on top of the shade is what
+            // erased both the colour and the 3D at mid zoom.
+            map_.getLayer("water") ? "water" : "label-country",
           );
                   } catch {
           /* hillshade unavailable */
         }
         // The relief layer only exists now, so re-apply the switches.
         applyVisibility(map_, layersRef.current);
+        // ...and put contours back above the shade.
+        contours.current?.reload();
       }, 2500);
 
       try {

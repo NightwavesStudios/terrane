@@ -106,21 +106,31 @@ every continent would otherwise be the background colour — the same colour as 
 `land-base` solves it: one GeoJSON polygon covering the planet
 (`-180…180 × -85…85`) filled with the land colour, sitting *under* the water layers.
 Water paints over it, land keeps its own colour, and the globe reads as a globe
-instead of a hole. `style.ts` therefore declares two sources: `world` (that polygon)
-and `openmaptiles`.
+instead of a hole. `style.ts` declares three sources: `world` (that polygon),
+`relief` (the DEM) and `openmaptiles`.
+
+The DEM source belongs in the style even though the hillshade *layer* is added at
+runtime. A layer that references a source added later makes MapLibre reject the
+whole style — blank map, `getStyle()` undefined — which is what made every attempt
+to declare the hillshade statically look like a broken layer.
 
 Layer order, bottom to top:
 
 ```
-bg → land-base → landcover-{wood,grass,ice} → landuse-residential → water
+bg → land-base → landcover-{wood,grass,ice} → landuse-residential
+→ relief-hillshade → contours-{minor,major} → water
 → waterway → boundary-{country,state} → water-label
 → road-{minor,major,highway} → label-{country,state,city}
 → places-heat → places-halo → places-dot → places-curated
 → places-selected → places-label-top → places-label
-
-relief-hillshade / hillshade-fine are inserted above the roads at runtime, when
-that attempt succeeds — see the relief note below.
 ```
+
+The hillshade sits **above** the vegetation and landuse fills, not under them.
+Underneath, a semi-transparent green fill covers the shading and the middle zooms
+flatten into one flat green blanket — colours survive, relief does not. Above them,
+the fills tint the ground and the relief still reads through, which is the whole
+point of a terrain map. It is inserted at runtime, 2.5 s after the style settles,
+anchored before `water` (see the relief note below).
 
 Labelling is zoom-gated so the world view stays clean: country labels from 2.2 to 6,
 state labels from 5.5, city labels from 5. Coastlines come from
@@ -147,7 +157,9 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   `selected` GeoJSON sources, and four layers. Each risky call is individually
   try/caught so a browser without terrain or sky support still gets a working globe.
 - **Relief comes from one hillshade — no terrain mesh.** A `relief` DEM source
-  (Terra, `encoding: "terrarium"`, `maxzoom: 10`) feeds `relief-hillshade`,
+  (Terra, `encoding: "terrarium"`, `maxzoom: 13` — capping it at 10 made everything
+  past z10 one overzoomed blob and the relief visibly died mid-zoom) feeds
+  `relief-hillshade`,
   added ~2.5 s after the style settles, with exaggeration ramping 0 → 1.3 between
   z2 and z3.2.
   - A second "fine" pass used to sit on top. It was removed: a hillshade is the
