@@ -79,7 +79,7 @@ export const MAP_STYLE: StyleSpecification = {
       "source-layer": "landcover",
       filter: ["==", ["get", "class"], "ice"],
       // Sea ice and ice caps: bright, so the poles read as snow rather than water.
-      paint: { "fill-color": "#dfe9ef", "fill-opacity": 0.85 },
+      paint: { "fill-color": "#dbe6ec", "fill-opacity": 0.72 },
     },
     {
       id: "landuse-residential",
@@ -228,7 +228,9 @@ export const MAP_STYLE: StyleSpecification = {
       "source-layer": "place",
       filter: ["==", ["get", "class"], "country"],
       minzoom: 2.2,
-      maxzoom: 6,
+      // Overlaps the state handover on purpose: a country label vanishing on the
+      // exact frame state labels appear reads as a flicker.
+      maxzoom: 6.8,
       layout: {
         "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
         "text-font": ["Noto Sans Regular"],
@@ -250,7 +252,7 @@ export const MAP_STYLE: StyleSpecification = {
       source: "openmaptiles",
       "source-layer": "place",
       filter: ["==", ["get", "class"], "state"],
-      minzoom: 6,
+      minzoom: 5.6,
       maxzoom: 10,
       layout: {
         "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
@@ -297,7 +299,9 @@ export const TERRAIN_SOURCE = {
   ],
   encoding: "terrarium" as const,
   tileSize: 256,
-  maxzoom: 14,
+  // Terra goes to z15, but shading beyond z10 is overzoomed detail that costs a
+  // fresh tile pyramid per zoom step; capping it keeps relief stable and cheap.
+  maxzoom: 10,
   attribution:
     '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
 };

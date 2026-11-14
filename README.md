@@ -2,18 +2,21 @@
 
 **The world, worth the detour.**
 
-An interactive globe for exploring mountains, national parks, cities, landmarks and
-hidden gems — outdoors-first, no listicles. Spin the globe, click a light, land
+An interactive globe for exploring mountains, national parks, natural landmarks and
+hidden gems — outdoors-first, no listicles. Peaks lead: over half the map is summits,
+and nothing on it is a city or a building. Spin the globe, click a light, land
 somewhere.
 
-Currently **1,138 places across 144 countries**: 78 hand-picked entries plus 1,060
-park, peak and World Heritage records generated from Wikidata.
+Currently **1,288 places across 156 countries**: 68 hand-picked entries plus 1,220
+national parks, peaks and natural landmarks generated from Wikidata. Over half the
+map — 663 points — is peaks, and they are ranked by topographic prominence rather
+than raw height, so the set is major summits and not every high shoulder.
 
-> **Status — facts only.** Written field guides are deliberately *not* in the product
-> right now. Place pages show type, high point, country and coordinates, and nothing
-> invented. The copy for the original 78 places is still in `src/data/places.ts`
-> (`tagline`, `body`, `bestMonths`, `difficulty`) but no longer rendered, so a real
-> field-guide feature can be built on top of it later.
+> **Status — facts only.** Written field guides are deliberately *not* in the product.
+> Place pages show type, high point, country and coordinates, and nothing invented.
+> The prose that used to sit behind each of the 68 places has been removed from the
+> data file rather than left unrendered; only `tagline` (Explore search) and
+> `difficulty` (card badge) survive of that layer.
 
 ---
 
@@ -143,13 +146,17 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   (`exaggeration 1.3`), the `hillshade` layer, `setSky` (atmosphere), the `places` and
   `selected` GeoJSON sources, and four layers. Each risky call is individually
   try/caught so a browser without terrain or sky support still gets a working globe.
-- **Relief comes from hillshade alone — no terrain mesh.** A `relief` DEM source
-  (Terra, `encoding: "terrarium"`) feeds two hillshade layers added ~2.5 s after
-  the style settles:
-  - `relief-hillshade` (exaggeration 0 → 1.3 between z2 and z3.2) gives ranges
-    their bones.
-  - `hillshade-fine` (0 → 0.4 between z4.4 and z5.6) picks out ridges, valleys
-    and river cuts up close.
+- **Relief comes from one hillshade — no terrain mesh.** A `relief` DEM source
+  (Terra, `encoding: "terrarium"`, `maxzoom: 10`) feeds `relief-hillshade`,
+  added ~2.5 s after the style settles, with exaggeration ramping 0 → 1.3 between
+  z2 and z3.2.
+  - A second "fine" pass used to sit on top. It was removed: a hillshade is the
+    most expensive layer per pixel (the DEM is resampled every frame the camera
+    moves), and two of them doubled that for a subtle gain. One pass carries the
+    Alps on its own.
+  - `hillshade-illumination-anchor: "map"` — with the default (`viewport`) the
+    light is fixed to the screen, so pitching the camera swings shadows across
+    the ridges and the relief appears to slide.
   - Both use **zoom-interpolated exaggeration instead of `minzoom`**: a hillshade
     layer has no opacity property, so a `minzoom` makes the entire planet snap
     into relief at one threshold. Ramping exaggeration from 0 gives a gradual
@@ -166,8 +173,15 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
 
 - **Loading while zooming.** The app is tile-bound before it is anything else, so
   the map is configured for continuity (`Globe.tsx`):
-  - `fadeDuration: 420` — arriving tiles cross-fade; this also fades symbols in
+  - `fadeDuration: 280` — arriving tiles cross-fade; this also fades symbols in
     and out as they cross their `minzoom` thresholds.
+  - **Cache prefetch.** MapLibre 5 dropped `prefetchZoomDelta` (and `map.setPrefetchZoomDelta`
+    no longer exists), so every zoom step is a cold request for a new pyramid.
+    While a gesture runs, `prefetch()` in `Globe.tsx` fetches up to eight tiles for
+    the next integer zoom into the HTTP cache, so MapLibre's own request can hit it.
+    Measured on one region (Japan, cold cache, world → z6.4): 8.8 s to fully loaded
+    with it, 13.2 s without; on another (Patagonia) the difference was inside the
+    noise (12.7 s vs 12.5 s). Treat it as cheap insurance, not a guarantee.
   - `refreshExpiredTiles: false` — OSM tiles carry a short expiry, and refetching
     them mid-zoom is what puts holes in a range you are diving into.
   - `maxTileCacheSize: 160`, `renderWorldCopies: false` — keep several zoom levels
@@ -176,6 +190,24 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     zoom level via `line-opacity` ramps (`style.ts`).
   - Marker dots and both label tiers fade in over a zoom range rather than popping
     at a threshold.
+  - `places-heat` stops at z4.7 and `places-halo` at z9.5. Both are `circle-blur`
+    layers costing per-feature work on 1,288 points; once they are fully
+    transparent there is no reason to keep evaluating them.
+  - **No hit-testing mid-gesture.** `mousemove` used to run a 3-layer spatial query
+    on every pointer event — ~60 a second, and during a wheel zoom the pointer is
+    always moving, so it ran through the entire gesture. It now bails while
+    `isMoving()` and is throttled to 16 Hz otherwise.
+  - **Pitch is throttled.** `applyPitch` runs on the `zoom` event but only calls
+    `setPitch` at most every 120 ms and only when the tilt moved more than 1.2°;
+    each `setPitch` re-renders the whole camera, so doing it every frame doubled
+    the work of a gesture.
+
+- **Label layers must not overlap.** `places-label-top` draws tier 1 from z1.2 and
+  `places-label` draws the remaining curated set from z3.8. The second one's filter
+  is `curated == 1 AND tier != 1` — without the `tier != 1` exclusion every featured
+  place got two identical labels at the same offset, and the two layers fought for
+  symbol placement frame by frame (text flickering over the Alps). Verified at z4.5:
+  zero rendered names appear in both layers.
 - **Zooming is camera travel.** `pitchForZoom(z)` tilts the camera from level at
   planet scale to 55° over a range, so the same continuous zoom reveals relief
   instead of switching modes. Programmatic `flyTo`s carry their own `pitch` and the
@@ -183,7 +215,7 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   flight, which is what once stopped selections at zoom 2 instead of 6.4. It also
   hands over permanently the moment the user pitches by hand (`pitchstart` with an
   `originalEvent`).
-- **Markers are GPU geometry, not DOM, and they reveal themselves.** 1,138 DOM
+- **Markers are GPU geometry, not DOM, and they reveal themselves.** 1,288 DOM
   markers would crawl, so places are one GeoJSON source drawn by:
   - `places-heat` — large blurred discs that pile up into a density wash where the
     world is busy; fades out by zoom 3.6.
@@ -194,7 +226,7 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   - `places-label-top` — the eight featured places, from zoom 1.5;
     `places-label` — the rest of the curated set, from 4.2. Labels arrive in stages.
   Colours come from a `match` expression on `type`: peaks `#eaf7ff`, parks
-  `#57f0b2`, landmarks `#ffc766`, gems `#c99bff`, cities `#8fa2ff`.
+  `#57f0b2`, landmarks `#ffc766`, gems `#c99bff`.
 - **Clicking** queries `queryRenderedFeatures` over an 18×18 px box around the cursor
   (a 9 px radius, generous for touch and for 1.3 px dots), then calls `onSelect` with
   the feature's `slug`. `mousemove` sets a pointer cursor over the same hit test.
@@ -224,15 +256,16 @@ Defines the model and assembles the dataset. `Place`:
 | `lat`, `lon` | `number` | all | decimal degrees |
 | `elevation` | `number?` | most | metres; the "high point" |
 | `tagline` | `string` | all | one line; still used by Explore search, no longer rendered as a field note |
-| `body` | `string?` | curated | unused in the UI, kept for the future field guide |
-| `bestMonths` | `number[]?` | curated | unused in the UI (1 = January) |
 | `difficulty` | `1..5?` | curated | effort badge on cards only |
 | `hue` | `number` | all | 0–359, seeds the generated ridge art |
 | `featured` | `boolean?` | curated | leftover from the pre-globe layout |
 | `curated` | `boolean?` | all | `true` for the hand-written set, `false` for atlas rows |
 | `wd` | `string?` | atlas | Wikidata Q-id, useful for provenance |
 
-`CURATED` is the 78-entry array at the top of the file (39 international, 39 Georgia).
+`CURATED` is the 68-entry array at the top of the file (35 international, 33 Georgia).
+Everything in it is an outdoor destination — the cities (Kyoto, Savannah, Atlanta,
+Athens, Tromsø, Santorini) and the archaeological sites (Petra, Machu Picchu, the
+Etowah and Ocmulgee mounds) were removed.
 `ATLAS` maps `atlas.json` rows into the same shape: it normalises a handful of country
 names (`COUNTRY_FIX`), derives `hue` from a stable string hash around a per-type base
 (`HUE_BY_TYPE`), and generates a factual `tagline` from type + elevation + country.
@@ -251,19 +284,19 @@ Other exports:
   `GEORGIA`: it goes through `matches()` in `FilterChips`, which tests whether
   `region` contains "Georgia" — that is what catches curated entries whose region is
   a county name.)
-- `CURATED_COUNT` — 78
+- `CURATED_COUNT` — 68
 - `COUNTRY_COUNT` — distinct countries across `PLACES` (144)
 - `nearbyFor(place, count = 3)` — nearest places by naive degree distance, with a
   +6 penalty for a different type so a summit doesn't return four other summits
 
-### `src/data/atlas.json` (generated, 1,060 rows)
+### `src/data/atlas.json` (generated, 1,220 rows)
 
 `{ wd, slug, name, type, country, lat, lon, elevation }` — 420 peaks, 380 parks, 260
 landmarks, 143 countries. **Do not hand-edit**; it is overwritten by `npm run atlas`.
 
 ### `src/data/curated-index.json`
 
-`{ slug, name, country }` for the 78 curated entries, read by the atlas builder so a
+`{ slug, name, country }` for the 68 curated entries, read by the atlas builder so a
 generated record can never duplicate a hand-written one. **If you add a curated place,
 add it here too** (or the next atlas build may generate a near-duplicate).
 
@@ -274,20 +307,25 @@ npm run atlas        # ~30–40 s, one SPARQL round trip per type
 ```
 
 1. **Queries Wikidata** (`https://query.wikidata.org/sparql`, CC0) for three sets:
-   - **peaks** — `P31 = Q8502` (mountain) with an elevation `P2044` above 2,200 m.
+   - **peaks** — `P31 = Q8502` (mountain) with an elevation `P2044` above 1,700 m,
+     ranked by **topographic prominence** `P2660` (its own SPARQL query — asking for
+     prominence alongside names and coordinates blows WDQS's budget and returns 504).
      Elevation is read as a *quantity with its unit* and converted to metres
      (`Q11573` = metre, `Q3710` = foot), because US summits are frequently stored in
      feet — without this, Mount Blackburn reports 16,390 "m" instead of 4,996 m.
    - **parks** — `P31 = Q46169` (national park), with inception `P571` if present.
-   - **landmarks** — anything with `P1435 = Q9259` (World Heritage Site).
+   - **landmarks** — natural features only: waterfalls `Q34038`, canyons `Q48214`,
+     volcanoes `Q8072`, glaciers `Q35666`, caves `Q35509`, deserts `Q8514`. This used
+     to be every UNESCO World Heritage site, which is how the map ended up full of
+     cathedrals, temples and cathedral treasuries.
    - All three require an **English Wikipedia sitelink**, which filters out
      near-empty items.
 2. **Cleans** — strips disambiguation parentheses, drops names under 3 or over 60
    chars, keeps only rows with coordinates and a country.
 3. **Dedupes** against the curated set using a normalised key that ignores words like
    "National Park" and "Reserve", and within each type by Wikidata Q-id.
-4. **Ranks and caps** — peaks highest first, parks with a known inception first, then
-   capped **per country** (`PER_COUNTRY`: 26 peaks / 12 parks / 10 landmarks) so the
+4. **Ranks and caps** — peaks most prominent first, parks with a known inception first,
+   then capped **per country** (`PER_COUNTRY`: 42 peaks / 15 parks / 6 landmarks)` so the
    globe fills out worldwide rather than only in the Himalaya. Totals are
    `TARGET`: 420 / 380 / 260.
 5. **Slugifies** to ASCII and appends the Q-id on collision, then writes
@@ -307,10 +345,10 @@ in-memory copy rather than throwing.
 
 - `useCollections()` — `useSyncExternalStore` over a module-level array, so `Header`,
   `SaveButton` and `Saved` all re-render together
-- `toggleIn(collectionId, slug)`, `saveToDefault(slug)`, `removeFromAll(slug)`
+- `toggleIn(collectionId, slug)` — add or remove one slug, `removeFromAll(slug)` —
+  drop it everywhere
 - `createCollection(name)` → id, `removeCollection(id)` (never deletes the last one,
   it just empties it)
-- `savedSlugSet(collections)` — flat set of every saved slug
 
 There is no account and no network call: everything lives in this browser.
 
@@ -380,10 +418,10 @@ links `/fonts.css`, and no font is fetched from Google.
 
 | Path | What it is |
 | --- | --- |
-| `PLAN.md` | The product reasoning and the "as built" record: scope, locked decisions, what shipped. |
-| `concepts/` | Earlier design exploration — `design-directions.html` with three visual directions, plus `globe.js` / `land-mask.js` (a dot-globe prototype built from real Natural Earth geometry) and screenshots in `concepts/shots/`. Static files, not part of the app bundle. |
-| `shots/` | Current screenshots of the running app. |
 | `public/` | Only fonts and `fonts.css`. |
+| `scripts/build-atlas.py` | Regenerates `src/data/atlas.json` from Wikidata + Natural Earth. Reads `src/data/curated-index.json` for the protected slug list. |
+| `scripts/build-standalone.mjs` | Packs `dist/` into the single-file `terrane.html`. |
+| `terrane.html` | Build output (gitignored): the whole app in one file. |
 
 ---
 
@@ -404,15 +442,54 @@ debugging loop (`__terraneMap.isStyleLoaded()`, `getStyle().layers`,
 
 ---
 
+## Map controls (Phase 1)
+
+Two controls sit on the globe, top right, below the credits line.
+
+**Search** (`⌘K` / `Ctrl-K` / `/`) — a map-first search over the 1,288 places. It
+matches name, region and country, ranks exact and prefix matches first, then curated
+places, and flies the camera to whatever you pick without leaving the globe: the
+selection ring follows and the card opens in place. Arrow keys move the cursor,
+`↵` selects, `esc` closes. It searches places only — mountain ranges, trails and
+campsites are records in the geographic database planned for Phase 2 and are not
+searchable yet.
+
+**Layers** — five independent switches: `Relief` (hillshade), `Contours`, `Roads &
+borders`, `Place labels`, `Places`. They map to layer groups in `Globe.tsx`
+(`LAYER_GROUPS`); anything created at runtime (the hillshade at 2.5 s, the contour
+layers) re-reads the current switches after it is added, so a toggle never gets
+lost to a race.
+
+### Contours
+
+Generated in the browser from the same Terrarium DEM the hillshade uses, by marching
+squares over the tiles covering the viewport, in a worker built from a blob URL (so
+the single-file build stays self-contained). Only above zoom 10; interval 250 m below
+z11.5 and 100 m above; the two contour layers sit above the hillshade and below the
+water and labels.
+
+**This is a capped first pass, not a topographic sheet.** The first version allowed
+six tiles at a 100 m interval, emitted over half a million segments, and froze the
+tab — MapLibre's line tessellation, not the worker, was the bottleneck. The shipped
+budget is deliberately small: two tiles, one fixed DEM level (z10), at most 220
+segments per level and a 140 ms budget per tile. That keeps the map interactive but
+means the lines are sparse and only cover the area you are looking at. A real
+implementation wants vector contour tiles (or a custom WebGL layer drawing the
+marching-squares output directly), not GeoJSON fed through the line layer.
+
+---
+
 ## Known limitations
 
-- **No field guides.** Deliberate. The 78 written-up entries keep their copy in the
-  data file, unrendered, awaiting a real editorial plan.
-- **Atlas coverage is a selection, not a census.** ~6,500 national parks and ~1,200
-  World Heritage sites exist; the per-country caps mean 1,060 points deliberately,
-  and a country with more than 26 qualifying peaks shows only its 26 highest.
+- **No field guides.** Deliberate. The 68 curated entries carry no prose in the data
+  file, so a field-guide feature would start from a blank page, not a hidden one.
+- **Atlas coverage is a selection, not a census.** ~6,500 national parks exist; the
+  per-country caps mean 1,220 points deliberately, and a country with more than 42
+  qualifying peaks shows only its 42 most prominent.
 - **Approximate proximity.** `nearbyFor` uses planar degrees, not real geodesic
   distance — fine for a "what else is around here" teaser, wrong near the poles.
+- **Contours are capped.** They are a client-side first pass — sparse, viewport-bound
+  and only above z10. See the contours note above for why.
 - **No photos, no accounts, no trip planner.** By product decision, not omission.
 - **Single bundle.** No code splitting; the map library is loaded on every route,
   including `/explore`.

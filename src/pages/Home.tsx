@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import Globe, { worldZoom, type GlobeFocus } from "../map/Globe";
 import Header from "../components/Header";
 import FilterChips, { matches, type Filter } from "../components/FilterChips";
+import LayerControl, {
+  DEFAULT_LAYERS,
+  type LayerState,
+} from "../components/LayerControl";
+import MapSearch from "../components/MapSearch";
 import RidgeArt from "../components/RidgeArt";
 import SaveButton from "../components/SaveButton";
 import {
@@ -21,6 +26,7 @@ export default function Home() {
     new URLSearchParams(window.location.search).get("place"),
   );
   const [focus, setFocus] = useState<GlobeFocus | null>(null);
+  const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
 
   const places = useMemo(() => PLACES.filter((p) => matches(p, filter)), [filter]);
   const place = selected ? bySlug.get(selected) : undefined;
@@ -46,10 +52,16 @@ export default function Home() {
         selected={selected}
         onSelect={setSelected}
         focus={focus}
+        layers={layers}
       />
       <div className="vignette" aria-hidden="true" />
 
       <Header tone="dark" />
+
+      <div className="map-tools">
+        <MapSearch onPick={(p) => setSelected(p.slug)} />
+        <LayerControl value={layers} onChange={setLayers} />
+      </div>
 
       <p className="globe-hint mono">
         {PLACES.length.toLocaleString()} places · {COUNTRY_COUNT} countries ·

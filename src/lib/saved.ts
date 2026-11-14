@@ -51,9 +51,6 @@ export function useCollections(): Collection[] {
   );
 }
 
-export const savedSlugSet = (collections: Collection[]) =>
-  new Set(collections.flatMap((c) => c.slugs));
-
 export function toggleIn(collectionId: string, slug: string) {
   const collections = state.map((c) => {
     if (c.id !== collectionId) return c;
@@ -64,21 +61,6 @@ export function toggleIn(collectionId: string, slug: string) {
     };
   });
   write(collections);
-}
-
-/** Adds to the default collection if it is not already in any of them. */
-export function saveToDefault(slug: string) {
-  const target = state.find((c) => c.id === DEFAULT_ID) ?? state[0];
-  if (!target) return;
-  if (state.some((c) => c.slugs.includes(slug))) {
-    removeFromAll(slug);
-    return;
-  }
-  write(
-    state.map((c) =>
-      c.id === target.id ? { ...c, slugs: [...c.slugs, slug] } : c,
-    ),
-  );
 }
 
 export function removeFromAll(slug: string) {

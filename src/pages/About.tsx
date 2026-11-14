@@ -18,8 +18,8 @@ export default function About() {
 
         <div className="about-cols">
           <div>
-            <p>An interactive globe of mountains, national parks, cities and landmarks —
-              every point a real place.</p>
+            <p>An interactive globe of mountains, national parks and wild places —
+              peaks first, every point somewhere you would actually go outside.</p>
             <p>
               Most travel sites are lists. This one is a map you can spin: real
               coordinates, a real type, a real high point. No invented copy, no filler, no

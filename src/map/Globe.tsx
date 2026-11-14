@@ -7,6 +7,8 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TERRAIN_SOURCE, createStyle } from "./style";
+import { createContours, type ContourHandle } from "./contours";
+import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
 
 export interface GlobeFocus {
@@ -21,6 +23,52 @@ interface Props {
   selected: string | null;
   onSelect: (slug: string) => void;
   focus?: GlobeFocus | null;
+  layers?: LayerState;
+}
+
+/* Which layers answer to which switch. Street-level furniture (roads, borders,
+   landcover, water) travels together as "detail". */
+const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
+  relief: ["relief-hillshade"],
+  contours: ["contours-minor", "contours-major"],
+  detail: [
+    "landcover-wood",
+    "landcover-grass",
+    "landcover-ice",
+    "landuse-residential",
+    "water",
+    "waterway",
+    "water-label",
+    "boundary-country",
+    "boundary-state",
+    "road-minor",
+    "road-major",
+    "road-highway",
+  ],
+  labels: [
+    "label-country",
+    "label-state",
+    "label-city",
+    "places-label-top",
+    "places-label",
+  ],
+  places: [
+    "places-heat",
+    "places-halo",
+    "places-dot",
+    "places-curated",
+    "places-selected",
+  ],
+};
+
+function applyVisibility(map_: MlMap, layers: LayerState) {
+  for (const key of Object.keys(LAYER_GROUPS) as (keyof LayerState)[]) {
+    if (key === "contours") continue; // owned by the contour controller
+    const visibility = layers[key] ? "visible" : "none";
+    for (const id of LAYER_GROUPS[key]) {
+      if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visibility);
+    }
+  }
 }
 
 const TYPE_COLOR = [
@@ -34,8 +82,6 @@ const TYPE_COLOR = [
   "#ffc766",
   "gem",
   "#c99bff",
-  "city",
-  "#8fa2ff",
   "#57f0b2",
 ] as unknown as ExpressionSpecification;
 
@@ -50,7 +96,7 @@ const DOT_LAYERS = ["places-halo", "places-dot", "places-curated"];
  * fixed low zoom left the globe looking lost on a narrow screen.
  */
 /** Camera tilt for a given zoom: level at planet scale, oblique over ranges. */
-export function pitchForZoom(zoom: number) {
+function pitchForZoom(zoom: number) {
   return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
 }
 
@@ -80,8 +126,17 @@ function toGeoJSON(places: Place[]) {
   };
 }
 
-export default function Globe({ places, selected, onSelect, focus }: Props) {
+export default function Globe({
+  places,
+  selected,
+  onSelect,
+  focus,
+  layers = DEFAULT_LAYERS,
+}: Props) {
   const holder = useRef<HTMLDivElement>(null);
+  const contours = useRef<ContourHandle | null>(null);
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   const map = useRef<MlMap | null>(null);
   const selectRef = useRef(onSelect);
   const booted = useRef(false);
@@ -120,7 +175,7 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
            out and diving again costs nothing.
          - renderWorldCopies:false: a globe never needs the world twice, and the
            duplicate copies were extra tiles in flight. */
-      fadeDuration: 420,
+      fadeDuration: 280,
       refreshExpiredTiles: false,
       maxTileCacheSize: 160,
       renderWorldCopies: false,
@@ -177,40 +232,26 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
                   2,
                   0,
                   3.2,
-                  1.3,
+                  1.15,
                 ],
+                // Light fixed to the terrain, not the screen: with the default
+                // (viewport) a pitch or rotate swings the shadows across ridges
+                // and the relief appears to slide.
+                "hillshade-illumination-anchor": "map",
                 "hillshade-shadow-color": "#03100b",
-                "hillshade-highlight-color": "#9ac9b8",
+                "hillshade-highlight-color": "#8cbfad",
                 "hillshade-accent-color": "#05130e",
               },
             },
-            "label-country",
+            // Immediately above the land fill: water, forest, roads and labels
+            // all belong on top of the shade, not buried under it.
+            map_.getLayer("landcover-wood") ? "landcover-wood" : "label-country",
           );
-          map_.addLayer(
-            {
-              id: "hillshade-fine",
-              type: "hillshade",
-              source: "relief",
-              paint: {
-                "hillshade-exaggeration": [
-                  "interpolate",
-                  ["linear"],
-                  ["zoom"],
-                  4.4,
-                  0,
-                  5.6,
-                  0.4,
-                ],
-                "hillshade-highlight-color": "#9fd8d0",
-                "hillshade-shadow-color": "#0a1410",
-                "hillshade-accent-color": "#08120e",
-              },
-            },
-            "label-country",
-          );
-        } catch {
+                  } catch {
           /* hillshade unavailable */
         }
+        // The relief layer only exists now, so re-apply the switches.
+        applyVisibility(map_, layersRef.current);
       }, 2500);
 
       try {
@@ -227,6 +268,10 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
         /* sky unsupported */
       }
 
+      contours.current = createContours(map_);
+      contours.current.setEnabled(layersRef.current.contours);
+      applyVisibility(map_, layersRef.current);
+
       map_.addSource("places", { type: "geojson", data: toGeoJSON(dataRef.current) });
       map_.addSource("selected", {
         type: "geojson",
@@ -240,6 +285,9 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
         id: "places-heat",
         type: "circle",
         source: "places",
+        // Faded to nothing by ~4.6. Stopping the layer there keeps 1,288 blurred
+        // circles out of the per-frame work once you are over a range.
+        maxzoom: 4.7,
         paint: {
           "circle-color": TYPE_COLOR,
           "circle-radius": [
@@ -271,9 +319,12 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
       });
 
       map_.addLayer({
-        id: "places-halo",
+                      id: "places-halo",
         type: "circle",
         source: "places",
+        // Blurred circles are the most expensive thing on screen at depth; past
+        // z9.5 the dots and labels carry it alone.
+        maxzoom: 9.5,
         paint: {
           "circle-color": TYPE_COLOR,
           "circle-radius": [
@@ -415,7 +466,15 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
         type: "symbol",
         source: "places",
         minzoom: 3.8,
-        filter: ["==", ["get", "curated"], 1],
+        // Curated, but NOT tier 1 — those are already labelled by the layer above.
+        // Without the exclusion every featured place got two identical labels at
+        // the same offset from z3.8 on, and the two fought for placement frame by
+        // frame: text flickering in and out over the Alps.
+        filter: [
+          "all",
+          ["==", ["get", "curated"], 1],
+          ["!=", ["get", "tier"], 1],
+        ],
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Noto Sans Regular"],
@@ -459,8 +518,23 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
         if (hit?.properties?.slug) selectRef.current(hit.properties.slug);
       });
 
+      /* Hit-testing is a spatial query over three layers and 1,288 features.
+         Doing it on every pointer event means ~60 queries a second competing with
+         tile loading — and during a wheel zoom the pointer never stops moving, so
+         it ran through the whole gesture. Skip it while the camera is moving, and
+         throttle the rest. */
+      let lastPick = 0;
+      let hovering = false;
       map_.on("mousemove", (e) => {
-        map_.getCanvas().style.cursor = pick(e.point.x, e.point.y) ? "pointer" : "";
+        if (map_.isMoving()) return;
+        const now = performance.now();
+        if (now - lastPick < 60) return;
+        lastPick = now;
+        const on = Boolean(pick(e.point.x, e.point.y));
+        if (on !== hovering) {
+          hovering = on;
+          map_.getCanvas().style.cursor = on ? "pointer" : "";
+        }
       });
 
       setReady(true);
@@ -490,12 +564,22 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
       ro.disconnect();
       window.clearTimeout(t);
       window.clearTimeout(guard);
+      contours.current?.destroy();
+      contours.current = null;
       booted.current = false;
       map_.remove();
       map.current = null;
       setReady(false);
     };
   }, []);
+
+  /* ── layer switches ────────────────────────────────── */
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    applyVisibility(map_, layers);
+    contours.current?.setEnabled(layers.contours);
+  }, [layers, ready]);
 
   /* ── data updates (filters) ────────────────────────── */
   useEffect(() => {
@@ -557,22 +641,85 @@ export default function Globe({ places, selected, onSelect, focus }: Props) {
        mid-flight cancels it (that bug stopped selections at zoom 2 instead of
        6.4). Programmatic flights carry their own pitch; this only handles
        zooming by hand. */
+    let lastPitch = 0;
     const applyPitch = () => {
       if (userPitched || map_.isEasing()) return;
+      // setPitch re-renders the whole camera, so doing it on every zoom frame
+      // doubles the work of a gesture. Eight times a second still reads as
+      // continuous, and only when the tilt has actually moved.
+      const now = performance.now();
+      if (now - lastPitch < 120) return;
       const target = pitchForZoom(map_.getZoom());
-      if (Math.abs(map_.getPitch() - target) > 0.4) map_.setPitch(target);
+      if (Math.abs(map_.getPitch() - target) > 1.2) {
+        lastPitch = now;
+        map_.setPitch(target);
+      }
     };
 
     const onMoveEnd = () => {
       applyPitch();
     };
 
+    /* Warm the HTTP cache for the level you are zooming into.
+
+       MapLibre 5 has no tile prefetching (the old prefetchZoomDelta is gone), so
+       every zoom step is a cold request for a whole new pyramid — that pause is
+       the "unsmooth" part. While a gesture is running we fetch the tiles the next
+       integer zoom will need, so MapLibre's own request is a cache hit. Capped at
+       eight tiles every 700 ms so a long drag can't turn into a download. */
+    let lastPrefetch = 0;
+    const prefetch = () => {
+      const now = performance.now();
+      if (now - lastPrefetch < 700) return;
+      lastPrefetch = now;
+
+      const spec = map_.getStyle()?.sources?.openmaptiles;
+      const template =
+        spec && "tiles" in spec && Array.isArray(spec.tiles)
+          ? spec.tiles[0]
+          : undefined;
+      if (!template || !template.includes("{z}")) return;
+
+      const z = Math.min(13, Math.ceil(map_.getZoom() + 0.4));
+      const n = 2 ** z;
+      const b = map_.getBounds();
+      const x0 = Math.floor(((b.getWest() + 180) / 360) * n);
+      const x1 = Math.floor(((b.getEast() + 180) / 360) * n);
+      const lat2y = (lat: number) => {
+        const r = (lat * Math.PI) / 180;
+        return Math.floor(
+          ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n,
+        );
+      };
+      const y0 = lat2y(Math.min(85, b.getNorth()));
+      const y1 = lat2y(Math.max(-85, b.getSouth()));
+
+      const clamp = (v: number) => Math.max(0, Math.min(n - 1, v));
+      const tiles: [number, number][] = [];
+      for (let x = x0; x <= x1 && tiles.length < 32; x += 1) {
+        for (let y = y0; y <= y1 && tiles.length < 32; y += 1) {
+          tiles.push([clamp(x), clamp(y)]);
+        }
+      }
+      const step = Math.max(1, Math.ceil(tiles.length / 8));
+      for (let i = 0; i < tiles.length; i += step) {
+        const [x, y] = tiles[i];
+        const url = template
+          .replace("{z}", String(z))
+          .replace("{x}", String(x))
+          .replace("{y}", String(y));
+        void fetch(url, { mode: "cors" }).catch(() => undefined);
+      }
+    };
+
     map_.on("pitchstart", onPitchStart);
+    map_.on("zoom", prefetch);
     map_.on("zoom", applyPitch);
     map_.on("moveend", onMoveEnd);
 
     return () => {
       map_.off("zoom", applyPitch);
+      map_.off("zoom", prefetch);
       map_.off("moveend", onMoveEnd);
       map_.off("pitchstart", onPitchStart);
     };

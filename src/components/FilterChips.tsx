@@ -10,7 +10,6 @@ export const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: `All ${PLACES.length.toLocaleString()}` },
   { id: "peak", label: TYPE_LABEL_PLURAL.peak },
   { id: "park", label: TYPE_LABEL_PLURAL.park },
-  { id: "city", label: TYPE_LABEL_PLURAL.city },
   { id: "landmark", label: TYPE_LABEL_PLURAL.landmark },
   { id: "gem", label: TYPE_LABEL_PLURAL.gem },
   { id: "georgia", label: "Georgia" },
