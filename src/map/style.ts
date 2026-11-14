@@ -16,10 +16,10 @@ export const TERRAIN_SOURCE = {
   ],
   encoding: "terrarium" as const,
   tileSize: 256,
-  // Terra goes to z15. This used to be capped at 10 to save tile pyramids, which
-  // meant everything past z10 was one overzoomed blob: the relief visibly died in
-  // the middle of a zoom. Detail is worth the traffic — this is a terrain app.
-  maxzoom: 13,
+  // Terra goes to z15, and deep zoom needs all of it: at z14 a z13 pyramid is
+  // stretched 1.6x and a summit turns into soft mush exactly when the user is
+  // looking closely enough to notice. Detail is worth the traffic.
+  maxzoom: 15,
   attribution:
     '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
 };
@@ -86,7 +86,7 @@ export const MAP_STYLE: StyleSpecification = {
       // zoom the wood fill covers whole ranges in flat colour, which is what made
       // the map go monotone and lose its relief in the middle of a zoom.
       paint: {
-        "fill-color": "#0e2c22",
+        "fill-color": "#14352a",
         "fill-opacity": [
           "interpolate",
           ["linear"],
@@ -165,7 +165,7 @@ export const MAP_STYLE: StyleSpecification = {
       paint: {
         "line-color": "#0f3a4d",
         "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 14, 1.6],
-        "line-opacity": 0.7,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 7, 0.7],
       },
     },
     {

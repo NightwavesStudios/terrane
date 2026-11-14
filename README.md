@@ -157,7 +157,7 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   `selected` GeoJSON sources, and four layers. Each risky call is individually
   try/caught so a browser without terrain or sky support still gets a working globe.
 - **Relief comes from one hillshade — no terrain mesh.** A `relief` DEM source
-  (Terra, `encoding: "terrarium"`, `maxzoom: 13` — capping it at 10 made everything
+  (Terra, `encoding: "terrarium"`, `maxzoom: 15` — capping it at 10 made everything
   past z10 one overzoomed blob and the relief visibly died mid-zoom) feeds
   `relief-hillshade`,
   added ~2.5 s after the style settles, with exaggeration ramping 0 → 1.3 between
