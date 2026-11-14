@@ -1,0 +1,303 @@
+import type { StyleSpecification } from "maplibre-gl";
+
+/**
+ * Terrane's basemap. A "deep water" palette rather than a flat black one:
+ * ocean reads blue, land reads mossy, boundaries and roads sit a step above
+ * both — so the globe has shape at world zoom and detail when you fly in.
+ * Vector tiles: OpenFreeMap (no key, OSM data). Terrain: AWS Terrarium.
+ */
+export const FIRST_SYMBOL_LAYER = "label-country";
+
+/** MapLibre mutates the style spec it is given, so each map needs a copy. */
+export function createStyle(): StyleSpecification {
+  return structuredClone(MAP_STYLE);
+}
+
+export const MAP_STYLE: StyleSpecification = {
+  version: 8,
+  name: "Terrane Deep",
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  sources: {
+    // The vector tiles carry water, not land — at world zoom the continents
+    // would otherwise be the space-coloured background. One polygon for the
+    // whole planet sits under the water layers and gives land its own colour.
+    world: {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-180, -85],
+              [180, -85],
+              [180, 85],
+              [-180, 85],
+              [-180, -85],
+            ],
+          ],
+        },
+      },
+    },
+    openmaptiles: {
+      type: "vector",
+      url: "https://tiles.openfreemap.org/planet",
+      attribution:
+        '© <a href="https://openfreemap.org">OpenFreeMap</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    },
+  },
+  layers: [
+    { id: "bg", type: "background", paint: { "background-color": "#04060d" } },
+    {
+      id: "land-base",
+      type: "fill",
+      source: "world",
+      paint: { "fill-color": "#17352b" },
+    },
+    {
+      id: "landcover-wood",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "wood"],
+      // Kept translucent: the elevation ramp underneath should read through it.
+      paint: { "fill-color": "#1b4030", "fill-opacity": 0.32 },
+    },
+    {
+      id: "landcover-grass",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
+      paint: { "fill-color": "#22462f", "fill-opacity": 0.3 },
+    },
+    {
+      id: "landcover-ice",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "ice"],
+      // Sea ice and ice caps: bright, so the poles read as snow rather than water.
+      paint: { "fill-color": "#dfe9ef", "fill-opacity": 0.85 },
+    },
+    {
+      id: "landuse-residential",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landuse",
+      filter: ["==", ["get", "class"], "residential"],
+      paint: { "fill-color": "#26394d", "fill-opacity": 0.6 },
+    },
+    {
+      id: "water",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "water",
+      paint: {
+        "fill-color": "#082437",
+        "fill-outline-color": "#2c6d8a",
+      },
+    },
+    {
+      id: "waterway",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "waterway",
+      minzoom: 6,
+      paint: {
+        "line-color": "#0f3a4d",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 14, 1.6],
+        "line-opacity": 0.7,
+      },
+    },
+    {
+      id: "boundary-country",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "boundary",
+      filter: [
+        "all",
+        ["<=", ["get", "admin_level"], 2],
+        ["!=", ["get", "maritime"], 1],
+      ],
+      paint: {
+        "line-color": "#4a6d84",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 6, 1.1, 12, 1.5],
+        "line-opacity": 0.6,
+        "line-dasharray": [3, 3],
+      },
+    },
+    {
+      id: "boundary-state",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "boundary",
+      filter: [
+        "all",
+        ["==", ["get", "admin_level"], 4],
+        ["!=", ["get", "maritime"], 1],
+      ],
+      minzoom: 3,
+      paint: {
+        "line-color": "#3a5a70",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.3, 10, 1],
+        "line-opacity": 0.55,
+        "line-dasharray": [2, 3],
+      },
+    },
+    {
+      id: "water-label",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "water_name",
+      minzoom: 3,
+      filter: ["==", ["geometry-type"], "Point"],
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Italic"],
+        "text-size": 11,
+        "text-letter-spacing": 0.1,
+        "text-transform": "uppercase",
+      },
+      paint: {
+        "text-color": "#5d8ba3",
+        "text-halo-color": "#04121c",
+        "text-halo-width": 1.2,
+        "text-opacity": 0.8,
+      },
+    },
+    {
+      id: "road-minor",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 10,
+      filter: ["in", ["get", "class"], ["literal", ["minor", "service", "track"]]],
+      paint: {
+        "line-color": "#22303d",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 2.5],
+        // Roads bleed in over roughly one zoom level instead of snapping on:
+        // a line layer has no cross-fade of its own, so the opacity ramp is
+        // what keeps a zoom from flicking detail into existence.
+        "line-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          0,
+          10.9,
+          1,
+        ],
+      },
+    },
+    {
+      id: "road-major",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 6,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["primary", "secondary", "tertiary"]],
+      ],
+      paint: {
+        "line-color": "#2a4052",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 14, 3],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.9, 1],
+      },
+    },
+    {
+      id: "road-highway",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 4,
+      filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]],
+      paint: {
+        "line-color": "#375a70",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3.4],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
+      },
+    },
+    {
+      id: "label-country",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      filter: ["==", ["get", "class"], "country"],
+      minzoom: 2.2,
+      maxzoom: 6,
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 2.2, 8, 5, 10.5],
+        "text-letter-spacing": 0.24,
+        "text-transform": "uppercase",
+        "text-max-width": 8,
+      },
+      paint: {
+        "text-color": "#93b2c7",
+        "text-halo-color": "#04060d",
+        "text-halo-width": 1.4,
+        "text-opacity": 0.75,
+      },
+    },
+    {
+      id: "label-state",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      filter: ["==", ["get", "class"], "state"],
+      minzoom: 6,
+      maxzoom: 10,
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 9,
+        "text-letter-spacing": 0.2,
+        "text-transform": "uppercase",
+      },
+      paint: {
+        "text-color": "#7a9cb2",
+        "text-halo-color": "#04060d",
+        "text-halo-width": 1.2,
+        "text-opacity": 0.48,
+      },
+    },
+    {
+      id: "label-city",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      minzoom: 7,
+      filter: ["in", ["get", "class"], ["literal", ["city", "town"]]],
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 10, 11, 12, 14, 13],
+        "text-max-width": 8,
+        "text-padding": 8,
+      },
+      paint: {
+        "text-color": "#b3ccdd",
+        "text-halo-color": "#04060d",
+        "text-halo-width": 1.5,
+        "text-opacity": 0.62,
+      },
+    },
+  ],
+};
+
+export const TERRAIN_SOURCE = {
+  type: "raster-dem" as const,
+  tiles: [
+    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+  ],
+  encoding: "terrarium" as const,
+  tileSize: 256,
+  maxzoom: 14,
+  attribution:
+    '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
+};
