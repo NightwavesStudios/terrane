@@ -131,8 +131,11 @@ export const MAP_STYLE: StyleSpecification = {
       // Close in, glaciers have to stop being white paper and let the hillshade
       // through, or every icefield reads as a flat cut-out on the mountainside.
       paint: {
-        "fill-color": "#dbe6ec",
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.6, 12, 0.44],
+        "fill-color": "#b9d2dd",
+        // Close in, an icefield has to stay a translucent snowfield: at 0.44 the
+        // glaciers in an alpine view cover most of the frame with pale grey and
+        // the whole map reads as washed out. Let the shaded rock show through.
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.5, 12, 0.22],
       },
     },
     {
