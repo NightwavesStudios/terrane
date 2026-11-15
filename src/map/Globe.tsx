@@ -3,6 +3,7 @@ import { Map as MlMap } from "maplibre-gl";
 import type {
   ExpressionSpecification,
   GeoJSONSource,
+  HillshadeLayerSpecification,
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -10,6 +11,41 @@ import { createStyle } from "./style";
 import { createContours, type ContourHandle } from "./contours";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
+
+/* The hillshade's look, kept in one named place. These five values are the whole
+   difference between a physical landscape and a flat grey sheet, and they are
+   easy to break one number at a time, so they are not buried inline in the
+   addLayer call.
+
+   Exaggeration climbs with zoom rather than sitting at a constant: Terra's deep
+   tiles are bilinearly upsampled from a coarser source, so the slope between
+   neighbouring texels shrinks the further you zoom in. A fixed value renders
+   ridges at z4 and a wash at z14.
+
+   The light is anchored to the map, not the viewport, so pitching the camera
+   does not swing shadows across the ridges, and it is a deep green rather than a
+   pale tone so lit slopes keep the ground colour instead of fogging to grey. */
+const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
+  "hillshade-exaggeration": [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    2,
+    0,
+    3.2,
+    1.15,
+    9,
+    1.6,
+    12,
+    2.6,
+    15,
+    3.4,
+  ],
+  "hillshade-illumination-anchor": "map",
+  "hillshade-shadow-color": "#030c08",
+  "hillshade-highlight-color": "#46603f",
+  "hillshade-accent-color": "#06120c",
+};
 
 export interface GlobeFocus {
   lon: number;
@@ -216,42 +252,14 @@ export default function Globe({
               // No minzoom: exaggeration is a zoom expression, so relief ramps up
               // from nothing between z2 and z3.2 instead of the whole planet
               // snapping into 3D the moment you pass a threshold.
-              paint: {
-                // Exaggeration has to CLIMB with zoom, not sit at a constant.
-                // Terra's deep tiles are bilinearly upsampled from a coarser
-                // source, so the slope between neighbouring texels shrinks as you
-                // zoom in: at a fixed exaggeration the shading flattens out and
-                // the map reads as a grey wash with no relief at all.
-                "hillshade-exaggeration": [
-                  "interpolate",
-                  ["linear"],
-                  ["zoom"],
-                  2,
-                  0,
-                  3.2,
-                  1.15,
-                  9,
-                  1.6,
-                  12,
-                  2.6,
-                  15,
-                  3.4,
-                ],
-                // Light fixed to the terrain, not the screen: with the default
-                // (viewport) a pitch or rotate swings the shadows across ridges
-                // and the relief appears to slide.
-                "hillshade-illumination-anchor": "map",
-                "hillshade-shadow-color": "#030c08",
-                "hillshade-highlight-color": "#46603f",
-                "hillshade-accent-color": "#06120c",
-              },
+              paint: HILLSHADE_PAINT,
             },
             // Above the landcover fills but below water, roads and labels. It has
             // to sit ABOVE vegetation: a flat green fill on top of the shade is what
             // erased both the colour and the 3D at mid zoom.
             map_.getLayer("water") ? "water" : "label-country",
           );
-                  } catch {
+        } catch {
           /* hillshade unavailable */
         }
         // The relief layer only exists now, so re-apply the switches.
