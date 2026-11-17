@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 export interface LayerState {
   relief: boolean;
   contours: boolean;
+  trails: boolean;
   detail: boolean;
   labels: boolean;
   places: boolean;
@@ -11,6 +12,7 @@ export interface LayerState {
 export const DEFAULT_LAYERS: LayerState = {
   relief: true,
   contours: false,
+  trails: true,
   detail: true,
   labels: true,
   places: true,
@@ -19,6 +21,7 @@ export const DEFAULT_LAYERS: LayerState = {
 const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
   { key: "contours", label: "Contours", note: "From zoom 10" },
+  { key: "trails", label: "Hiking trails", note: "Marked routes, from zoom 10" },
   { key: "detail", label: "Roads & borders", note: "Access and boundaries" },
   { key: "labels", label: "Place labels", note: "Names as you zoom" },
   { key: "places", label: "Places", note: "Peaks, parks, landmarks" },

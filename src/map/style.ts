@@ -61,6 +61,18 @@ export const MAP_STYLE: StyleSpecification = {
        attempts to declare hillshade statically: the layer was fine, the missing
        source was not. */
     relief: { ...TERRAIN_SOURCE, tiles: [...TERRAIN_SOURCE.tiles] },
+    /* Marked hiking routes, as a transparent raster overlay: OSM `route=hiking`
+       relations rendered by Waymarked Trails, coloured by difficulty with their
+       route shields. The OpenMapTiles schema carries paths but not the routes
+       themselves, so this is the keyless way to get real trails on the map. */
+    trails: {
+      type: "raster",
+      tiles: ["https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      maxzoom: 17,
+      attribution:
+        'Trails: © <a href="https://waymarkedtrails.org">Waymarked Trails</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    },
     openmaptiles: {
       type: "vector",
       url: "https://tiles.openfreemap.org/planet",
@@ -294,6 +306,33 @@ export const MAP_STYLE: StyleSpecification = {
         "line-color": "#375a70",
         "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3.4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
+      },
+    },
+    {
+      id: "trails-hiking",
+      type: "raster",
+      source: "trails",
+      /* Trails only mean something once you are near the ground: from world view
+         the route lines are a web of colour across whole ranges. Dense areas
+         (the Dolomites carry dozens of marked routes per screen) are why the ramp
+         is deliberately faint while a whole range is in frame — the overlay has
+         to stay behind the relief until the camera is close enough that you are
+         looking at one valley, then it can lead. */
+      minzoom: 10.2,
+      paint: {
+        "raster-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10.2,
+          0,
+          11.8,
+          0.42,
+          13.2,
+          0.85,
+        ],
+        "raster-resampling": "linear",
+        "raster-fade-duration": 250,
       },
     },
     {

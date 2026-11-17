@@ -91,6 +91,7 @@ interface Props {
 const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   relief: ["relief-hillshade"],
   contours: ["contours-minor", "contours-major"],
+  trails: ["trails-hiking"],
   detail: [
     "landcover-wood",
     "landcover-grass",
@@ -171,6 +172,9 @@ const geoCache = new WeakMap<Place[], PlacesGeoJSON>();
 function pitchForZoom(zoom: number) {
   return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
 }
+
+/** Where a clicked place lands: close enough to read the terrain around it. */
+const PLACE_FOCUS_ZOOM = 13.2;
 
 function toGeoJSON(places: Place[]): PlacesGeoJSON {
   const hit = geoCache.get(places);
@@ -673,12 +677,15 @@ export default function Globe({
     });
 
     if (!place) return;
+    /* Clicking a place is a request to see the place, not the region around it,
+       so the camera goes all the way down to terrain detail (z13.2) rather than
+       stopping at a regional view where the summit is a dot in a green field.
+       Already deeper than that? Stay where the reader put the camera. */
+    const zoom = Math.max(map_.getZoom(), PLACE_FOCUS_ZOOM);
     map_.flyTo({
       center: [place.lon, place.lat],
-      // Globe zoom covers far more ground than mercator at the same number, so
-      // a place needs a closer zoom than the mercator value would suggest.
-      zoom: Math.max(map_.getZoom(), 6.4),
-      pitch: pitchForZoom(Math.max(map_.getZoom(), 6.4)),
+      zoom,
+      pitch: pitchForZoom(zoom),
       speed: 0.7,
       curve: 1.5,
       essential: true,

@@ -538,11 +538,17 @@ selection ring follows and the card opens in place. Arrow keys move the cursor,
 campsites are records in the geographic database planned for Phase 2 and are not
 searchable yet.
 
-**Layers** — five independent switches: `Relief` (hillshade), `Contours`, `Roads &
-borders`, `Place labels`, `Places`. They map to layer groups in `Globe.tsx`
-(`LAYER_GROUPS`); anything created at runtime (the hillshade, the contour layers)
-re-reads the current switches after it is added, so a toggle never gets lost to a
-race.
+**Layers** — six independent switches: `Relief` (hillshade), `Contours`,
+`Hiking trails`, `Roads & borders`, `Place labels`, `Places`. They map to layer
+groups in `Globe.tsx` (`LAYER_GROUPS`); anything created at runtime (the hillshade,
+the contour layers) re-reads the current switches after it is added, so a toggle
+never gets lost to a race.
+
+**Clicking a place** flies all the way down to `PLACE_FOCUS_ZOOM` (z13.2) instead of
+stopping at a regional view: the point of the click is the place, and z13 is where
+the hillshade, the contours and the trails are worth looking at. Clicking again from
+a closer camera leaves the zoom alone, and the card opens in place with the
+selection ring on the summit.
 
 ### Contours
 
@@ -568,6 +574,23 @@ are applied contiguously, so a dense tile produces fewer, unbroken lines instead
 of sampled dashes. A real implementation wants vector contour tiles (or a custom
 WebGL layer drawing the marching-squares output directly), not GeoJSON fed through
 the line layer.
+
+### Hiking trails
+
+A raster overlay from [Waymarked Trails](https://waymarkedtrails.org) — OSM
+`route=hiking` relations drawn coloured by difficulty, with the route shields —
+added as the `trails` source and the `trails-hiking` layer in `style.ts`. The
+OpenMapTiles vector schema the basemap uses carries paths but not the routes over
+them, so this is the keyless way to get real trails: transparent PNGs, CORS-open,
+256 px, no key.
+
+It fades in from z10.2 and stays faint while a whole range is in frame (0.42 by
+z11.8, 0.85 past z13.2) — over somewhere like the Dolomites a full-strength overlay
+is a web of coloured routes that buries the relief the map exists for. The layer
+sits above the hillshade and roads but below every label, so route shields never
+cover a place name. The tiles are drawn for a light basemap; on this palette the
+route lines read well, and their pale casings are what keeps them legible over dark
+ground.
 
 ---
 
