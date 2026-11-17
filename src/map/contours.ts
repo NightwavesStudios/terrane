@@ -1,5 +1,5 @@
 import type { Map as MlMap } from "maplibre-gl";
-import { TERRAIN_SOURCE } from "./style";
+import { DEM_HTTP_TILE_URL } from "./dem";
 
 /**
  * Topographic contours, generated in the browser from the same Terrarium DEM the
@@ -18,11 +18,18 @@ import { TERRAIN_SOURCE } from "./style";
 const CONTOUR_MIN_ZOOM = 10;
 /* The first version of this allowed six tiles at a 100 m interval and emitted
    north of half a million segments; the structured clone plus MapLibre's line
-   tessellation froze the tab. The budget below is deliberately small: three
-   tiles, a 200 m interval, and a hard cap per level. */
+   tessellation froze the tab. The caps below are the compromise: two tiles, at
+   most ten elevation levels per tile, and a contiguous cap per level.
+
+   The old version also fixed the DEM level at z10 and thinned each level to 220
+   segments. That looks fine from z10 and falls apart close in: at z14 a z10
+   cell is ~450 m wide on the ground, so every line arrives as a huge staircase
+   with most of its segments missing. The levels now follow the camera and the
+   caps are high enough that the linework stays continuous. */
 const MAX_TILES = 2;
-const MAX_SEGMENTS_PER_LEVEL = 220;
-const TIME_BUDGET_MS = 140;
+const MAX_SEGMENTS_PER_LEVEL = 900;
+const MAX_LEVELS = 10;
+const TIME_BUDGET_MS = 320;
 
 const WORKER_SRC = String.raw`
 const LOOKUP = {
@@ -84,7 +91,7 @@ function tileBounds(z, x, y, n) {
 }
 
 self.onmessage = async (e) => {
-  const { tiles, interval, template } = e.data;
+  const { tiles, interval, template, grid, maxLevels, maxSegments } = e.data;
   const features = [];
   const stats = { tiles: 0, levels: 0, segments: 0, dims: [], range: null, errors: 0 };
 
@@ -101,11 +108,11 @@ self.onmessage = async (e) => {
       const res = await fetch(url);
       if (!res.ok) continue;
       const bmp = await createImageBitmap(await res.blob());
-      w = bmp.width;
-      h = bmp.height;
+      w = grid;
+      h = grid;
       const cv = new OffscreenCanvas(w, h);
       const ctx = cv.getContext("2d");
-      ctx.drawImage(bmp, 0, 0);
+      ctx.drawImage(bmp, 0, 0, w, h);
       data = ctx.getImageData(0, 0, w, h).data;
     } catch (err) {
       stats.errors += 1;
@@ -132,7 +139,12 @@ self.onmessage = async (e) => {
     const first = Math.ceil(lo / interval) * interval;
     const started = performance.now();
 
-    for (let level = first; level <= hi; level += interval) {
+    // Widen the interval if the tile spans more levels than we are willing to
+    // draw, rather than emitting the bottom few and running out of budget.
+    const count = Math.floor((hi - first) / interval) + 1;
+    const step = count > maxLevels ? interval * Math.ceil(count / maxLevels) : interval;
+
+    for (let level = first; level <= hi; level += step) {
       if (level <= 0) continue;
       // Hard time budget per tile: a view over the Himalaya is allowed to
       // produce fewer contours, never to stall the worker.
@@ -142,10 +154,10 @@ self.onmessage = async (e) => {
       stats.segments += segs.length;
       if (!segs.length) continue;
 
-      // Cap per level so a dense alpine tile cannot flood the map.
-      const step = Math.max(1, Math.ceil(segs.length / ${MAX_SEGMENTS_PER_LEVEL}));
+      // Contiguous cap: a dense alpine tile cannot flood the map, and the
+      // lines that do arrive are unbroken, not sampled into dashes.
       const lines = [];
-      for (let i = 0; i < segs.length; i += step) {
+      for (let i = 0; i < segs.length && lines.length < maxSegments; i++) {
         const s = segs[i];
         lines.push([
           [lon(s[0]), lat(s[1])],
@@ -174,7 +186,24 @@ export interface ContourHandle {
 }
 
 function intervalForZoom(zoom: number) {
-  return zoom < 11.5 ? 250 : 100;
+  if (zoom < 11.5) return 250;
+  if (zoom < 12.5) return 150;
+  if (zoom < 13.5) return 100;
+  return 50;
+}
+
+/* DEM level per camera zoom: close enough to the camera that the marching
+   squares grid is a few tens of metres on the ground, deep enough that one or
+   two tiles still cover the viewport. Capped at z12, the last level that exists
+   worldwide, so contours never vanish over ranges outside national coverage. */
+function demZoomForZoom(zoom: number) {
+  return Math.max(10, Math.min(12, Math.floor(zoom) - 1));
+}
+
+/* 256 cells per tile is what this always ran at; past z12 a wider grid is
+   affordable (one tile, few levels) and keeps the lines off a coarse staircase. */
+function gridForZoom(zoom: number) {
+  return zoom >= 12.5 ? 512 : 256;
 }
 
 export function createContours(map: MlMap): ContourHandle {
@@ -183,7 +212,9 @@ export function createContours(map: MlMap): ContourHandle {
   let url: string | null = null;
   let timer: number | undefined;
 
-  const template = TERRAIN_SOURCE.tiles[0];
+  // The protocol used by the hillshade is MapLibre-only; the worker fetches
+  // the tiles itself, so it uses the plain HTTPS template.
+  const template = DEM_HTTP_TILE_URL;
 
   function ensureLayers() {
     if (!map.getSource("contours")) {
@@ -255,11 +286,9 @@ export function createContours(map: MlMap): ContourHandle {
     const zoom = map.getZoom();
     const tiles: { z: number; x: number; y: number }[] = [];
     if (zoom >= CONTOUR_MIN_ZOOM) {
-      // One level shallower than the camera: fewer, larger tiles carry the same
-      // linework at this scale and cost less to decode.
-      // One fixed DEM level: z10 covers a regional view at this scale and keeps
-      // the decode count predictable no matter how far in the user goes.
-      const z = 10;
+      // A level or two shallower than the camera: fewer, larger tiles carry the
+      // same linework at this scale and cost less to decode.
+      const z = demZoomForZoom(zoom);
       const n = 2 ** z;
       const b = map.getBounds();
       const lonToX = (v: number) => Math.floor(((v + 180) / 360) * n);
@@ -279,7 +308,14 @@ export function createContours(map: MlMap): ContourHandle {
           tiles.push({ z, x: ((x % n) + n) % n, y: Math.max(0, Math.min(n - 1, y)) });
         }
       }
-      worker.postMessage({ tiles, interval: intervalForZoom(zoom), template });
+      worker.postMessage({
+        tiles,
+        interval: intervalForZoom(zoom),
+        grid: gridForZoom(zoom),
+        maxLevels: MAX_LEVELS,
+        maxSegments: MAX_SEGMENTS_PER_LEVEL,
+        template,
+      });
     } else {
       clearLayers();
     }

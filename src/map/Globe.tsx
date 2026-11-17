@@ -7,43 +7,67 @@ import type {
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { createStyle } from "./style";
+import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
+import { installDemProtocol } from "./dem";
+import { worldZoom } from "./camera";
 import { createContours, type ContourHandle } from "./contours";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
 
-/* The hillshade's look, kept in one named place. These five values are the whole
-   difference between a physical landscape and a flat grey sheet, and they are
-   easy to break one number at a time, so they are not buried inline in the
-   addLayer call.
+/* The hillshade's look, kept in one named place, because these values are the
+   whole difference between a physical landscape and a flat grey sheet.
 
-   Exaggeration climbs with zoom rather than sitting at a constant: Terra's deep
-   tiles are bilinearly upsampled from a coarser source, so the slope between
-   neighbouring texels shrinks the further you zoom in. A fixed value renders
-   ridges at z4 and a wash at z14.
+   `standard` (MapLibre's own curve) rather than `basic`: basic shades the true
+   slope and clamps at full highlight/shadow, so a 1–5 m LiDAR DEM — which has
+   plenty of near-vertical faces — turns into black valleys and blown-out pale
+   plateaus at deep zoom. `standard` eases the slope through a curve whose
+   intensity is the exaggeration below, which keeps the mid tones a mountain
+   flank needs while still reading as a lit surface.
+
+   Exaggeration is a real, zoom-dependent dial — and a subtle one, because
+   `hillshade-exaggeration` is capped at 1 by the style spec. Asking for 1.15 or
+   3.4 (as earlier revisions did) is an invalid paint value: MapLibre rejects the
+   update, so the layer silently keeps whatever it had. Everything here stays in
+   0…1.
+
+   Why the curve holds up at depth instead of collapsing: MapLibre computes
+   slope per DEM texel against the tile ID's zoom, so an overzoomed tile has its
+   slopes multiplied by 2^(camera − tile). The DEM protocol (see ./dem.ts)
+   answers every requested zoom with a real 512 px tile, so there is no overscale
+   factor to fight any more and the shading keeps its density all the way in.
+   A small dip at the deepest levels only stops 1–5 m LiDAR noise    from sparkling on snowfields. It stays near 0.85 because deep zoom is where
+   the 30 m global model (outside national coverage) is smoothest and needs the
+   most help to read as terrain.
 
    The light is anchored to the map, not the viewport, so pitching the camera
    does not swing shadows across the ridges, and it is a deep green rather than a
    pale tone so lit slopes keep the ground colour instead of fogging to grey. */
 const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
+  "hillshade-method": "standard",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
-    2,
     0,
-    3.2,
-    1.15,
+    0.58,
+    3,
+    0.72,
+    6,
+    0.84,
     9,
-    1.6,
+    0.9,
+    11,
+    0.9,
     12,
-    2.6,
-    15,
-    3.4,
+    0.88,
+    13,
+    0.86,
+    14,
+    0.84,
   ],
   "hillshade-illumination-anchor": "map",
-  "hillshade-shadow-color": "#030c08",
-  "hillshade-highlight-color": "#46603f",
+  "hillshade-shadow-color": "#040f0b",
+  "hillshade-highlight-color": "#52694a",
   "hillshade-accent-color": "#06120c",
 };
 
@@ -123,32 +147,39 @@ const TYPE_COLOR = [
 
 const DOT_LAYERS = ["places-halo", "places-dot", "places-curated"];
 
-/**
- * Zoom that shows the whole sphere without wasting the stage.
- *
- * At globe projection the rendered diameter is ≈ 161 · 2^zoom CSS px (measured
- * on MapLibre 5), so we can solve for the zoom that makes the planet about 90%
- * of the viewport width. Phones were otherwise cropped at both edges, and a
- * fixed low zoom left the globe looking lost on a narrow screen.
- */
+type PlacesGeoJSON = {
+  type: "FeatureCollection";
+  features: {
+    type: "Feature";
+    geometry: { type: "Point"; coordinates: [number, number] };
+    properties: {
+      slug: string;
+      name: string;
+      type: string;
+      curated: number;
+      tier: number;
+    };
+  }[];
+};
+
+/* Rebuilding 1,288 GeoJSON features is only worth doing when the filter
+   actually changes; React hands us the same array on every selection render, so
+   the last result is cached against it. */
+const geoCache = new WeakMap<Place[], PlacesGeoJSON>();
+
 /** Camera tilt for a given zoom: level at planet scale, oblique over ranges. */
 function pitchForZoom(zoom: number) {
   return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
 }
 
-export function worldZoom(width: number, height: number) {
-  // Fit the sphere to whichever dimension binds first — a wide, short window
-  // is limited by height, a phone by width.
-  const fit = Math.log2(Math.min(width * 0.9, height * 0.82) / 161);
-  return Math.max(0.6, Math.min(2.2, fit));
-}
-
-function toGeoJSON(places: Place[]) {
-  return {
-    type: "FeatureCollection" as const,
+function toGeoJSON(places: Place[]): PlacesGeoJSON {
+  const hit = geoCache.get(places);
+  if (hit) return hit;
+  const fc: PlacesGeoJSON = {
+    type: "FeatureCollection",
     features: places.map((p) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [p.lon, p.lat] as [number, number] },
       properties: {
         slug: p.slug,
         name: p.name,
@@ -160,6 +191,8 @@ function toGeoJSON(places: Place[]) {
       },
     })),
   };
+  geoCache.set(places, fc);
+  return fc;
 }
 
 export default function Globe({
@@ -185,6 +218,10 @@ export default function Globe({
   /* ── init once ─────────────────────────────────────── */
   useEffect(() => {
     if (!holder.current) return;
+
+    /* The DEM tiles are served through a custom protocol, so it has to be
+       registered before the style that references it is parsed. */
+    installDemProtocol();
 
     const map_ = new MlMap({
       container: holder.current,
@@ -213,7 +250,11 @@ export default function Globe({
            duplicate copies were extra tiles in flight. */
       fadeDuration: 280,
       refreshExpiredTiles: false,
-      maxTileCacheSize: 160,
+      /* 512 px DEM tiles keep a 1 MB texture plus a 1 MB hillshade normal
+         texture each, four times what the old 256 px tiles cost, so the cache
+         is smaller than it was: enough for a couple of levels around the
+         camera, not enough to pin hundreds of megabytes of GPU memory. */
+      maxTileCacheSize: 72,
       renderWorldCopies: false,
     });
     map.current = map_;
@@ -222,51 +263,48 @@ export default function Globe({
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
     }
 
+    /* Relief comes from one hillshade — no terrain mesh.
+
+       A `setTerrain` mesh was tried and removed: with globe projection it does
+       not displace the surface, but it still fetches a full extra DEM pyramid
+       and re-tessellates on every gesture — all of the cost of 3D, none of the
+       relief.
+
+       It cannot live in the static style (a hillshade there fails style
+       parsing) so it is added as soon as the style lands, not on the 2.5 s timer
+       this used to use — that timer meant the planet was flat for the first
+       seconds of every visit, which is exactly the moment relief matters. */
+    const addHillshade = () => {
+      if (map_.getLayer("relief-hillshade")) return;
+      try {
+        map_.addLayer(
+          {
+            id: "relief-hillshade",
+            type: "hillshade",
+            source: "relief",
+            paint: HILLSHADE_PAINT,
+          },
+          // Above the landcover fills but below water, roads and labels. It has
+          // to sit ABOVE vegetation: a flat green fill on top of the shade is
+          // what erased both the colour and the 3D at mid zoom.
+          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
+        );
+      } catch {
+        /* hillshade unavailable */
+      }
+    };
+
     const bootstrap = () => {
       if (booted.current) return;
       booted.current = true;
+      setStalled(false);
 
       try {
         map_.setProjection({ type: "globe" });
       } catch {
         /* mercator fallback */
       }
-      /* Relief comes from hillshade alone.
-
-         A `setTerrain` mesh was tried and removed: with globe projection it does
-         not displace the surface, but it still fetches a full extra DEM pyramid
-         (tiles at z3…z8 for one view) and re-tessellates on every gesture — all
-         of the cost of 3D, none of the relief. The hillshade below is what you
-         actually see, and dropping the mesh roughly halves the elevation traffic
-         while zooming.
-
-         It cannot live in the static style (a hillshade there fails style
-         parsing) and it is added after the map settles. */
-      window.setTimeout(() => {
-        try {
-          map_.addLayer(
-            {
-              id: "relief-hillshade",
-              type: "hillshade",
-              source: "relief",
-              // No minzoom: exaggeration is a zoom expression, so relief ramps up
-              // from nothing between z2 and z3.2 instead of the whole planet
-              // snapping into 3D the moment you pass a threshold.
-              paint: HILLSHADE_PAINT,
-            },
-            // Above the landcover fills but below water, roads and labels. It has
-            // to sit ABOVE vegetation: a flat green fill on top of the shade is what
-            // erased both the colour and the 3D at mid zoom.
-            map_.getLayer("water") ? "water" : "label-country",
-          );
-        } catch {
-          /* hillshade unavailable */
-        }
-        // The relief layer only exists now, so re-apply the switches.
-        applyVisibility(map_, layersRef.current);
-        // ...and put contours back above the shade.
-        contours.current?.reload();
-      }, 2500);
+      addHillshade();
 
       try {
         map_.setSky({
@@ -333,7 +371,7 @@ export default function Globe({
       });
 
       map_.addLayer({
-                      id: "places-halo",
+        id: "places-halo",
         type: "circle",
         source: "places",
         // Blurred circles are the most expensive thing on screen at depth; past
@@ -515,6 +553,7 @@ export default function Globe({
         },
       });
 
+      const pickLayers = DOT_LAYERS.filter((id) => map_.getLayer(id));
       const pick = (x: number, y: number): MapGeoJSONFeature | undefined => {
         const r = 9;
         const hits = map_.queryRenderedFeatures(
@@ -522,7 +561,7 @@ export default function Globe({
             [x - r, y - r],
             [x + r, y + r],
           ],
-          { layers: DOT_LAYERS.filter((id) => map_.getLayer(id)) },
+          { layers: pickLayers },
         );
         return hits[0];
       };
@@ -560,6 +599,14 @@ export default function Globe({
       if (map_.isStyleLoaded()) bootstrap();
     }, 2500);
 
+    /* The hillshade is the only layer added at runtime that the style itself
+       does not declare, so it is also the only one a style rebuild can drop.
+       Put it back if it ever goes missing. */
+    const ensureRelief = () => {
+      if (booted.current && map_.isStyleLoaded()) addHillshade();
+    };
+    map_.on("styledata", ensureRelief);
+
     /* If the style never arrives, the usual cause is a page opened straight off
        disk: browsers block MapLibre's blob workers on file:// origins. Say so
        rather than leaving a black rectangle. */
@@ -576,6 +623,7 @@ export default function Globe({
 
     return () => {
       ro.disconnect();
+      map_.off("styledata", ensureRelief);
       window.clearTimeout(t);
       window.clearTimeout(guard);
       contours.current?.destroy();
@@ -681,18 +729,25 @@ export default function Globe({
        the "unsmooth" part. While a gesture is running we fetch the tiles the next
        integer zoom will need, so MapLibre's own request is a cache hit. Capped at
        eight tiles every 700 ms so a long drag can't turn into a download. */
+    let template: string | undefined;
     let lastPrefetch = 0;
     const prefetch = () => {
       const now = performance.now();
       if (now - lastPrefetch < 700) return;
       lastPrefetch = now;
 
-      const spec = map_.getStyle()?.sources?.openmaptiles;
-      const template =
-        spec && "tiles" in spec && Array.isArray(spec.tiles)
-          ? spec.tiles[0]
-          : undefined;
-      if (!template || !template.includes("{z}")) return;
+      /* The template comes from the loaded source and is cached: this runs on
+         every zoom event, and asking the source directly avoids building a
+         serialized copy of the whole style each time, which is what
+         `getStyle()` does. */
+      if (!template) {
+        const src = map_.getSource("openmaptiles") as unknown as {
+          tiles?: string[];
+        };
+        const first = src?.tiles?.[0];
+        if (!first?.includes("{z}")) return;
+        template = first;
+      }
 
       const z = Math.min(13, Math.ceil(map_.getZoom() + 0.4));
       const n = 2 ** z;
@@ -722,7 +777,8 @@ export default function Globe({
           .replace("{z}", String(z))
           .replace("{x}", String(x))
           .replace("{y}", String(y));
-        void fetch(url, { mode: "cors" }).catch(() => undefined);
+        // low priority: never compete with the tiles the camera needs now.
+        void fetch(url, { mode: "cors", priority: "low" }).catch(() => undefined);
       }
     };
 

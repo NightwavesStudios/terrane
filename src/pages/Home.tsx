@@ -1,5 +1,12 @@
-import { useMemo, useState } from "react";
-import Globe, { worldZoom, type GlobeFocus } from "../map/Globe";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { worldZoom } from "../map/camera";
+import type { GlobeFocus } from "../map/Globe";
+
+/* MapLibre is by far the biggest thing this app ships (~1 MB), and it is only
+   needed by the globe. Loading it through `lazy` lets the header, the filters
+   and the caption paint immediately while the map library streams in behind
+   them, instead of the whole screen waiting on one 1.4 MB chunk. */
+const Globe = lazy(() => import("../map/Globe"));
 import Header from "../components/Header";
 import FilterChips, { matches, type Filter } from "../components/FilterChips";
 import LayerControl, {
@@ -47,13 +54,15 @@ export default function Home() {
 
   return (
     <div className="home">
-      <Globe
-        places={places}
-        selected={selected}
-        onSelect={setSelected}
-        focus={focus}
-        layers={layers}
-      />
+      <Suspense fallback={<div className="globe" aria-hidden="true" />}>
+        <Globe
+          places={places}
+          selected={selected}
+          onSelect={setSelected}
+          focus={focus}
+          layers={layers}
+        />
+      </Suspense>
       <div className="vignette" aria-hidden="true" />
 
       <Header tone="dark" />
@@ -68,7 +77,7 @@ export default function Home() {
         drag to spin, click a point
       </p>
       <p className="globe-credits mono">
-        © OpenStreetMap · OpenFreeMap · Terrain: AWS · Data: Wikidata
+        © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
       </p>
 
       <div className="globe-filters">

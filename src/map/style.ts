@@ -1,4 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
+import { DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem";
 
 /**
  * Terrane's basemap. A "deep water" palette rather than a flat black one:
@@ -11,17 +12,17 @@ export const FIRST_SYMBOL_LAYER = "label-country";
 /** MapLibre mutates the style spec it is given, so each map needs a copy. */
 export const TERRAIN_SOURCE = {
   type: "raster-dem" as const,
-  tiles: [
-    "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
-  ],
+  /* Every tile comes through the `terranedem` protocol (see ./dem.ts), which
+     answers with a real 512 px tile at whatever zoom MapLibre asks for — the
+     national LiDAR DEM where one exists, the 30 m global parent cropped and
+     scaled where it does not. That is what keeps the hillshade sharp at z14
+     instead of overzooming a coarse pyramid. */
+  tiles: [`${DEM_SCHEME}://{z}/{x}/{y}`],
   encoding: "terrarium" as const,
-  tileSize: 256,
-  // Terra goes to z15, and deep zoom needs all of it: at z14 a z13 pyramid is
-  // stretched 1.6x and a summit turns into soft mush exactly when the user is
-  // looking closely enough to notice. Detail is worth the traffic.
-  maxzoom: 15,
+  tileSize: DEM_TILE_SIZE,
+  maxzoom: DEM_MAX_ZOOM,
   attribution:
-    '<a href="https://www.mapzen.com/blog/terrain-rgb/">Terrain Tiles</a> · AWS Open Data',
+    '<a href="https://mapterhorn.com/attribution">© Mapterhorn</a> · Copernicus DEM',
 };
 
 export function createStyle(): StyleSpecification {
@@ -135,7 +136,22 @@ export const MAP_STYLE: StyleSpecification = {
         // Close in, an icefield has to stay a translucent snowfield: at 0.44 the
         // glaciers in an alpine view cover most of the frame with pale grey and
         // the whole map reads as washed out. Let the shaded rock show through.
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.5, 12, 0.22],
+        // Keeps fading at the closest zooms too: a 0.22 sheet over a whole
+        // glacier basin is what turns the last zoom levels into a pale haze and
+        // buries the hillshade underneath it.
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          0.72,
+          8,
+          0.5,
+          12,
+          0.22,
+          14,
+          0.13,
+        ],
       },
     },
     {

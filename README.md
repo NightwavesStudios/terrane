@@ -54,7 +54,7 @@ terrain.
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
-| Build | Vite 8 (`@vitejs/plugin-react`) | plain SPA, no SSR |
+| Build | Vite 8 (`@vitejs/plugin-react`) | plain SPA, no SSR; route- and map-level code splitting |
 | UI | React 19 + TypeScript 7, `strict` + `noUnusedLocals` | unused imports fail the build |
 | Map | **MapLibre GL 5** (`^5.24.1`, major held) | see [Why MapLibre is held at v5](#why-maplibre-is-held-at-v5) |
 | Routing | ~45 lines in `src/lib/router.ts` | no router dependency |
@@ -85,8 +85,11 @@ Routing is real paths via the History API, parsed by hand.
 
 ## How the globe works
 
-Two files: `src/map/style.ts` (the basemap) and `src/map/Globe.tsx` (the React
-component that owns a `Map`).
+`src/map/style.ts` (the basemap), `src/map/Globe.tsx` (the React component that owns
+a `Map`), `src/map/dem.ts` (the elevation tile protocol), `src/map/contours.ts` (the
+contour worker) and `src/map/camera.ts` (camera maths with no MapLibre import, so
+pages can size the opening view without pulling the map library into the entry
+chunk).
 
 ### `src/map/style.ts`
 
@@ -96,9 +99,10 @@ component that owns a `Map`).
   must not share one object.
 - `FIRST_SYMBOL_LAYER = "label-country"` — the insertion point for the terrain
   hillshade layer, added at runtime.
-- `TERRAIN_SOURCE` — AWS Terrarium DEM
-  (`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png`,
-  `encoding: "terrarium"`), used for both 3D terrain and hillshade.
+- `TERRAIN_SOURCE` — Mapterhorn Terrarium DEM (512 px, `encoding: "terrarium"`,
+  `maxzoom: 14`), fetched through the `terranedem://` protocol in `src/map/dem.ts`
+  — see the relief note below. Used for the hillshade; contours fetch the same
+  tiles over HTTPS.
 
 **The palette** ("Deep Water") is deliberately not near-black. The vector source
 (OpenFreeMap, no key) ships water polygons and no land polygons, so at world zoom
@@ -129,7 +133,7 @@ The hillshade sits **above** the vegetation and landuse fills, not under them.
 Underneath, a semi-transparent green fill covers the shading and the middle zooms
 flatten into one flat green blanket — colours survive, relief does not. Above them,
 the fills tint the ground and the relief still reads through, which is the whole
-point of a terrain map. It is inserted at runtime, 2.5 s after the style settles,
+point of a terrain map. It is inserted at runtime as soon as the style lands,
 anchored before `water` (see the relief note below).
 
 Labelling is zoom-gated so the world view stays clean: country labels from 2.2 to 6,
@@ -152,16 +156,46 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   Phones get the whole sphere instead of a planet cropped at both edges; a desktop
   window fills the stage instead of floating a small globe in black.
 - **Bootstrap** runs on `style.load`, again on `load`, and once more on a 2.5 s timer
-  if `isStyleLoaded()` — a `booted` ref makes it idempotent. Inside it: terrain
-  (`exaggeration 1.3`), the `hillshade` layer, `setSky` (atmosphere), the `places` and
-  `selected` GeoJSON sources, and four layers. Each risky call is individually
-  try/caught so a browser without terrain or sky support still gets a working globe.
+  if `isStyleLoaded()` — a `booted` ref makes it idempotent. Inside it: the
+  `hillshade` layer, `setSky` (atmosphere), the `places` and `selected` GeoJSON
+  sources, and the place layers. Each risky call is individually try/caught so a
+  browser without hillshade or sky support still gets a working globe.
 - **Relief comes from one hillshade — no terrain mesh.** A `relief` DEM source
-  (Terra, `encoding: "terrarium"`, `maxzoom: 15` — capping it at 10 made everything
-  past z10 one overzoomed blob and the relief visibly died mid-zoom) feeds
-  `relief-hillshade`,
-  added ~2.5 s after the style settles, with exaggeration ramping 0 → 1.3 between
-  z2 and z3.2.
+  (`encoding: "terrarium"`, `tileSize: 512`, `maxzoom: 14`) feeds
+  `relief-hillshade`, added as soon as the style lands.
+  - **The DEM is Mapterhorn, not AWS.** AWS/Mapzen Terrarium is the default free
+    terrain source, but past z11 it is a bilinear upsample of itself: on the Alps a
+    z12 tile is ~98% predictable from its z11 parent (RMS 8 m against a 365 m
+    spread), so its "12 m" at z15 is the same ~150 m surface resampled. Replaced
+    with Mapterhorn — Terrarium at **512 px** from Copernicus GLO-30 (30 m) plus
+    national LiDAR/ALS models (1–5 m) where they exist. Same encoding, same URL
+    shape, no key.
+  - **Every requested zoom gets a real tile** (`src/map/dem.ts`). MapLibre's slope
+    maths divides by the tile ID's zoom, so an *overzoomed* tile has its slopes
+    multiplied by 2^(camera − tile): steep faces saturate to solid shadow and the
+    paint exaggeration has to be dropped to compensate, which is what flattened the
+    relief. Mapterhorn's global pyramid ends at z12 (`z13+` only exists over
+    national datasets, and returns 404 elsewhere), so the source declares
+    `maxzoom: 14` and a custom protocol answers z13/z14 either with the native tile
+    or with the z12 parent **resampled up to the requested extent**. Four children
+    share one parent decode; a tile missing everywhere resolves to flat sea level so
+    relief never has a hole.
+  - **The resample runs on decoded elevations, not the encoded image.** Terrarium
+    packs one number into R, G and B, so interpolating the channels separately puts
+    a 256 m notch wherever the carry lands — rendered as hillshade, that artifact
+    drew a hard contour line every 256 m across the whole view. Decode → bilinear →
+    one clamped unsharp pass → re-encode. The outer ring is left unsharpened so
+    adjacent tiles do not disagree at the seam.
+  - **`hillshade-method: "standard"`** (MapLibre's own curve) rather than `basic`:
+    basic clamps at full highlight/shadow, so a 1–5 m LiDAR DEM turns into black
+    valleys and blown-out pale plateaus at deep zoom. `standard` keeps the mid tones
+    of a mountain flank while still reading as a lit surface.
+  - **Exaggeration is a `0…1` dial.** The style spec caps `hillshade-exaggeration` at
+    1, so the old 1.15 → 3.4 curve was an invalid paint value that MapLibre rejected
+    (the layer silently kept its previous value). With a real tile for every zoom
+    there is no overscale factor to fight, so the curve holds near 0.9 through the
+    regional zooms and only eases to 0.74 at z14 (enough to keep 1–5 m LiDAR noise
+    from sparkling on snowfields).
   - A second "fine" pass used to sit on top. It was removed: a hillshade is the
     most expensive layer per pixel (the DEM is resampled every frame the camera
     moves), and two of them doubled that for a subtle gain. One pass carries the
@@ -191,6 +225,8 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     no longer exists), so every zoom step is a cold request for a new pyramid.
     While a gesture runs, `prefetch()` in `Globe.tsx` fetches up to eight tiles for
     the next integer zoom into the HTTP cache, so MapLibre's own request can hit it.
+    It reads the resolved tile template off the source once and caches it — asking
+    `getStyle()` on every zoom event serialized the whole style.
     Measured on one region (Japan, cold cache, world → z6.4): 8.8 s to fully loaded
     with it, 13.2 s without; on another (Patagonia) the difference was inside the
     noise (12.7 s vs 12.5 s). Treat it as cheap insurance, not a guarantee.
@@ -445,8 +481,12 @@ npm run build     # tsc -b (strict, noUnusedLocals) + vite build
 
 There is no test suite, no linter and no CI. Typechecking happens inside `build`.
 
-Expected build footprint: ~1.48 MB JS (≈400 kB gzip) — MapLibre is most of it — plus
-~92 kB CSS. Vite warns about the chunk size; that warning is expected, not a failure.
+Expected build footprint: entry chunk ~425 kB JS (≈119 kB gzip) plus a lazy
+`Globe` chunk ~1.05 MB (≈280 kB gzip) that carries MapLibre and its CSS, and
+~26 kB of page CSS. The globe route paints its header, filters and caption off the
+entry chunk and pulls the map in behind them; `/explore`, `/saved`, `/about` and
+`/place/*` never download MapLibre at all. Vite warns about the size of the Globe
+chunk; that warning is expected, not a failure.
 
 For the map, `npm run dev` plus `window.__terraneMap` in the console is the practical
 debugging loop (`__terraneMap.isStyleLoaded()`, `getStyle().layers`,
@@ -468,26 +508,34 @@ searchable yet.
 
 **Layers** — five independent switches: `Relief` (hillshade), `Contours`, `Roads &
 borders`, `Place labels`, `Places`. They map to layer groups in `Globe.tsx`
-(`LAYER_GROUPS`); anything created at runtime (the hillshade at 2.5 s, the contour
-layers) re-reads the current switches after it is added, so a toggle never gets
-lost to a race.
+(`LAYER_GROUPS`); anything created at runtime (the hillshade, the contour layers)
+re-reads the current switches after it is added, so a toggle never gets lost to a
+race.
 
 ### Contours
 
 Generated in the browser from the same Terrarium DEM the hillshade uses, by marching
 squares over the tiles covering the viewport, in a worker built from a blob URL (so
 the single-file build stays self-contained). Only above zoom 10; interval 250 m below
-z11.5 and 100 m above; the two contour layers sit above the hillshade and below the
-water and labels.
+z11.5, 150 m to z12.5, 100 m to z13.5 and 50 m beyond; the two contour layers sit
+above the hillshade and below the water and labels.
 
-**This is a capped first pass, not a topographic sheet.** The first version allowed
-six tiles at a 100 m interval, emitted over half a million segments, and froze the
-tab — MapLibre's line tessellation, not the worker, was the bottleneck. The shipped
-budget is deliberately small: two tiles, one fixed DEM level (z10), at most 220
-segments per level and a 140 ms budget per tile. That keeps the map interactive but
-means the lines are sparse and only cover the area you are looking at. A real
-implementation wants vector contour tiles (or a custom WebGL layer drawing the
-marching-squares output directly), not GeoJSON fed through the line layer.
+**Both the DEM level and the sampling follow the camera.** The first version pinned
+the DEM at z10 and thinned every level to 220 segments, which looks fine from z10
+and falls apart close in: at z14 a z10 cell is ~450 m on the ground, so every line
+arrived as a huge staircase with most of its segments missing. Now the DEM level
+runs `floor(zoom) − 1` (capped at z12, the last level that exists worldwide) and
+the marching-squares grid goes to 512 px past z12.5.
+
+**This is still a capped first pass, not a topographic sheet.** The first version
+allowed six tiles at a 100 m interval, emitted over half a million segments, and
+froze the tab — MapLibre's line tessellation, not the worker, was the bottleneck.
+The shipped budget is two tiles, at most ten levels per tile (the interval widens
+if a tile spans more), 900 segments per level and a 320 ms budget per tile. Caps
+are applied contiguously, so a dense tile produces fewer, unbroken lines instead
+of sampled dashes. A real implementation wants vector contour tiles (or a custom
+WebGL layer drawing the marching-squares output directly), not GeoJSON fed through
+the line layer.
 
 ---
 
@@ -503,8 +551,19 @@ marching-squares output directly), not GeoJSON fed through the line layer.
 - **Contours are capped.** They are a client-side first pass — sparse, viewport-bound
   and only above z10. See the contours note above for why.
 - **No photos, no accounts, no trip planner.** By product decision, not omission.
-- **Single bundle.** No code splitting; the map library is loaded on every route,
-  including `/explore`.
+- **The globe is one large chunk.** Routes are split and MapLibre is lazy, but the
+  map library itself is still a single ~280 kB gzip chunk that cannot be usefully
+  split further.
+- **Deep-zoom relief depends on coverage.** z13+ DEM tiles exist only over
+  countries that publish a high-resolution national model (Alps, Pyrenees, much of
+  the US, Japan, New Zealand, Greenland). Everywhere else — the Himalaya, the Andes,
+  most of Africa — a z14 view is the 30 m global model resampled up 4×: correctly
+  scaled and shaded, but large forms rather than gullies. A commercial 10 m DEM is
+  the next step if that matters more than a keyless setup.
+- **DEM tiles are heavier than before.** 512 px Mapterhorn tiles are ~150–200 kB
+  each against ~120 kB for the old 256 px AWS tiles; a deep view is ~2 MB of
+  elevation. `maxTileCacheSize` was cut from 160 to 72 to keep the GPU texture
+  budget (1 MB DEM + 1 MB hillshade normal per tile) in check.
 - **Attribution is page text**, not MapLibre's `AttributionControl` (which collided
   with the filter pill). Credits appear under the globe and in every footer.
 

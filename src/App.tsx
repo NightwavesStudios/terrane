@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useRoute } from "./lib/router";
 import Home from "./pages/Home";
-import Explore from "./pages/Explore";
-import Saved from "./pages/Saved";
-import About from "./pages/About";
-import Place from "./pages/Place";
+
+/* Home is the landing route, so it stays in the entry chunk. Everything else is
+   split: opening the globe should not pay for the Explore index, and a deep link
+   to a place should not pay for either. */
+const Explore = lazy(() => import("./pages/Explore"));
+const Saved = lazy(() => import("./pages/Saved"));
+const About = lazy(() => import("./pages/About"));
+const Place = lazy(() => import("./pages/Place"));
 
 export default function App() {
   const route = useRoute();
@@ -22,9 +26,19 @@ export default function App() {
     }
   }, [route]);
 
-  if (route.name === "explore") return <Explore />;
-  if (route.name === "saved") return <Saved />;
-  if (route.name === "about") return <About />;
-  if (route.name === "place") return <Place slug={route.slug} />;
-  return <Home />;
+  return (
+    <Suspense fallback={<div className={route.name === "home" ? "home" : "page"} />}>
+      {route.name === "explore" ? (
+        <Explore />
+      ) : route.name === "saved" ? (
+        <Saved />
+      ) : route.name === "about" ? (
+        <About />
+      ) : route.name === "place" ? (
+        <Place slug={route.slug} />
+      ) : (
+        <Home />
+      )}
+    </Suspense>
+  );
 }
