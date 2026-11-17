@@ -251,10 +251,11 @@ export default function Globe({
       fadeDuration: 280,
       refreshExpiredTiles: false,
       /* 512 px DEM tiles keep a 1 MB texture plus a 1 MB hillshade normal
-         texture each, four times what the old 256 px tiles cost, so the cache
-         is smaller than it was: enough for a couple of levels around the
-         camera, not enough to pin hundreds of megabytes of GPU memory. */
-      maxTileCacheSize: 72,
+         texture each, four times what the old 256 px tiles cost. A phone
+         viewport at z14 keeps 10–17 live (20–34 MiB); this bounds the worst
+         case at 48 tiles, ~96 MiB of terrain texture, without starving the
+         basemap of reuse. */
+      maxTileCacheSize: 48,
       renderWorldCopies: false,
     });
     map.current = map_;

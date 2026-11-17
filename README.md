@@ -170,7 +170,21 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     with Mapterhorn — Terrarium at **512 px** from Copernicus GLO-30 (30 m) plus
     national LiDAR/ALS models (1–5 m) where they exist. Same encoding, same URL
     shape, no key.
-  - **Every requested zoom gets a real tile** (`src/map/dem.ts`). MapLibre's slope
+  - **Two providers, so relief survives an outage.** Mapterhorn first; after two
+    consecutive network failures it is skipped for five minutes and every tile
+    comes from **AWS Terrarium** (256 px, native to z11, independent
+    infrastructure) through the same resample. Verified by blocking
+    `tiles.mapterhorn.com` in the browser: the hillshade still renders. A third
+    option is Re:Earth Terrain, which serves the same Mapterhorn DEM as Terrarium
+    from its own edge cache.
+  - **Coverage is learned per cell, not probed per tile.** z13/z14 exist only over
+    national DEMs, and the provider publishes no coverage metadata, so the pipeline
+    probes once per **z12 cell** (at most two requests) and remembers the answer
+    for the session. Tiles in the same cell then go straight to the right level, and
+    exact 404s are cached too. Because the probes happen inside the worker, they no
+    longer reach the page console either — a 6×-throttled z14 viewport over the
+    Himalaya now logs **zero** console errors.
+  - **Every requested zoom gets a real tile** (`src/map/demPipeline.ts`). MapLibre's slope
     maths divides by the tile ID's zoom, so an *overzoomed* tile has its slopes
     multiplied by 2^(camera − tile): steep faces saturate to solid shadow and the
     paint exaggeration has to be dropped to compensate, which is what flattened the
@@ -184,8 +198,25 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     packs one number into R, G and B, so interpolating the channels separately puts
     a 256 m notch wherever the carry lands — rendered as hillshade, that artifact
     drew a hard contour line every 256 m across the whole view. Decode → bilinear →
-    one clamped unsharp pass → re-encode. The outer ring is left unsharpened so
-    adjacent tiles do not disagree at the seam.
+    one clamped unsharp pass → re-encode. Each tile is computed with one pixel of
+    apron from the parent grid and cropped afterwards, so the tile next door
+    samples the same values across the shared edge; without the apron the
+    sharpening pass has a one-sided neighbourhood at the border and every tile edge
+    showed as a hairline step in the hillshade.
+  - **The pipeline runs in a worker.** Measured on a 390×844 phone viewport at 6×
+    CPU throttle, z14 over the Himalaya, ten synthesized tiles: run inline, the
+    resample cost **717 ms of blocking compute and 22 long tasks totalling 4234 ms**
+    for one viewport. `dem.worker.ts` (inlined via `?worker&inline`, so the
+    single-file build stays self-contained) now does fetch → decode → resample →
+    encode, and the main thread only receives an `ImageBitmap`: **0 ms of DEM work
+    on the main thread**, with 120 ms mean and 206 ms max per resampled tile spent
+    in the worker (≈20–34 ms at normal speed). Relief being on costs the frame time
+    nothing: panning that viewport with the hillshade layer removed measured a
+    262 ms median frame against 258 ms with it, so what limits frames at z13–z14 is
+    MapLibre's own style and tile work, not the DEM path. Concurrency is capped at 6
+    tiles in flight, a tile that never arrives degrades to a blank tile instead of a
+    hole, and if a worker cannot be created the pipeline falls back to running on
+    the main thread.
   - **`hillshade-method: "standard"`** (MapLibre's own curve) rather than `basic`:
     basic clamps at full highlight/shadow, so a 1–5 m LiDAR DEM turns into black
     valleys and blown-out pale plateaus at deep zoom. `standard` keeps the mid tones
@@ -232,8 +263,9 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     noise (12.7 s vs 12.5 s). Treat it as cheap insurance, not a guarantee.
   - `refreshExpiredTiles: false` — OSM tiles carry a short expiry, and refetching
     them mid-zoom is what puts holes in a range you are diving into.
-  - `maxTileCacheSize: 160`, `renderWorldCopies: false` — keep several zoom levels
-    resident, and never request the globe twice.
+  - `maxTileCacheSize: 48`, `renderWorldCopies: false` — keep a couple of zoom
+    levels resident, never request the globe twice, and bound the DEM tiles' GPU
+    memory (see the limits below).
   - Line layers have no cross-fade of their own, so roads fade in over roughly one
     zoom level via `line-opacity` ramps (`style.ts`).
   - Marker dots and both label tiers fade in over a zoom range rather than popping
@@ -562,8 +594,15 @@ the line layer.
   the next step if that matters more than a keyless setup.
 - **DEM tiles are heavier than before.** 512 px Mapterhorn tiles are ~150–200 kB
   each against ~120 kB for the old 256 px AWS tiles; a deep view is ~2 MB of
-  elevation. `maxTileCacheSize` was cut from 160 to 72 to keep the GPU texture
-  budget (1 MB DEM + 1 MB hillshade normal per tile) in check.
+  elevation. Each live tile also holds 2 MiB of GPU texture (1 MB DEM + 1 MB
+  hillshade normal): a measured phone viewport at z14 keeps 10–17 live, i.e.
+  20–34 MiB, and `maxTileCacheSize: 48` bounds the worst case at 96 MiB.
+- **The fallback is coarser.** AWS Terrarium is a ~150 m surface resampled to the
+  requested zoom: relief stays on screen, but a range that was crisp on Mapterhorn
+  looks soft until the primary recovers.
+- **A few provider probes still 404.** Bounded to at most two per z12 cell per
+  session, in the worker rather than the page — not zero, because neither provider
+  publishes per-region coverage.
 - **Attribution is page text**, not MapLibre's `AttributionControl` (which collided
   with the filter pill). Credits appear under the globe and in every footer.
 

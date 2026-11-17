@@ -1,5 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
-import { DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem";
+import { DEM_ATTRIBUTION, DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem";
 
 /**
  * Terrane's basemap. A "deep water" palette rather than a flat black one:
@@ -21,8 +21,7 @@ export const TERRAIN_SOURCE = {
   encoding: "terrarium" as const,
   tileSize: DEM_TILE_SIZE,
   maxzoom: DEM_MAX_ZOOM,
-  attribution:
-    '<a href="https://mapterhorn.com/attribution">© Mapterhorn</a> · Copernicus DEM',
+  attribution: DEM_ATTRIBUTION,
 };
 
 export function createStyle(): StyleSpecification {
