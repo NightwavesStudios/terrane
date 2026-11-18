@@ -4,6 +4,7 @@ import type { GlobeFocus, KitPick, ReachPick } from "../map/Globe";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import REACH_META from "../data/reach-meta.json";
 import POI_STATS from "../data/poi-stats.json";
+import { rankPlaces } from "../data/rank";
 
 /* MapLibre is by far the biggest thing this app ships (~1 MB), and it is only
    needed by the globe. Loading it through `lazy` lets the header, the filters
@@ -65,8 +66,12 @@ export default function Home() {
   const home = useHome();
   const scope = useMemo(() => homeScope(home), [home]);
 
+  /* Written-up and generated places go to the map as one set, ranked by how major
+     they are rather than by which file they came from: the first label pass is two
+     names per country, so a country's written entries no longer out-vote a summit
+     that was only ever an atlas row. */
   const places = useMemo(
-    () => PLACES.filter((p) => matches(p, filter, scope)),
+    () => rankPlaces(PLACES.filter((p) => matches(p, filter, scope))),
     [filter, scope],
   );
   const place = selected ? bySlug.get(selected) : undefined;
@@ -199,7 +204,7 @@ export default function Home() {
           >
             ×
           </button>
-          <div className="pick-art pick--reach">
+          <div className="pick-art pick-art--reach">
             <span
               className="pick-reach-dot"
               style={{ background: reachColour(reachPick.kind) }}
