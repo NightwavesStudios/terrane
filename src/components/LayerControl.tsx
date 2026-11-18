@@ -28,8 +28,6 @@ export const DEFAULT_LAYERS: LayerState = {
   camp: true,
 };
 
-/* One row per thing you can see. Land and water are deliberately absent: they are
-   the base of the map, and a switch that removes the ocean is not a layer switch. */
 /* The key. Half of it is text for the atlas dots, half is the same pictograms the
    map draws — the images come from campIcon.ts, so a change to a shape here and a
    change on the map can never disagree. */
@@ -64,33 +62,48 @@ const PLACE_KEY: { label: string; color: string }[] = [
   { label: "Hidden gem", color: "#c99bff" },
 ];
 
-const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
+/* The map's own furniture: terrain, lines and labels. Separate from the pins
+   because turning off a road is not the same decision as turning off a campsite. */
+const BASE_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
   { key: "contours", label: "Contours", note: "From zoom 10" },
   { key: "trails", label: "Footpaths", note: "Dashed lines and names, from zoom 12" },
   { key: "roads", label: "Roads", note: "Tracks and roads, from zoom 10" },
   { key: "borders", label: "Borders", note: "Country and state lines" },
   { key: "labels", label: "Map labels", note: "Countries, cities, water" },
-  { key: "places", label: "Places", note: "The 1,288 written-up markers" },
+];
+
+/* Every point on the map, in one list, ordered by priority: what you would keep if
+   you could only keep one thing, down to what you would drop first. They are
+   sub-rows of one switch because they answer one question — "how much do I want to
+   see out here" — and four separate checkboxes pretended they were unrelated. */
+const POINT_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
+  {
+    key: "places",
+    label: "The named places",
+    note: "Written-up and generated together, ranked by how major they are — two names per country first, the rest as you zoom",
+  },
   {
     key: "reach",
-    label: "More places",
-    note: "Peaks, lakes, parks and coasts worldwide — the famous ones first",
+    label: "The famous long tail",
+    note: "Peaks, lakes, parks and coasts that have a Wikipedia entry, the most-covered first",
   },
   {
     key: "poi",
-    label: "World POIs",
+    label: "Everything mapped",
     /* The count is read from the harvest report, not typed: the switch says how
        much there is to find, and a stale number here would be a lie about the
        coverage on the map. */
-    note: `${POI_STATS.total.toLocaleString("en-US")} camps, huts, shelters, water points, car parks and viewpoints from ${POI_STATS.extracts} OpenStreetMap extracts — loaded as you pan`,
+    note: `${POI_STATS.total.toLocaleString("en-US")} camps, huts, shelters, water points, viewpoints, car parks and boards from ${POI_STATS.extracts} OpenStreetMap extracts — camps and water at regional zoom, car parks and toilets only when you are on the street`,
   },
   {
     key: "camp",
-    label: "Camps near places",
-    note: "Click any pin to focus it — nearest first, the rest as you zoom",
+    label: "Camps around written-up places",
+    note: "The nearest first, the rest as you zoom — lowest priority, kept last",
   },
 ];
+
+const POINT_KEYS = POINT_ROWS.map((r) => r.key);
 
 export default function LayerControl({
   value,
@@ -118,11 +131,21 @@ export default function LayerControl({
     };
   }, [open]);
 
-  const active = ROWS.filter((r) => value[r.key]).length;
+  const pointsOn = POINT_KEYS.filter((k) => value[k]).length;
+  const allPoints = pointsOn === POINT_KEYS.length;
+  const total = BASE_ROWS.length + 1 + POINT_ROWS.length;
+  const active =
+    BASE_ROWS.filter((r) => value[r.key]).length + (allPoints ? 1 : 0) + pointsOn;
 
-  /* Drawn the first time the panel opens, and not again: five canvases per render
-     would be work with nothing to show for it, and a closed panel should not pay
-     to paint a key nobody is looking at. */
+  function setPoints(on: boolean) {
+    const next = { ...value };
+    for (const key of POINT_KEYS) next[key] = on;
+    onChange(next);
+  }
+
+  /* Drawn the first time the panel opens, and not again: canvases per render would
+     be work with nothing to show for it, and a closed panel should not pay to paint
+     a key nobody is looking at. */
   const kitSrc = useMemo(
     () =>
       (open
@@ -144,13 +167,13 @@ export default function LayerControl({
       >
         Layers
         <span className="layers-count">
-          {active}/{ROWS.length}
+          {active}/{total}
         </span>
       </button>
 
       {open && (
         <div className="layers-panel" role="group" aria-label="Map layers">
-          {ROWS.map((row) => (
+          {BASE_ROWS.map((row) => (
             <label className="layers-row" key={row.key}>
               <input
                 type="checkbox"
@@ -163,6 +186,42 @@ export default function LayerControl({
               </span>
             </label>
           ))}
+
+          <label className="layers-row">
+            <input
+              type="checkbox"
+              checked={allPoints}
+              onChange={() => setPoints(!allPoints)}
+              aria-controls="layers-points"
+            />
+            <span className="layers-text">
+              <span className="layers-label">Places &amp; pins</span>
+              <span className="layers-note mono">
+                {allPoints
+                  ? "Everything below, highest priority first"
+                  : pointsOn === 0
+                    ? "Hidden — tick to show the map's pins again"
+                    : `${pointsOn} of ${POINT_ROWS.length} priorities on`}
+              </span>
+            </span>
+          </label>
+
+          <div id="layers-points" style={{ paddingLeft: 22 }}>
+            {POINT_ROWS.map((row) => (
+              <label className="layers-row" key={row.key}>
+                <input
+                  type="checkbox"
+                  checked={value[row.key]}
+                  onChange={() => onChange({ ...value, [row.key]: !value[row.key] })}
+                />
+                <span className="layers-text">
+                  <span className="layers-label">{row.label}</span>
+                  <span className="layers-note mono">{row.note}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+
           <div className="layers-key">
             <span className="layers-key-title mono">Key</span>
             {PLACE_KEY.map((p) => (
