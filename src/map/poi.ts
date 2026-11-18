@@ -176,15 +176,22 @@ function toFeature(row: Row, meta?: Record<string, string>): Feature<Point> {
   };
 }
 
+/* Copy with a loop, never `push(...cell)`: a cell over the Alps holds 276,000
+   features, and spreading that into a call is a "Maximum call stack size
+   exceeded" the first time somebody pans to Innsbruck. */
 function collection(): FeatureCollection<Point> {
   const features: Feature<Point>[] = [];
-  for (const cell of loaded.values()) features.push(...cell);
+  for (const cell of loaded.values()) {
+    for (let i = 0; i < cell.length; i += 1) features.push(cell[i]);
+  }
   return { type: "FeatureCollection", features };
 }
 
 function parkingCollection(): FeatureCollection<Point> {
   const features: Feature<Point>[] = [];
-  for (const cell of parkingLoaded.values()) features.push(...cell);
+  for (const cell of parkingLoaded.values()) {
+    for (let i = 0; i < cell.length; i += 1) features.push(cell[i]);
+  }
   return { type: "FeatureCollection", features };
 }
 
@@ -197,27 +204,67 @@ function pushToMap(map: MlMap) {
   park?.setData?.(parkingCollection());
 }
 
-function evictIfNeeded() {
+/* A hard ceiling, only reached when every cell on screen is a giant: past it the
+   budget wins and a refetch is the lesser evil. */
+const HARD_FEATURES = 900_000;
+const PARKING_HARD_FEATURES = 400_000;
+
+/**
+ * Drop whole cells until the source fits its budget — but never a cell that is on
+ * screen. Evicting a visible cell is self-defeating: the next `moveend` sees it is
+ * missing, asks for the same 11 MB again, and the map spends the afternoon
+ * downloading the Alps. Off-screen cells are the ones nobody is looking at.
+ */
+function evictIfNeeded(visibleKeys: Set<string>) {
   while (total > MAX_FEATURES && loaded.size > 1) {
-    const [key, features] = loaded.entries().next().value as [string, Feature<Point>[]];
-    loaded.delete(key);
+    let victim: string | undefined;
+    for (const key of loaded.keys()) {
+      if (!visibleKeys.has(key)) {
+        victim = key;
+        break;
+      }
+    }
+    if (!victim) {
+      if (total <= HARD_FEATURES) return;
+      victim = loaded.keys().next().value as string;
+    }
+    const features = loaded.get(victim) as Feature<Point>[];
+    loaded.delete(victim);
     total -= features.length;
   }
 }
 
+function evictParkingIfNeeded(visibleKeys: Set<string>) {
+  while (parkingTotal > PARKING_MAX_FEATURES && parkingLoaded.size > 1) {
+    let victim: string | undefined;
+    for (const key of parkingLoaded.keys()) {
+      if (!visibleKeys.has(key)) {
+        victim = key;
+        break;
+      }
+    }
+    if (!victim) {
+      if (parkingTotal <= PARKING_HARD_FEATURES) return;
+      victim = parkingLoaded.keys().next().value as string;
+    }
+    const features = parkingLoaded.get(victim) as Feature<Point>[];
+    parkingLoaded.delete(victim);
+    parkingTotal -= features.length;
+  }
+}
+
+/* "match" wants label/icon pairs and then a fallback, so every kind but the last
+   is listed and the last one covers anything unknown. */
 const iconExpression = [
   "match",
   ["get", "k"],
-  0, ICONS[0],
-  1, ICONS[1],
-  2, ICONS[2],
-  3, ICONS[3],
-  4, ICONS[4],
-  5, ICONS[5],
-  6, ICONS[6],
-  ICONS[7],
+  ...ICONS.slice(0, -1).flatMap((icon, kind) => [kind, icon]),
+  ICONS[ICONS.length - 1],
 ] as unknown as ExpressionSpecification;
 
+/* One layer per kind, and one kind per layer: naming them here is what keeps the
+   legend, the pins and the picker in step. Every entry needs a layer — a kind that
+   is listed but never added is downloaded, counted and invisible. */
 const LAYER_FOR_KIND = [
   "poi-camp",
   "poi-hut",
@@ -227,6 +274,11 @@ const LAYER_FOR_KIND = [
   "poi-view",
   "poi-picnic",
   "poi-pass",
+  "poi-caravan",
+  "poi-toilets",
+  "poi-shower",
+  "poi-info",
+  "poi-trailhead",
 ];
 
 /** Adds the (empty) POI source and its layers. Data arrives per cell. */
@@ -346,6 +398,8 @@ export function refreshPoi(map: MlMap) {
     }
   }
 
+  const visibleKeys = new Set(visible.map(([x, y]) => cellKey(POI_CELL_ZOOM, x, y)));
+
   const wanted = visible.filter(([x, y]) => {
     const key = cellKey(POI_CELL_ZOOM, x, y);
     if (loaded.has(key) || pending.has(key)) return false;
@@ -370,7 +424,7 @@ export function refreshPoi(map: MlMap) {
         misses.delete(key);
         loaded.set(key, features);
         total += features.length;
-        evictIfNeeded();
+        evictIfNeeded(visibleKeys);
         pushToMap(map);
       })
       .catch((err: unknown) => {
@@ -407,14 +461,7 @@ export function refreshPoi(map: MlMap) {
           parkingMisses.delete(key);
           parkingLoaded.set(key, features);
           parkingTotal += features.length;
-          while (parkingTotal > PARKING_MAX_FEATURES && parkingLoaded.size > 1) {
-            const [oldKey, old] = parkingLoaded.entries().next().value as [
-              string,
-              Feature<Point>[],
-            ];
-            parkingLoaded.delete(oldKey);
-            parkingTotal -= old.length;
-          }
+          evictParkingIfNeeded(visibleKeys);
           pushToMap(map);
         })
         .catch((err: unknown) => {
