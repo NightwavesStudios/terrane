@@ -93,6 +93,10 @@ export default function Home() {
     nearPlace && pinned
       ? kmApart(pinned.lat, pinned.lon, nearPlace.lat, nearPlace.lon)
       : null;
+  /* The mapped facts behind a world POI (fee, capacity, what is there) arrive
+     with the picking code in `src/map/Globe.tsx`. Read through the optional shape
+     so the card builds either way, and stay silent when a pin has none. */
+  const kitNote = (kitPick as (KitPick & { note?: string }) | null)?.note;
 
   /* Escape is the way out of every overlay here, so it has to work on a pin too. */
   useEffect(() => {
@@ -195,7 +199,7 @@ export default function Home() {
           >
             ×
           </button>
-          <div className="pick-art pick-art--reach">
+          <div className="pick-art pick--reach">
             <span
               className="pick-reach-dot"
               style={{ background: reachColour(reachPick.kind) }}
@@ -249,7 +253,7 @@ export default function Home() {
                 : ""}
             </p>
             <h2>{kitPick.name || `Unnamed ${kitPick.label.toLowerCase()}`}</h2>
-            {kitPick.note ? <p className="mono pick-meta">{kitPick.note}</p> : null}
+            {kitNote ? <p className="mono pick-meta">{kitNote}</p> : null}
             <p className="mono pick-meta">
               {nearKm !== null ? `${nearKm < 10 ? nearKm.toFixed(1) : Math.round(nearKm)} km from ${nearPlace?.name}` : ""}
             </p>
