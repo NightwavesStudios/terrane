@@ -1985,3 +1985,14 @@ button {
   color: var(--ink-3);
   max-width: 56ch;
 }
+
+.layers-fixed {
+  margin: 12px 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(237, 239, 245, 0.08);
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.32);
+}

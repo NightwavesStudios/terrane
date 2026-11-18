@@ -4,7 +4,8 @@ export interface LayerState {
   relief: boolean;
   contours: boolean;
   trails: boolean;
-  detail: boolean;
+  roads: boolean;
+  borders: boolean;
   labels: boolean;
   places: boolean;
 }
@@ -13,18 +14,22 @@ export const DEFAULT_LAYERS: LayerState = {
   relief: true,
   contours: false,
   trails: true,
-  detail: true,
+  roads: true,
+  borders: true,
   labels: true,
   places: true,
 };
 
+/* One row per thing you can see. Land and water are deliberately absent: they are
+   the base of the map, and a switch that removes the ocean is not a layer switch. */
 const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
   { key: "contours", label: "Contours", note: "From zoom 10" },
-  { key: "trails", label: "Hiking trails", note: "Dashed footpaths, from zoom 12" },
-  { key: "detail", label: "Roads & borders", note: "Access and boundaries" },
-  { key: "labels", label: "Place labels", note: "Names as you zoom" },
-  { key: "places", label: "Places", note: "Peaks, parks, landmarks" },
+  { key: "trails", label: "Footpaths", note: "Dashed lines and names, from zoom 12" },
+  { key: "roads", label: "Roads", note: "Tracks and roads, from zoom 10" },
+  { key: "borders", label: "Borders", note: "Country and state lines" },
+  { key: "labels", label: "Map labels", note: "Countries, cities, water" },
+  { key: "places", label: "Places", note: "Markers and names for peaks, parks" },
 ];
 
 export default function LayerControl({
@@ -84,6 +89,9 @@ export default function LayerControl({
               </span>
             </label>
           ))}
+          <p className="layers-fixed mono">
+            Land, water and rivers are always drawn
+          </p>
         </div>
       )}
     </div>

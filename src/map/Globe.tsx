@@ -91,43 +91,33 @@ interface Props {
   layers?: LayerState;
 }
 
-/* Which layers answer to which switch. Street-level furniture (roads, borders,
-   landcover, water) travels together as "detail". */
+/* Which layers answer to which switch.
+
+   Grouped by what a person is looking at, not by what the style happens to call
+   them. The old split had one "Roads & borders" switch that also owned landcover
+   and water — turn it off and the ocean vanished with the roads, which reads as a
+   broken map rather than as a hidden layer.
+
+   Two consequences worth keeping:
+   - **The base is not a switch.** Land cover and water are always drawn; there is
+     no state in which the globe is better off without them.
+   - **A place owns its labels.** Toggling markers off used to leave the peak names
+     floating over nothing, because those labels lived with the map labels. */
 const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   relief: ["relief-hillshade"],
   contours: ["contours-minor", "contours-major"],
   trails: ["trails-casing", "trails-path", "trails-label"],
-  detail: [
-    "landcover-wood",
-    "landcover-grass",
-    "landcover-farmland",
-    "landcover-ice",
-    "landcover-rock",
-    "landcover-sand",
-    "landuse-residential",
-    "water",
-    "waterway",
-    "water-label",
-    "boundary-country",
-    "boundary-state",
-    "road-casing",
-    "road-minor",
-    "road-major",
-    "road-highway",
-  ],
-  labels: [
-    "label-country",
-    "label-state",
-    "label-city",
-    "places-label-top",
-    "places-label",
-  ],
+  roads: ["road-casing", "road-minor", "road-major", "road-highway"],
+  borders: ["boundary-country", "boundary-state"],
+  labels: ["label-country", "label-state", "label-city", "water-label"],
   places: [
     "places-heat",
     "places-halo",
     "places-dot",
     "places-curated",
     "places-selected",
+    "places-label-top",
+    "places-label",
   ],
 };
 

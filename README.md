@@ -588,14 +588,24 @@ selection ring follows and the card opens in place. Arrow keys move the cursor,
 campsites are records in the geographic database planned for Phase 2 and are not
 searchable yet.
 
-**Layers** — six independent switches: `Relief` (hillshade), `Contours`,
-`Hiking trails`, `Roads & borders`, `Place labels`, `Places`. They map to layer
-groups in `Globe.tsx` (`LAYER_GROUPS`); anything created at runtime (the hillshade,
-the contour layers) re-reads the current switches after it is added, so a toggle
-never gets lost to a race.
+**Layers** — seven independent switches: `Relief` (hillshade), `Contours`,
+`Footpaths`, `Roads`, `Borders`, `Map labels`, `Places`. They map to layer groups in
+`Globe.tsx` (`LAYER_GROUPS`); anything created at runtime (the hillshade, the contour
+layers) re-reads the current switches after it is added, so a toggle never gets lost
+to a race.
 
-**Clicking a place** flies all the way down to `PLACE_FOCUS_ZOOM` (z13.2) instead of
-stopping at a regional view: the point of the click is the place, and z13 is where
+The grouping is by what a person sees, not by what the style calls things. The first
+version had a single `Roads & borders` switch that also owned landcover and water:
+turning it off deleted the ocean along with the roads, which reads as a broken map
+rather than as a hidden layer. Two rules came out of that:
+
+- **The base is not a switch.** Land cover, water, rivers and built-up areas are
+  always drawn; there is no state where the globe is better off without them.
+- **A place owns its labels.** Peak and park names used to live with the map labels,
+  so turning the markers off left their names floating over empty terrain.
+
+**Clicking a place** flies all the way down to `PLACE_FOCUS_ZOOM` (z14.2) instead of
+stopping at a regional view: the point of the click is the place, and z13–14 is where
 the hillshade, the contours and the trails are worth looking at. Clicking again from
 a closer camera leaves the zoom alone, and the card opens in place with the
 selection ring on the summit.
