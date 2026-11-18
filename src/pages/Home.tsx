@@ -3,6 +3,7 @@ import { worldZoom } from "../map/camera";
 import type { GlobeFocus, KitPick, ReachPick } from "../map/Globe";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import REACH_META from "../data/reach-meta.json";
+import POI_STATS from "../data/poi-stats.json";
 
 /* MapLibre is by far the biggest thing this app ships (~1 MB), and it is only
    needed by the globe. Loading it through `lazy` lets the header, the filters
@@ -165,8 +166,15 @@ export default function Home() {
         {PLACES.length.toLocaleString()} written up · {(REACH_META.famous + REACH_META.more).toLocaleString()} more as you zoom · {COUNTRY_COUNT} countries ·
         drag to spin, click a point
       </p>
+      {/* What the harvest found, above the licences: the number is read from the
+          coverage report (`npm run poi:stats`), never typed, so it cannot drift
+          away from the cells the map is actually serving. */}
       <p className="globe-credits mono">
-        © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
+        {POI_STATS.total.toLocaleString("en-US")} outdoor places · {POI_STATS.files.toLocaleString("en-US")} files ·
+        {" "}
+        {POI_STATS.extracts} country extracts
+        <br />
+        © OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
       </p>
 
       <div className="globe-filters">
@@ -241,6 +249,7 @@ export default function Home() {
                 : ""}
             </p>
             <h2>{kitPick.name || `Unnamed ${kitPick.label.toLowerCase()}`}</h2>
+            {kitPick.note ? <p className="mono pick-meta">{kitPick.note}</p> : null}
             <p className="mono pick-meta">
               {nearKm !== null ? `${nearKm < 10 ? nearKm.toFixed(1) : Math.round(nearKm)} km from ${nearPlace?.name}` : ""}
             </p>
