@@ -77,8 +77,7 @@ export default function Home() {
         drag to spin, click a point
       </p>
       <p className="globe-credits mono">
-        © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Trails: Waymarked
-        Trails · Data: Wikidata
+        © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
       </p>
 
       <div className="globe-filters">

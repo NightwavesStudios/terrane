@@ -61,18 +61,7 @@ export const MAP_STYLE: StyleSpecification = {
        attempts to declare hillshade statically: the layer was fine, the missing
        source was not. */
     relief: { ...TERRAIN_SOURCE, tiles: [...TERRAIN_SOURCE.tiles] },
-    /* Marked hiking routes, as a transparent raster overlay: OSM `route=hiking`
-       relations rendered by Waymarked Trails, coloured by difficulty with their
-       route shields. The OpenMapTiles schema carries paths but not the routes
-       themselves, so this is the keyless way to get real trails on the map. */
-    trails: {
-      type: "raster",
-      tiles: ["https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      maxzoom: 17,
-      attribution:
-        'Trails: © <a href="https://waymarkedtrails.org">Waymarked Trails</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    },
+
     openmaptiles: {
       type: "vector",
       url: "https://tiles.openfreemap.org/planet",
@@ -343,81 +332,60 @@ export const MAP_STYLE: StyleSpecification = {
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
       },
     },
-    {
-      id: "trails-hiking",
-      type: "raster",
-      source: "trails",
-      /* Trails only mean something once you are near the ground: from world view
-         the route lines are a web of colour across whole ranges. Dense areas
-         (the Dolomites carry dozens of marked routes per screen) are why the ramp
-         is deliberately faint while a whole range is in frame — the overlay has
-         to stay behind the relief until the camera is close enough that you are
-         looking at one valley, then it can lead. */
-      minzoom: 10.2,
-      paint: {
-        "raster-opacity": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10.2,
-          0,
-          11.8,
-          0.42,
-          13.2,
-          0.8,
-        ],
-        "raster-resampling": "linear",
-        "raster-fade-duration": 250,
-        /* The provider draws its routes for a light basemap: pure primary red and
-           violet at full brightness, plus pale route shields, which read as a
-           warning overlay on this palette. Pulling saturation and the top of the
-           brightness range down turns those primaries into terracotta and a dull
-           violet that sit with the moss and the hillshade, and dims the shields so
-           they annotate instead of glare.
+    /* Footpaths, drawn from the basemap's own vector tiles rather than a raster
+       overlay. Two things follow from that, both wanted:
 
-           Deliberately gentler at regional zoom: there the layer is already at low
-           opacity, so muting a colour that is barely there just erases the trail.
-           The hue shift is small on purpose — the colours code difficulty (red
-           hiking, orange mountain, violet alpine) and a big rotation would blur
-           red into orange. */
-        "raster-saturation": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10.2,
-          -0.05,
-          12.5,
-          -0.22,
-          14,
-          -0.4,
+       - **No markers, no shields.** The previous overlay baked grey pictogram
+         markers and numbered route badges into the tiles; they cannot be restyled
+         or removed, and they were the unreadable part.
+       - **Trails read as trails.** A dashed warm line with a dark casing is a
+         different species from a solid cased slate road, so the two never get
+         confused.
+
+       The OpenMapTiles schema carries the geometry of every path but not the
+       names of long-distance route relations — those only come from Overpass,
+       which measured 33 s and 1.2 MB for one small viewport cell (see README). */
+    {
+      id: "trails-casing",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 11.4,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["path", "footway", "steps", "pedestrian"]],
+      ],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#04090e",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 1.3, 14, 3.2],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.2, 0.8],
+      },
+    },
+    {
+      id: "trails-path",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 11.4,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["path", "footway", "steps", "pedestrian"]],
+      ],
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: {
+        "line-color": [
+          "match",
+          ["get", "subclass"],
+          "steps",
+          "#e0c08a",
+          "#c9a06b",
         ],
-        "raster-hue-rotate": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10.2,
-          3,
-          14,
-          7,
-        ],
-        "raster-brightness-max": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10.2,
-          1,
-          14,
-          0.84,
-        ],
-        "raster-contrast": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10.2,
-          0,
-          14,
-          0.06,
-        ],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 0.7, 14, 1.9],
+        "line-dasharray": [2.4, 1.5],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.2, 1],
       },
     },
     {

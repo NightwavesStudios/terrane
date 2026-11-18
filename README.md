@@ -594,33 +594,46 @@ the line layer.
 
 ### Hiking trails
 
-A raster overlay from [Waymarked Trails](https://waymarkedtrails.org) — OSM
-`route=hiking` relations drawn coloured by difficulty, with the route shields —
-added as the `trails` source and the `trails-hiking` layer in `style.ts`. The
-OpenMapTiles vector schema the basemap uses carries paths but not the routes over
-them, so this is the keyless way to get real trails: transparent PNGs, CORS-open,
-256 px, no key.
+Footpaths come from the **basemap's own vector tiles** — `transportation` features
+with `class` in `path`, `footway`, `steps`, `pedestrian` — drawn as `trails-casing`
+and `trails-path` in `style.ts`, from z11.4 up.
 
-On the other side of the same problem, the drivable network got its own visual
-language: a `road-casing` line under the roads, neutral slate instead of blue-grey,
-and a narrower `road-minor` — roads are solid cased ribbons, trails are coloured
-routes with shields, and neither reads as the other.
+That replaced a Waymarked Trails raster overlay (`route=hiking` relations rendered
+with difficulty colours and numbered shields), for two reasons. The overlay baked
+grey pictogram markers and route badges into its PNGs, where they could be neither
+restyled nor removed, and they were the part people could not read. Vector paths are
+styled instead of blended: a dashed warm line (`#c9a06b`, `#e0c08a` for steps) with
+a dark casing, over a solid cased slate road, so a trail and a road are different
+species at a glance rather than two thin lines to squint at.
 
-It fades in from z10.2 and stays faint while a whole range is in frame (0.42 by
-z11.8, 0.8 past z13.2) — over somewhere like the Dolomites a full-strength overlay
-is a web of coloured routes that buries the relief the map exists for. The layer
-sits above the hillshade and roads but below every label, so route shields never
-cover a place name. The tiles are drawn for a light basemap — pure primary red and violet at full
-brightness, with pale shields — which on this palette read as a warning overlay, so
-the layer carries a zoom-ramped raster treatment (`style.ts`): saturation from −0.05
-at z10.2 to −0.4 at z14, `raster-brightness-max` from 1 to 0.84, and a small 3° → 7°
-hue shift. That turns the primaries into terracotta and dull violet and dims the
-shields to annotation weight. The ramp is gentle at regional zoom on purpose: there
-the layer is already at 0.42 opacity, so muting a colour that is barely there just
-erases the trail. The hue shift stays small because the colours code difficulty (red
-hiking, orange mountain, violet alpine), and a larger rotation would blur red into
-orange. The grey pictogram markers are part of the provider's tiles and cannot be
-styled individually — only dimmed with the rest of the overlay.
+On the other side of the same problem the drivable network got working: a
+`road-casing` line beneath the roads, neutral slate instead of blue-grey, and a
+narrower `road-minor`.
+
+#### Why not "proper" OSM route relations
+
+Route relations carry what the paths do not: the *names* (Tour du Cervin, WHR) and
+the difficulty grading. Getting them means Overpass, and Overpass does not fit a
+static client. Measured for a 0.05° × 0.06° box over Zermatt:
+
+| | |
+|---|---|
+| Elements returned | 21 named relations |
+| Payload (`out geom`, full member geometry) | **1.2 MB** |
+| Latency, `overpass-api.de` | **32.8 s** |
+| Latency, `overpass.kumi.systems` | no response in 40 s |
+| Fair use | ~2 concurrent slots per IP, shared globally |
+
+A viewport-sized query therefore lands a second or more *per pan* in the best case
+and half a minute in this one, for a megabyte of JSON that has to be parsed and
+tessellated. Every pan would also spend someone else's shared quota. Making it
+interactive needs a cache in front of Overpass — a server or a build step that
+pre-fetches regions — which this app deliberately does not have. The path layer is
+the honest 90%: geometry and styling of every trail, no names.
+
+What it does not have: route names, difficulty colouring, and any trail at all below
+z11.4 (OpenMapTiles starts emitting paths around z12). The layer fades in over
+z11.4–12.2 and sits above the hillshade and roads but below every label.
 
 ---
 
@@ -651,6 +664,11 @@ styled individually — only dimmed with the rest of the overlay.
   hillshade normal): a measured phone viewport at z14 keeps 10–17 live, i.e.
   20–34 MiB. Cached (off-screen) tiles keep only the decoded elevation grid,
   ~1 MiB each, and `maxTileCacheSize: 128` caps how many can accumulate.
+- **The globe projection is part of the regional-zoom cost, but not all of it.**
+  At z11, medians of repeated zooms: **globe 1.0–1.2 fps against mercator 3.1–3.3**.
+  So the projection is worth roughly 3× there — and mercator is still only ~3 fps,
+  which means switching projection would trade the app's whole identity for a
+  problem it does not fix. No relief sharpness was traded for this.
 - **Zooming is engine-bound, and the hillshade is a fixed per-tile tax on it.**
   Settled, the map runs at 60 fps; while the camera moves it is ~8 fps at z14 and
   worse further out (z11 measures 1–2 fps), because MapLibre is re-projecting the

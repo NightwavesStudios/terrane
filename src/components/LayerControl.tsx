@@ -21,7 +21,7 @@ export const DEFAULT_LAYERS: LayerState = {
 const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
   { key: "contours", label: "Contours", note: "From zoom 10" },
-  { key: "trails", label: "Hiking trails", note: "Marked routes, from zoom 10" },
+  { key: "trails", label: "Hiking trails", note: "Dashed footpaths, from zoom 12" },
   { key: "detail", label: "Roads & borders", note: "Access and boundaries" },
   { key: "labels", label: "Place labels", note: "Names as you zoom" },
   { key: "places", label: "Places", note: "Peaks, parks, landmarks" },
