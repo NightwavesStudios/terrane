@@ -4,6 +4,7 @@ import type {
   ExpressionSpecification,
   GeoJSONSource,
   HillshadeLayerSpecification,
+  LayerSpecification,
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -71,7 +72,21 @@ const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
   // Slightly wider range than before: relief on a dark map reads through the
   // top and bottom of the shade, not the middle, so the lit side goes warmer
   // and the shaded side goes deeper. It costs nothing — same tile, same pass.
-  "hillshade-highlight-color": "#61774f",
+  //
+  // The lit colour also decides whether snow can be white. It is drawn over the
+  // snow layer, so a saturated green highlight tints every snowfield moss-green;
+  // it lifts and desaturates past z11.5, where snow actually appears.
+  "hillshade-highlight-color": [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    0,
+    "#61774f",
+    11,
+    "#66784f",
+    16,
+    "#76855e",
+  ],
   "hillshade-shadow-color": "#030b08",
   "hillshade-accent-color": "#05110b",
 };
@@ -104,7 +119,7 @@ interface Props {
    - **A place owns its labels.** Toggling markers off used to leave the peak names
      floating over nothing, because those labels lived with the map labels. */
 const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
-  relief: ["relief-hillshade"],
+  relief: ["relief-hillshade", "relief-snow"],
   contours: ["contours-minor", "contours-major"],
   trails: ["trails-casing", "trails-path", "trails-label"],
   roads: ["road-casing", "road-minor", "road-major", "road-highway"],
@@ -307,6 +322,62 @@ export default function Globe({
               ? "water"
               : FIRST_SYMBOL_LAYER,
         );
+        /* Snow by elevation, from the same DEM the hillshade is reading.
+
+           The OSM ice polygons were the only snow available before, and past
+           z13 they read as what they are: flat shapes with straight-ish edges
+           laid over the terrain, which is why snow never sat in the landscape
+           the way sand and rock do. A `color-relief` layer colours the DEM's own
+           pixels instead, so the snowline follows the terrain and the shading
+           passes through it — no polygon edges to see at any zoom.
+
+           It is inserted just ABOVE the hillshade — below it the lit colour of the
+           shade (a green) tints every snowfield sage, which is what the first
+           attempt at this looked like. Above it the fill stays white and the peak
+           alpha stays under 0.75 so the shading still reads through. The ramp is
+           transparent below ~2100 m: this is a summit treatment, not a global
+           whitening. One more DEM pass over the viewport at trail zooms. */
+        if (!map_.getLayer("relief-snow")) {
+          map_.addLayer(
+            {
+              id: "relief-snow",
+              type: "color-relief",
+              source: "relief",
+              minzoom: 10.5,
+              paint: {
+                "color-relief-opacity": 1,
+                resampling: "linear",
+                "color-relief-color": [
+                  "interpolate",
+                  ["linear"],
+                  ["elevation"],
+                  // A long, shallow ramp on purpose. A short one puts a hard
+                  // edge at one elevation: the snow then reads as a white shape
+                  // pasted on the mountain, because that is what a step function
+                  // looks like from above. Spread over 2.6 km of altitude the
+                  // boundary is a haze that thickens upward, which is how snow
+                  // actually arrives on a face.
+                  2600,
+                  "rgba(228, 238, 241, 0)",
+                  3000,
+                  "rgba(231, 240, 243, 0.1)",
+                  3400,
+                  "rgba(236, 244, 247, 0.26)",
+                  3900,
+                  "rgba(242, 248, 250, 0.44)",
+                  4500,
+                  "rgba(248, 251, 252, 0.58)",
+                  5000,
+                  "rgba(251, 253, 253, 0.68)",
+                ],
+              },
+            } as unknown as LayerSpecification,
+            /* Above the hillshade, below water, roads and labels. `landcover-ice`
+               is the layer the hillshade was inserted before, so anchoring here
+               puts the snow above the shade by construction. */
+            map_.getLayer("landcover-ice") ? "landcover-ice" : undefined,
+          );
+        }
       } catch {
         /* hillshade unavailable */
       }

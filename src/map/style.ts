@@ -240,14 +240,14 @@ export const MAP_STYLE: StyleSpecification = {
       // a summit cap and not the whole frame. The shading still lands on top,
       // because the hillshade is drawn above landcover.
       paint: {
-        // Not paper white: a hint of blue-grey keeps a snowfield reading as part
-        // of the landscape rather than as a cut-out pasted over it.
-        "fill-color": "#e4edef",
-        // Low enough that the hillshade shows through the sheet, which is what
-        // makes snow sit ON a slope instead of floating above it. A glacier edge
-        // meets shaded rock on every side; at 0.5 that edge was a hard white
-        // boundary, and at 0.34 the underlying shading carries through the snow
-        // and the two meet in the same tone.
+        // Have to be white at the polar scales, where this layer is the only ice
+        // there is (sea ice, ice sheets) and no hillshade detail exists to blend
+        // with anyway.
+        "fill-color": "#e6eef0",
+        // Gone by z13.6, on purpose: past that the polygons read as flat geometric
+        // shapes on the mountainside, and `relief-snow` in Globe.tsx has taken over
+        // — real elevation snow, sampled from the DEM, with no polygon edges at
+        // all. Two snow layers would double the white and show both edges.
         "fill-opacity": [
           "interpolate",
           ["linear"],
@@ -255,17 +255,15 @@ export const MAP_STYLE: StyleSpecification = {
           0,
           0.74,
           8,
-          0.46,
-          12,
-          0.3,
-          14,
-          0.34,
-          16,
-          0.4,
+          0.44,
+          11,
+          0.24,
+          12.5,
+          0.12,
+          13.6,
+          0,
         ],
-        // A soft outline of the same tone feathers the boundary by a pixel
-        // instead of ending the polygon on a razor edge.
-        "fill-outline-color": "rgba(228, 237, 239, 0.22)",
+        "fill-outline-color": "rgba(228, 237, 239, 0)",
       },
     },
     {

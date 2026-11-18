@@ -130,7 +130,7 @@ Layer order, bottom to top:
 
 ```
 bg → land-base → landcover-{wood,grass,farmland} → relief-hillshade
-→ landcover-{ice,rock,sand} → landuse-residential → contours-{minor,major}
+→ relief-snow → landcover-{ice,rock,sand} → landuse-residential → contours-{minor,major}
 → water → waterway → boundary-{country,state} → water-label
 → road-{minor,major,highway} → trails-{casing,path} → label-{country,state,city}
 → places-heat → places-halo → places-dot → places-curated
@@ -148,7 +148,23 @@ that split is deliberate in both directions:
   Matterhorn's snowfields looked like shaded moss. Snow has to sit over the shade
   to be white, and at 0.5–0.62 opacity the shading still shows through it.
 
-Snow also cannot be fully opaque: it is drawn over the shade, so opacity is the only thing that lets a snowfield sit on a slope instead of floating above it.
+**Why snow is a DEM layer and not a fill.** It started as a white fill on the
+`landcover class=ice` polygons, and past z13 those read as what they are: flat
+shapes with straight-ish edges laid over the terrain, which is exactly why snow
+never sat in the landscape the way sand and rock do. Two attempts at fixing the
+fill — lowering its opacity, taking it under the hillshade — traded a hard edge for
+a green one, because the hillshade's lit colour is a green and it multiplies
+everything above or below it.
+
+`color-relief` (MapLibre 5.6+, on the DEM source the hillshade already uses) colours
+the DEM's own pixels by elevation, so there is no polygon to see: the snowline is a
+2.4 km ramp starting at 2600 m and the shading reads through at 68 % at most. A
+one-elevation step looks like a pasted shape from above; a long ramp looks like snow
+arriving up a face, which is the whole difference.
+
+Measured cost of the extra DEM pass at z13.2 on a warmed level: 38.8 fps with it,
+38.4 without, 37.7 with it again — inside noise, because the tiles are the same
+tiles the hillshade is already reading.
 
 Splitting the fills at `landcover-ice` satisfies both with one insertion point
 (`FIRST_SYMBOL_LAYER` / `landcover-ice` fallback chain in `Globe.tsx`).
@@ -793,3 +809,11 @@ production, not on shading. The honest next lever is to not produce DEM tiles fo
 levels the camera is only passing through, which needs either a prefetched DEM
 pyramid or a hillshade that can drop out during a gesture (hiding it is worth 41 fps,
 but it also removes the relief exactly when you are looking for it).
+
+### Snow, in short
+
+Snow is elevation, not geometry. `color-relief` over the DEM the hillshade reads,
+from z10.5, white above ~2600 m with a long ramp; the OSM ice polygons handle sea
+ice and the poles and fade out by z13.6 so the two never overlap. The handoff exists
+because a polygon is right at continental scale and wrong at summit scale, where the
+eye is close enough to see that the edge is a straight line.
