@@ -19,79 +19,52 @@ import type { Place } from "../data/places";
 /* The hillshade's look, kept in one named place, because these values are the
    whole difference between a physical landscape and a flat grey sheet.
 
-   `standard` (MapLibre's own curve) rather than `basic`: basic shades the true
-   slope and clamps at full highlight/shadow, so a 1–5 m LiDAR DEM — which has
-   plenty of near-vertical faces — turns into black valleys and blown-out pale
-   plateaus at deep zoom. `standard` eases the slope through a curve whose
-   intensity is the exaggeration below, which keeps the mid tones a mountain
-   flank needs while still reading as a lit surface.
+   Four lights, in one pass. `multidirectional` (MapLibre 5.5+) shades the same
+   DEM from several directions at once, and that is the fix for the blind spot a
+   single light cannot avoid: with the conventional 315° key light, every ridge
+   running roughly northwest–southeast is lit head-on and disappears, and every
+   hollow parallel to the light goes black. Stacking separate hillshade layers at
+   different directions was the old way to fake this, and it drew the DEM once per
+   layer; `multidirectional` is one layer and one draw with four lights in it.
 
-   Exaggeration is a real, zoom-dependent dial — and a subtle one, because
-   `hillshade-exaggeration` is capped at 1 by the style spec. Asking for 1.15 or
-   3.4 (as earlier revisions did) is an invalid paint value: MapLibre rejects the
-   update, so the layer silently keeps whatever it had. Everything here stays in
-   0…1.
+   Each light carries its own highlight and shadow colour, and index `i` in those
+   arrays belongs to index `i` of the direction and altitude arrays. 315° at 45°
+   altitude is the key light — the northwest sun the eye expects — so it gets the
+   brightest highlight and the deepest shadow. The other three sit lower and
+   dimmer: they exist to fill the faces the key light misses, not to compete with
+   it, and four equally weighted lights is what turns relief into grey noise.
 
-   Why the curve holds up at depth instead of collapsing: MapLibre computes
+   `hillshade-exaggeration` and `hillshade-accent-color` are deliberately absent:
+   the style spec applies both to `standard` only, and a paint value the renderer
+   ignores silently is exactly the kind of lie this file spent a revision
+   unlearning. Vertical scale belongs to the terrain mesh now — see `addTerrain`
+   in the bootstrap below — which is the honest place for it.
+
+   Why the shading holds up at depth instead of collapsing: MapLibre computes
    slope per DEM texel against the tile ID's zoom, so an overzoomed tile has its
    slopes multiplied by 2^(camera − tile). The DEM protocol (see ./dem.ts)
    answers every requested zoom with a real 512 px tile, so there is no overscale
-   factor to fight any more and the shading keeps its density all the way in.
-   A small dip at the deepest levels only stops 1–5 m LiDAR noise    from sparkling on snowfields. It stays near 0.85 because deep zoom is where
-   the 30 m global model (outside national coverage) is smoothest and needs the
-   most help to read as terrain.
+   factor to fight and the shading keeps its density all the way in.
 
    The light is anchored to the map, not the viewport, so pitching the camera
-   does not swing shadows across the ridges, and it is a deep green rather than a
-   pale tone so lit slopes keep the ground colour instead of fogging to grey. */
+   does not swing shadows across the ridges, and the tones are deep greens rather
+   than pale ones so lit slopes keep the ground colour instead of fogging to grey. */
 const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
-  "hillshade-method": "standard",
-  "hillshade-exaggeration": [
-    "interpolate",
-    ["linear"],
-    ["zoom"],
-    0,
-    0.58,
-    3,
-    0.72,
-    6,
-    0.84,
-    9,
-    0.9,
-    11,
-    0.9,
-    12,
-    0.88,
-    13,
-    0.86,
-    14,
-    0.88,
-    16,
-    0.9,
-  ],
+  "hillshade-method": "multidirectional",
   "hillshade-illumination-anchor": "map",
-  // Slightly wider range than before: relief on a dark map reads through the
-  // top and bottom of the shade, not the middle, so the lit side goes warmer
-  // and the shaded side goes deeper. It costs nothing — same tile, same pass.
-  //
-  // The lit colour also decides whether snow can be white. It is drawn over the
-  // snow layer, so a saturated green highlight tints every snowfield moss-green;
-  // it lifts and desaturates past z11.5, where snow actually appears.
-  "hillshade-highlight-color": [
-    "interpolate",
-    ["linear"],
-    ["zoom"],
-    0,
-    "#61774f",
-    11,
-    "#66784f",
-    16,
-    "#76855e",
-  ],
-  // Deeper than the first pass: the shade is now under every polygon, so the
-  // dark end of it is what gives rock, forest and snow their separation.
-  "hillshade-shadow-color": "#020806",
-  "hillshade-accent-color": "#05110b",
+  // Northwest key light first, then the three fills: northeast, southwest,
+  // southeast. The pairs opposite each other are what put a lit face on every
+  // aspect, so a valley reads as a valley whichever way it runs.
+  "hillshade-illumination-direction": [315, 45, 225, 135],
+  // The key light high in the sky, the fills lower: a key light near the horizon
+  // throws long black shadows behind every ridge once the camera tilts.
+  "hillshade-illumination-altitude": [45, 30, 45, 30],
+  // Warm-ish greens, brightest on the key light. Snow is drawn ABOVE this layer
+  // (`relief-snow`), so these no longer have to lift to white at high zoom.
+  "hillshade-highlight-color": ["#6f8158", "#5d6e4b", "#5a6a49", "#5d6e4b"],
+  // Near-black but not black: the shade sits under every land polygon, and the
+  // dark end is what gives rock, forest and sand their separation.
+  "hillshade-shadow-color": ["#020806", "#07120c", "#050e09", "#07120c"],
 };
 
 export interface GlobeFocus {
@@ -249,7 +222,9 @@ const geoCache = new WeakMap<Place[], PlacesGeoJSON>();
 
 /** Camera tilt for a given zoom: level at planet scale, oblique over ranges. */
 function pitchForZoom(zoom: number) {
-  return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
+  // Up to 75°, not 55: with a terrain mesh the steep angle is the view that
+  // actually shows height — at 55 a range still reads mostly as its footprint.
+  return Math.max(0, Math.min(75, (zoom - 1.9) * 13));
 }
 
 /** Where a clicked place lands: close enough to read the terrain around it. */
@@ -337,7 +312,10 @@ export default function Globe({
       attributionControl: false,
       dragRotate: true,
       pitchWithRotate: false,
-      maxPitch: 60,
+      /* 75°, not 60. Beyond ~75 the horizon fills with sky and the far half of
+         the viewport is haze, so this is the deepest useful tilt rather than an
+         arbitrary limit. */
+      maxPitch: 75,
 
       /* Zooming is a tile-loading problem before it is anything else. These four
          settings are what stop the map flashing bare land as you go in:
@@ -374,17 +352,35 @@ export default function Globe({
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
     }
 
-    /* Relief comes from one hillshade — no terrain mesh.
+    /* Relief is a hillshade AND a terrain mesh, both reading the one `relief`
+       DEM source — one pyramid, two consumers, rather than the second source the
+       MapLibre 3D examples carry.
 
-       A `setTerrain` mesh was tried and removed: with globe projection it does
-       not displace the surface, but it still fetches a full extra DEM pyramid
-       and re-tessellates on every gesture — all of the cost of 3D, none of the
-       relief.
+       The mesh was removed once because it did nothing: it was set while the
+       projection was still mercator, and terrain attached to a mercator camera
+       that then becomes a globe stays flat, while the extra DEM tiles and the
+       per-gesture re-tessellation were paid for anyway. MapLibre 5 does draw
+       terrain on the globe (support landed in 5.0), so the fix is the order:
+       projection first, then the mesh.
 
-       It cannot live in the static style (a hillshade there fails style
-       parsing) so it is added as soon as the style lands, not on the 2.5 s timer
-       this used to use — that timer meant the planet was flat for the first
-       seconds of every visit, which is exactly the moment relief matters. */
+       Everything here is added as soon as the style lands, not on the 2.5 s
+       timer this used to use — that timer meant the planet was flat for the
+       first seconds of every visit, which is exactly the moment relief matters. */
+    /* The 3D mesh. `exaggeration` is a plain number on purpose: MapLibre 5's
+       TerrainSpecification takes a number, not a zoom expression, so a
+       zoom-dependent dial has to be re-set per zoom rather than declared here.
+       1.25 is enough that a range reads as height at regional zoom without
+       spiking the national LiDAR levels, where the DEM is already detailed and
+       scaling it up further turns a footpath into a wall. */
+    const addTerrain = () => {
+      if (map_.getTerrain()) return;
+      try {
+        map_.setTerrain({ source: "relief", exaggeration: 1.25 });
+      } catch {
+        /* terrain unavailable */
+      }
+    };
+
     const addHillshade = () => {
       if (map_.getLayer("relief-hillshade")) return;
       try {
@@ -475,6 +471,7 @@ export default function Globe({
       } catch {
         /* mercator fallback */
       }
+      addTerrain();
       addHillshade();
       /* The camping pictograms: tents, huts, shelters, water, parking. Drawn into
          canvases here rather than fetched as a sprite sheet, and needed by the
@@ -948,6 +945,8 @@ export default function Globe({
        Put it back if it ever goes missing. */
     const ensureRelief = () => {
       if (booted.current && map_.isStyleLoaded()) {
+        // A style rebuild drops terrain as well as the runtime layers.
+        addTerrain();
         addHillshade();
         addCampIcons(map_);
         ensureKit();
