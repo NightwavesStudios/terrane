@@ -167,7 +167,7 @@ async function requestTile(z: number, x: number, y: number): Promise<TileResult>
     worker?.terminate();
     worker = null;
     failPending();
-    const blank = await localPipeline().flatTile();
+    const blank = await localPipeline().flatTile(z);
     record(z, "flat", performance.now() - started, 0);
     return { bitmap: blank, kind: "flat", computeMs: 0 };
   } finally {
@@ -194,9 +194,4 @@ export function installDemProtocol() {
     return { data: result.bitmap } as unknown as GetResourceResponse<ArrayBuffer>;
   }) as AddProtocolAction;
   addProtocol(DEM_SCHEME, load);
-}
-
-/** Dev-only view of how many jobs are queued, for the perf harness. */
-export function demClientStatus() {
-  return { workerBroken, inFlight, queued: queue.length, pending: pending.size };
 }

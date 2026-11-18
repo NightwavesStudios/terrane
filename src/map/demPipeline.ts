@@ -29,6 +29,23 @@
 
 export const OUT_SIZE = 512;
 
+/**
+ * Deep zooms get the full 512 grid; everything below this one gets 256.
+ *
+ * The hillshade is the most expensive thing on the map while zooming — a zoom
+ * gesture uploads roughly a megabyte of DEM and runs a prepare pass per tile per
+ * level — and the cost is texels, not tiles: a 256 grid is a quarter of them for
+ * the same ground and the same tile count. Slopes stay right because MapLibre's
+ * prepare shader takes metres-per-texel from the image grid (`u_dimension`), not
+ * from the source's `tileSize`, so a coarser image is simply a coarser surface.
+ */
+export const FULL_GRID_ZOOM = 12;
+
+/** Image grid for a tile at `z`, in px. */
+export function gridForZoom(z: number) {
+  return z >= FULL_GRID_ZOOM ? OUT_SIZE : OUT_SIZE / 2;
+}
+
 export type Provider = {
   id: string;
   template: string;
@@ -58,7 +75,6 @@ export const FALLBACK: Provider = {
 
 /** Plain HTTP templates, for consumers that cannot use the MapLibre protocol. */
 export const PRIMARY_HTTP_TILE_URL = PRIMARY.template;
-export const FALLBACK_HTTP_TILE_URL = FALLBACK.template;
 
 /** Extra credit the fallback provider asks for. */
 export const DEM_FALLBACK_ATTRIBUTION = "AWS Terrain Tiles";
@@ -237,7 +253,8 @@ export function createDemPipeline() {
     const span = dim / children;
     const originX = (x & mask) * span;
     const originY = (y & mask) * span;
-    const step = span / OUT_SIZE;
+    const size = gridForZoom(z);
+    const step = span / size;
     const src = grid.el;
 
     /* One pixel of apron on every side. The tile next door samples the same
@@ -245,7 +262,7 @@ export function createDemPipeline() {
        two tiles agree there to the last bit — without it the sharpening pass has
        a one-sided neighbourhood at the border and every edge shows as a hairline
        step in the hillshade. */
-    const N = OUT_SIZE + 2;
+    const N = size + 2;
 
     /* Sampling taps are the same for every row, so build them once. */
     const x0 = new Int32Array(N);
@@ -311,13 +328,13 @@ export function createDemPipeline() {
       }
     }
 
-    const { ctx, take } = surface(OUT_SIZE);
-    const image = ctx.createImageData(OUT_SIZE, OUT_SIZE);
+    const { ctx, take } = surface(size);
+    const image = ctx.createImageData(size, size);
     const pixels = image.data;
-    for (let y = 0; y < OUT_SIZE; y += 1) {
+    for (let y = 0; y < size; y += 1) {
       const from = (y + 1) * N + 1;
-      let i = y * OUT_SIZE * 4;
-      for (let x = 0; x < OUT_SIZE; x += 1, i += 4) {
+      let i = y * size * 4;
+      for (let x = 0; x < size; x += 1, i += 4) {
         const v = sharpened[from + x] + 32768;
         const whole = Math.floor(v);
         const r = whole >> 8;
@@ -345,7 +362,20 @@ export function createDemPipeline() {
     const nz = await nativeZoomFor(p, z, x, y);
     if (nz >= z) {
       const native = await fetchBitmap(p, z, x, y);
-      if (native) return { bitmap: native, kind: "native", computeMs: 0 };
+      if (native) {
+        const size = gridForZoom(z);
+        if (size === OUT_SIZE) return { bitmap: native, kind: "native", computeMs: 0 };
+        /* Regional zoom: scale the 512 px source down to the grid MapLibre is
+           using here, which is a tiny canvas blit rather than a resample. */
+        const started = performance.now();
+        const { ctx, take } = surface(size);
+        ctx.drawImage(native as unknown as CanvasImageSource, 0, 0, size, size);
+        return {
+          bitmap: await take(),
+          kind: "native",
+          computeMs: performance.now() - started,
+        };
+      }
     }
     for (let pz = Math.min(nz, z - 1); pz >= 0; pz -= 1) {
       const s = z - pz;
@@ -357,10 +387,11 @@ export function createDemPipeline() {
 
   /** Terrarium sea level: R=128, G=0, B=0 encodes exactly 0 m. A fresh bitmap
    *  each time, for the same reason: the one before it has been handed over. */
-  async function flatTile(): Promise<ImageBitmap> {
-    const { ctx, take } = surface(OUT_SIZE);
+  async function flatTile(z: number): Promise<ImageBitmap> {
+    const size = gridForZoom(z);
+    const { ctx, take } = surface(size);
     ctx.fillStyle = "rgb(128, 0, 0)";
-    ctx.fillRect(0, 0, OUT_SIZE, OUT_SIZE);
+    ctx.fillRect(0, 0, size, size);
     return take();
   }
 
@@ -373,16 +404,7 @@ export function createDemPipeline() {
         const result = await resolveFrom(provider, z, x, y);
         if (result) return result;
       }
-      return { bitmap: await flatTile(), kind: "flat", computeMs: 0 };
-    },
-    /** Exposed for tests and for the client's diagnostics. */
-    status() {
-      return {
-        primaryUp: isUp(PRIMARY),
-        fallbackUp: isUp(FALLBACK),
-        cells: coverage.size,
-        grids: grids.size,
-      };
+      return { bitmap: await flatTile(z), kind: "flat", computeMs: 0 };
     },
   };
 }

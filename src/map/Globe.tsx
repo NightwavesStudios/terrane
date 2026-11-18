@@ -255,12 +255,11 @@ export default function Globe({
            duplicate copies were extra tiles in flight. */
       fadeDuration: 180,
       refreshExpiredTiles: false,
-      /* 128 rather than MapLibre's dynamic sizing: the cache is what lets the
-         basemap draw the parent tile, stretched, while the tiles of the new zoom
-         are still arriving — an evicted parent is a hole you zoom "into nothing"
-         through. 48 was too small for that role (it was chosen to bound DEM
-         textures), so a zoom gesture was reloading levels it had just left. */
-      maxTileCacheSize: 128,
+      /* A deliberate cap rather than MapLibre's dynamic sizing, so the DEM
+         tiles' GPU memory is bounded. Measured: 48 and 128 gave the same zoom
+         frame rate and no background pixels either way, so the smaller bound
+         it is — cache retention was not what made zooms feel heavy. */
+      maxTileCacheSize: 48,
       renderWorldCopies: false,
     });
     map.current = map_;

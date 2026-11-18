@@ -184,6 +184,12 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     exact 404s are cached too. Because the probes happen inside the worker, they no
     longer reach the page console either — a 6×-throttled z14 viewport over the
     Himalaya now logs **zero** console errors.
+  - **The grid follows the zoom.** Tiles below z12 are built on a 256 px grid and
+    z12+ on the full 512 one. Slopes stay correct either way because MapLibre's
+    prepare shader takes metres-per-texel from the image grid, not from the
+    source's `tileSize`. It is a bandwidth/memory saving, not a frame-rate one:
+    the frame cost scales with the number of DEM tiles, and both grids use the
+    same tiles (see the limitations below).
   - **Every requested zoom gets a real tile** (`src/map/demPipeline.ts`). MapLibre's slope
     maths divides by the tile ID's zoom, so an *overzoomed* tile has its slopes
     multiplied by 2^(camera − tile): steep faces saturate to solid shadow and the
@@ -265,13 +271,11 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     noise (12.7 s vs 12.5 s). Treat it as cheap insurance, not a guarantee.
   - `refreshExpiredTiles: false` — OSM tiles carry a short expiry, and refetching
     them mid-zoom is what puts holes in a range you are diving into.
-  - `maxTileCacheSize: 128`, `renderWorldCopies: false` — keep the levels you
-    just left resident, never request the globe twice. This cache is what lets
-    MapLibre draw the **parent** tile, stretched, while the tiles of the new zoom
-    are still arriving. It is headroom, not a measured fix: sampling the drawing
+  - `maxTileCacheSize: 48`, `renderWorldCopies: false` — a deliberate cap so the
+    DEM tiles' GPU memory is bounded, never request the globe twice. 128 was tried
+    and reverted: it measured the same zoom frame rate, and sampling the drawing
     buffer through a ten-step wheel zoom showed **0 % background pixels** at both
-    48 and 128 here, so the extra retention is for slower networks and long pans,
-    where an evicted parent would be a hole.
+    sizes, so retention was not what made zooms feel heavy.
   - **Pitch follows the zoom at rest, not during the gesture.** Setting the
     pitch mid-gesture re-projects the camera, changes the tile cover under the
     finger and throws away what is on screen; a zoom then goes blank exactly when
@@ -639,16 +643,22 @@ ground.
   hillshade normal): a measured phone viewport at z14 keeps 10–17 live, i.e.
   20–34 MiB. Cached (off-screen) tiles keep only the decoded elevation grid,
   ~1 MiB each, and `maxTileCacheSize: 128` caps how many can accumulate.
-- **The hillshade is the most expensive thing on the map while zooming.**
-  Measured on a 1280×800 viewport with this style, during a z13 → 13.8 ease:
-  background only ≈ 38 fps, +roads ≈ 31, +landcover/water ≈ 25, and the hillshade
-  alone takes it to ≈ 8 — each new zoom level needs a prepare pass and a ~1 MiB
-  DEM upload per tile. `hillshade-method: "basic"` measured the same, so the cost
-  is the tiles, not the shading curve. What did *not* move those numbers: the
-  cache size (48 vs 128 measured the same), the fade duration, and the shading
-  method. That is the next thing to attack if zooms still feel heavy on real
-  hardware: fewer, smaller DEM texels at regional zoom (a 256 px grid below z12
-  would cut this ~4×) at the price of softer relief.
+- **Zooming is engine-bound, and the hillshade is a fixed per-tile tax on it.**
+  Settled, the map runs at 60 fps; while the camera moves it is ~8 fps at z14 and
+  worse further out (z11 measures 1–2 fps), because MapLibre is re-projecting the
+  globe and rebuilding tile cover every frame. Measured medians of three runs at
+  z14 on a 1280×800 viewport: **8.0 fps with the hillshade, 13.9 without it**, so
+  the hillshade costs about 53 ms per frame.
+- **That cost is per tile, not per texel.** Serving a 256 px DEM grid instead of
+  512 at z14 measured **8.1 fps against 7.8** — no gain — while the same switch
+  halves relief resolution. So the grid below z12 is kept for bandwidth and memory
+  (a quarter of the DEM bytes per tile), not for frame rate, and z12+ keeps 512.
+  Cutting the hillshade's frame cost for real means fewer DEM tiles per view —
+  a larger `tileSize` with upsampled images, or letting MapLibre overzoom a z12
+  DEM — and both pay in relief sharpness, which is why neither is on by default.
+- **Earlier single-sample numbers here were noise.** A first pass reported 5 fps
+  with the hillshade against 8 without; repeated runs put both higher and the gap
+  smaller. Measure this with repeats, a settle between runs, and a warm cache.
 - **The fallback is coarser.** AWS Terrarium is a ~150 m surface resampled to the
   requested zoom: relief stays on screen, but a range that was crisp on Mapterhorn
   looks soft until the primary recovers.
