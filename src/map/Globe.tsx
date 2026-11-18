@@ -96,7 +96,7 @@ interface Props {
 const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   relief: ["relief-hillshade"],
   contours: ["contours-minor", "contours-major"],
-  trails: ["trails-casing", "trails-path"],
+  trails: ["trails-casing", "trails-path", "trails-label"],
   detail: [
     "landcover-wood",
     "landcover-grass",

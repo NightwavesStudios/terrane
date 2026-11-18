@@ -64,9 +64,19 @@ function bandColor(latAbs: number) {
 /* Two-degree bands rather than the eight-degree anchors: the same trick, but a
    step you cannot see as a horizontal seam across the Sahara. */
 const BAND_STEP = 2;
+/* Stop at the Mercator limit, not at the pole. A band whose top edge sits at 90°
+   collapses every vertex onto the pole: the globe then draws that band as a
+   triangle fan, and the ±180° edges of all 45 bands splay out across the arctic
+   as dark spokes. The polar caps beyond ±85.05° are covered by what belongs
+   there anyway — the ice sheet over Antarctica, water over the Arctic Ocean. */
+const BAND_LIMIT = 85;
 const LAND_BANDS: [number, number, string][] = [];
-for (let lat = 0; lat < 90; lat += BAND_STEP) {
-  LAND_BANDS.push([lat, Math.min(90, lat + BAND_STEP), bandColor(lat + BAND_STEP / 2)]);
+for (let lat = 0; lat < BAND_LIMIT; lat += BAND_STEP) {
+  LAND_BANDS.push([
+    lat,
+    Math.min(BAND_LIMIT, lat + BAND_STEP),
+    bandColor(lat + BAND_STEP / 2),
+  ]);
 }
 
 const WORLD_BANDS = {
@@ -147,8 +157,11 @@ export const MAP_STYLE: StyleSpecification = {
       type: "fill",
       source: "world",
       // The colour comes from the band polygon, so this layer is one draw call
-      // over twenty static features: the cheapest colour the map has.
-      paint: { "fill-color": ["get", "col"] },
+      // over static features: the cheapest colour the map has. Antialiasing off
+      // on purpose — adjacent bands share an edge, and per-pixel AA along those
+      // shared edges is what drew a visible hairline across the map at the
+      // antimeridian, where every band edge lines up on the same meridian.
+      paint: { "fill-color": ["get", "col"], "fill-antialias": false },
     },
     {
       id: "landcover-wood",
@@ -538,6 +551,47 @@ export const MAP_STYLE: StyleSpecification = {
         "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 0.7, 14, 1.9, 16, 2.6],
         "line-dasharray": [2.2, 1.4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.2, 1],
+      },
+    },
+    /* Named paths. `transportation` carries the geometry but no names; the
+       companion `transportation_name` layer does carry them, as long as the way
+       has a `name` in OSM — so "Europaweg", "Riffelberg-Trail", "Arvenweg"
+       arrive from the tiles already on screen. Same source, no request of its
+       own, which is why the labels are affordable where an Overpass lookup of
+       route relations was not (see README). Unnamed paths stay unlabelled, so
+       this annotates the network instead of tiling the map with text. */
+    {
+      id: "trails-label",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "transportation_name",
+      minzoom: 12.4,
+      // `pedestrian` is deliberately excluded even though it is drawn as a trail:
+      // in towns that class is the shopping street — Zermatt's Bahnhofstrasse came
+      // through as a "trail" label on the first pass — and a street name set in
+      // gold along a pale dashed line reads as a route. Paths, footways and steps
+      // are the things people came to see.
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["path", "footway", "steps"]],
+      ],
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 12.4, 10.5, 16, 14],
+        "text-letter-spacing": 0.05,
+        "text-padding": 3,
+        "symbol-spacing": 240,
+        "text-max-angle": 40,
+        "text-keep-upright": true,
+      },
+      paint: {
+        "text-color": "#eddbb8",
+        "text-halo-color": "#040906",
+        "text-halo-width": 1.7,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.4, 0, 13, 1],
       },
     },
     {

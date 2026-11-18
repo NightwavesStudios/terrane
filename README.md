@@ -631,6 +631,17 @@ Footpaths come from the **basemap's own vector tiles** — `transportation` feat
 with `class` in `path`, `footway`, `steps`, `pedestrian` — drawn as `trails-casing`
 and `trails-path` in `style.ts`, from z11.4 up.
 
+**Names come from the same tiles.** `transportation` has geometry and no name
+property, but its companion layer `transportation_name` carries one for every way
+OSM has named — at Zermatt: *Europaweg*, *Riffelberg-Trail*, *Arvenweg*, *Moos Trail*.
+`trails-label` places those along the line from z12.4 (`symbol-placement: line`,
+`text-max-angle: 40`), in the same warm tone as the dashes with a dark halo. It
+costs no request at all: the layer rides in tiles the map already asked for, which
+is why names are affordable here and an Overpass lookup of route relations was not
+(see below). `pedestrian` is drawn as a trail but deliberately excluded from the
+labels: in towns that class is the shopping street, and Zermatt's Bahnhofstrasse
+came through as a gold "trail" name on the first pass.
+
 That replaced a Waymarked Trails raster overlay (`route=hiking` relations rendered
 with difficulty colours and numbered shields), for two reasons. The overlay baked
 grey pictogram markers and route badges into its PNGs, where they could be neither
@@ -661,12 +672,18 @@ A viewport-sized query therefore lands a second or more *per pan* in the best ca
 and half a minute in this one, for a megabyte of JSON that has to be parsed and
 tessellated. Every pan would also spend someone else's shared quota. Making it
 interactive needs a cache in front of Overpass — a server or a build step that
-pre-fetches regions — which this app deliberately does not have. The path layer is
-the honest 90%: geometry and styling of every trail, no names.
+pre-fetches regions — which this app deliberately does not have.
 
-What it does not have: route names, difficulty colouring, and any trail at all below
-z11.4 (OpenMapTiles starts emitting paths around z12). The layer fades in over
-z11.4–12.2 and sits above the hillshade and roads but below every label.
+What route relations would add over this, and what is still missing: a long-distance
+identity that spans the paths it borrows ("the Europaweg" as one route, whatever way
+it is walking on), the difficulty grading, and the numbered shields. Individual named
+paths are here; the relation stitching them is not.
+
+What the layer does not have: any trail at all below z11.4 (OpenMapTiles starts
+emitting paths around z12), and no labels below z12.4. The lines fade in over
+z11.4–12.2, sit above the hillshade and roads but below every label, and are
+drawn to z16 — past the tile schema's z14 the geometry overzooms, which keeps the
+network on screen at the zoom where you are trying to read it.
 
 ---
 

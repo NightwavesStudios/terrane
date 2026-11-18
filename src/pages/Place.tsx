@@ -83,8 +83,8 @@ export default function Place({ slug }: { slug: string }) {
                 <h2>Around it</h2>
                 <span className="mono around-note">
                   {around.nearest.length > 0
-                    ? `${around.activities.reduce((n, a) => n + a.count, 0)} atlas entries within ${around.radiusKm} km`
-                    : `nothing else within ${around.radiusKm} km`}
+                    ? `within ${around.radiusKm} km`
+                    : `nothing within ${around.radiusKm} km`}
                 </span>
               </div>
 
@@ -118,10 +118,6 @@ export default function Place({ slug }: { slug: string }) {
                 </ol>
               )}
 
-              <p className="around-foot">
-                Straight-line distance over the atlas, not a route database: peaks stand
-                in for hiking terrain, so treat this as what is near, not as a trail list.
-              </p>
             </section>
           </div>
 
