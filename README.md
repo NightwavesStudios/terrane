@@ -107,11 +107,21 @@ chunk).
 **The palette** ("Deep Water") is deliberately not near-black. The vector source
 (OpenFreeMap, no key) ships water polygons and no land polygons, so at world zoom
 every continent would otherwise be the background colour — the same colour as space.
-`land-base` solves it: one GeoJSON polygon covering the planet
-(`-180…180 × -85…85`) filled with the land colour, sitting *under* the water layers.
-Water paints over it, land keeps its own colour, and the globe reads as a globe
-instead of a hole. `style.ts` declares three sources: `world` (that polygon),
-`relief` (the DEM) and `openmaptiles`.
+`land-base` solves it: a GeoJSON backdrop of **2° latitude bands**, generated in
+`style.ts`, sitting *under* the water layers. Water paints over it, land keeps its
+colour, and the globe reads as a globe instead of a hole.
+
+One flat land colour was the reason the Sahara looked as green as a meadow. At the
+zooms where you look at whole countries there is almost no landcover mapped, so the
+backdrop colour *is* the desert, the taiga and the pampas. Latitude is a crude
+climate proxy and the cheapest one there is — 90 static polygons, no tiles, no
+per-frame cost — so a dry belt sits either side of 30°, the temperate and
+equatorial bands stay green, and the stops are interpolated every 2° so the seam
+is not a visible line across the desert. Landcover still paints over it wherever
+OSM has polygons.
+
+`style.ts` declares three sources: `world` (the bands), `relief` (the DEM) and
+`openmaptiles`.
 
 The DEM source belongs in the style even though the hillshade *layer* is added at
 runtime. A layer that references a source added later makes MapLibre reject the
@@ -121,20 +131,43 @@ to declare the hillshade statically look like a broken layer.
 Layer order, bottom to top:
 
 ```
-bg → land-base → landcover-{wood,grass,ice} → landuse-residential
-→ relief-hillshade → contours-{minor,major} → water
-→ waterway → boundary-{country,state} → water-label
-→ road-{minor,major,highway} → label-{country,state,city}
+bg → land-base → landcover-{wood,grass,farmland} → relief-hillshade
+→ landcover-{ice,rock,sand} → landuse-residential → contours-{minor,major}
+→ water → waterway → boundary-{country,state} → water-label
+→ road-{minor,major,highway} → trails-{casing,path} → label-{country,state,city}
 → places-heat → places-halo → places-dot → places-curated
 → places-selected → places-label-top → places-label
 ```
 
-The hillshade sits **above** the vegetation and landuse fills, not under them.
-Underneath, a semi-transparent green fill covers the shading and the middle zooms
-flatten into one flat green blanket — colours survive, relief does not. Above them,
-the fills tint the ground and the relief still reads through, which is the whole
-point of a terrain map. It is inserted at runtime as soon as the style lands,
-anchored before `water` (see the relief note below).
+The hillshade is inserted *inside* the landcover stack, not above all of it, and
+that split is deliberate in both directions:
+
+- **Above vegetation**, because a semi-transparent green fill on top of the shade
+  covers it and the middle zooms flatten into one green blanket — colours survive,
+  relief does not.
+- **Below snow**, because the hillshade's lit colour is a green (`#61774f`). Drawn
+  on top of an ice polygon, it tints every glacier into a grey-green smear; the
+  Matterhorn's snowfields looked like shaded moss. Snow has to sit over the shade
+  to be white, and at 0.5–0.62 opacity the shading still shows through it.
+
+Splitting the fills at `landcover-ice` satisfies both with one insertion point
+(`FIRST_SYMBOL_LAYER` / `landcover-ice` fallback chain in `Globe.tsx`).
+
+Colour, all of it vector — no extra tile pyramid, no per-frame cost:
+
+| | |
+|---|---|
+| Snow, ice caps | `landcover class=ice`, white `#eaf2f3`, ramped *up* past z14 (0.5 → 0.62) because that is where it becomes a summit cap rather than a whole icefield |
+| Rock, scree | `landcover class=rock`, warm brown, so altitude reads as a colour band |
+| Sand | `landcover class=sand`, warm `#cbaa79`; only where OSM maps sand, so ergs and beaches, not the whole Sahara (the latitude bands handle the rest) |
+| Farmland | `landcover class=farmland`, a lighter field green under wood and grass |
+| Water | one `water` layer, `match` on `class`: ocean `#03182b` → lake `#06293f` → river `#0a3a53` |
+
+**Depth by body, not bathymetry.** There is no depth field in these tiles, and a
+real bathymetry raster would mean a whole extra tile pyramid for one gradient. Ocean,
+lake and river are ordered the way people read depth, which is true of almost every
+water body and free. Deep water looking deep is the goal; a measured depth profile
+is not what this layer claims.
 
 Labelling is zoom-gated so the world view stays clean: country labels from 2.2 to 6,
 state labels from 5.5, city labels from 5. Coastlines come from
@@ -146,7 +179,7 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
 (`{lon, lat, zoom, key}` — the chip bar uses this to fly home or to Georgia).
 
 - **Init** happens once: globe projection (`setProjection({type:"globe"})`),
-  `center [12, 22]`, `maxZoom 14`, `attributionControl: false` (attribution is
+  `center [12, 22]`, `maxZoom 16`, `attributionControl: false` (attribution is
   rendered as page text instead, so it can't collide with the filter pill),
   `dragRotate`, `maxPitch 60`.
 - **Opening zoom is responsive.** `worldZoom(width, height)` (exported, also used

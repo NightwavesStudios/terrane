@@ -63,12 +63,17 @@ const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
     13,
     0.86,
     14,
-    0.84,
+    0.88,
+    16,
+    0.9,
   ],
   "hillshade-illumination-anchor": "map",
-  "hillshade-shadow-color": "#040f0b",
-  "hillshade-highlight-color": "#52694a",
-  "hillshade-accent-color": "#06120c",
+  // Slightly wider range than before: relief on a dark map reads through the
+  // top and bottom of the shade, not the middle, so the lit side goes warmer
+  // and the shaded side goes deeper. It costs nothing — same tile, same pass.
+  "hillshade-highlight-color": "#61774f",
+  "hillshade-shadow-color": "#030b08",
+  "hillshade-accent-color": "#05110b",
 };
 
 export interface GlobeFocus {
@@ -95,7 +100,10 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   detail: [
     "landcover-wood",
     "landcover-grass",
+    "landcover-farmland",
     "landcover-ice",
+    "landcover-rock",
+    "landcover-sand",
     "landuse-residential",
     "water",
     "waterway",
@@ -175,7 +183,7 @@ function pitchForZoom(zoom: number) {
 }
 
 /** Where a clicked place lands: close enough to read the terrain around it. */
-const PLACE_FOCUS_ZOOM = 13.2;
+const PLACE_FOCUS_ZOOM = 14.2;
 
 function toGeoJSON(places: Place[]): PlacesGeoJSON {
   const hit = geoCache.get(places);
@@ -237,7 +245,11 @@ export default function Globe({
         holder.current.clientHeight,
       ),
       minZoom: 0.4,
-      maxZoom: 14,
+      /* Deeper than the tile schema's own z14: past that the vector tiles
+         overzoom, which keeps existing paths on screen and simply draws them
+         larger. That is the point — at a summit you want the footpath network
+         legible, not more data than the source has. */
+      maxZoom: 16,
       attributionControl: false,
       dragRotate: true,
       pitchWithRotate: false,
@@ -289,10 +301,18 @@ export default function Globe({
             source: "relief",
             paint: HILLSHADE_PAINT,
           },
-          // Above the landcover fills but below water, roads and labels. It has
-          // to sit ABOVE vegetation: a flat green fill on top of the shade is
-          // what erased both the colour and the 3D at mid zoom.
-          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
+          // Above the vegetation fills but BELOW the snow, water, roads and
+          // labels. Two constraints pull in opposite directions here:
+          // - vegetation has to sit under the shade, or a flat green polygon on
+          //   top erases both the colour and the 3D at mid zoom;
+          // - snow has to sit OVER the shade, or the lit-shade colour (a green)
+          //   tints every glacier into a grey-green smear instead of white.
+          // Splitting them at `landcover-ice` satisfies both with one insertion.
+          map_.getLayer("landcover-ice")
+            ? "landcover-ice"
+            : map_.getLayer("water")
+              ? "water"
+              : FIRST_SYMBOL_LAYER,
         );
       } catch {
         /* hillshade unavailable */

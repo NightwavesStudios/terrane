@@ -9,6 +9,91 @@ import { DEM_ATTRIBUTION, DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem"
  */
 export const FIRST_SYMBOL_LAYER = "label-country";
 
+/**
+ * The world backdrop, banded by latitude.
+ *
+ * The vector tiles carry water but not land, so the continents are painted by a
+ * backdrop fill. One flat colour for all land was the reason the Sahara read as
+ * green as a meadow: at the zooms where people look at whole countries there is
+ * almost no landcover mapped, so the backup colour IS the desert, the taiga and
+ * the pampas.
+ *
+ * Latitude is a crude climate proxy and a cheap one: ten bands, twenty polygons
+ * mirrored across the equator, no new tiles, no new data, no per-frame cost.
+ * It puts a dry belt either side of 30° and keeps the temperate and equatorial
+ * bands green, which is enough to make continents read as places rather than as
+ * one moss-green silhouette. Landcover still paints over it wherever OSM has
+ * polygons, so this only decides where nothing is mapped.
+ */
+const CLIMATE: [number, string][] = [
+  [0, "#2a3d26"], // equatorial green
+  [8, "#38402a"], // savanna
+  [15, "#464429"],
+  [22, "#4e4629"], // the arid belt
+  [30, "#404028"],
+  [38, "#343e26"], // temperate
+  [45, "#2e3c24"],
+  [55, "#2b3523"], // boreal
+  [62, "#2f3728"],
+  [72, "#39403a"], // tundra
+  [90, "#3c4340"],
+];
+
+const rgb = (hex: string) => [
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16),
+];
+
+/** Colour for an absolute latitude, interpolated between the CLIMATE stops. */
+function bandColor(latAbs: number) {
+  for (let i = 1; i < CLIMATE.length; i++) {
+    const [to, toHex] = CLIMATE[i];
+    if (latAbs <= to) {
+      const [from, fromHex] = CLIMATE[i - 1];
+      const t = (latAbs - from) / (to - from);
+      const a = rgb(fromHex);
+      const b = rgb(toHex);
+      const mix = a.map((v, j) => Math.round(v + (b[j] - v) * t));
+      return `rgb(${mix.join(",")})`;
+    }
+  }
+  return CLIMATE[CLIMATE.length - 1][1];
+}
+
+/* Two-degree bands rather than the eight-degree anchors: the same trick, but a
+   step you cannot see as a horizontal seam across the Sahara. */
+const BAND_STEP = 2;
+const LAND_BANDS: [number, number, string][] = [];
+for (let lat = 0; lat < 90; lat += BAND_STEP) {
+  LAND_BANDS.push([lat, Math.min(90, lat + BAND_STEP), bandColor(lat + BAND_STEP / 2)]);
+}
+
+const WORLD_BANDS = {
+  type: "FeatureCollection" as const,
+  features: LAND_BANDS.flatMap(([from, to, col]) =>
+    [
+      [from, to],
+      [-to, -from],
+    ].map(([a, b]) => ({
+      type: "Feature" as const,
+      properties: { col },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [
+          [
+            [-180, a],
+            [180, a],
+            [180, b],
+            [-180, b],
+            [-180, a],
+          ],
+        ],
+      },
+    })),
+  ),
+};
+
 /** MapLibre mutates the style spec it is given, so each map needs a copy. */
 export const TERRAIN_SOURCE = {
   type: "raster-dem" as const,
@@ -34,26 +119,12 @@ export const MAP_STYLE: StyleSpecification = {
   glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
   sources: {
     // The vector tiles carry water, not land — at world zoom the continents
-    // would otherwise be the space-coloured background. One polygon for the
-    // whole planet sits under the water layers and gives land its own colour.
+    // would otherwise be the space-coloured background. Latitude bands (see
+    // LAND_BANDS) sit under the water layers and give each climate belt its
+    // own colour.
     world: {
       type: "geojson",
-      data: {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [-180, -85],
-              [180, -85],
-              [180, 85],
-              [-180, 85],
-              [-180, -85],
-            ],
-          ],
-        },
-      },
+      data: WORLD_BANDS,
     },
     /* The DEM belongs in the style, not in a runtime addSource. A static layer
        that references a source added later makes MapLibre reject the ENTIRE
@@ -75,7 +146,9 @@ export const MAP_STYLE: StyleSpecification = {
       id: "land-base",
       type: "fill",
       source: "world",
-      paint: { "fill-color": "#1c3b2c" },
+      // The colour comes from the band polygon, so this layer is one draw call
+      // over twenty static features: the cheapest colour the map has.
+      paint: { "fill-color": ["get", "col"] },
     },
     {
       id: "landcover-wood",
@@ -108,7 +181,7 @@ export const MAP_STYLE: StyleSpecification = {
       "source-layer": "landcover",
       filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
       paint: {
-        "fill-color": "#4a5330",
+        "fill-color": "#5b6531",
         "fill-opacity": [
           "interpolate",
           ["linear"],
@@ -123,35 +196,94 @@ export const MAP_STYLE: StyleSpecification = {
       },
     },
     {
+      id: "landcover-farmland",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "farmland"],
+      minzoom: 4,
+      // Fields, not forest: a lighter, yellower green, kept low so a patchwork of
+      // farmland does not flatten the relief the way wood did before.
+      paint: {
+        "fill-color": "#4e5730",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.2, 9, 0.3, 14, 0.26],
+      },
+    },
+    {
       id: "landcover-ice",
       type: "fill",
       source: "openmaptiles",
       "source-layer": "landcover",
       filter: ["==", ["get", "class"], "ice"],
-      // Sea ice and ice caps: bright, so the poles read as snow rather than water.
-      // Close in, glaciers have to stop being white paper and let the hillshade
-      // through, or every icefield reads as a flat cut-out on the mountainside.
+      // Snow. Ice and glacier polygons are the only permanent snow the basemap
+      // carries, so this layer is what puts white on the high peaks: the
+      // Matterhorn's north face, the Mont Blanc snowfields, the poles.
+      //
+      // It inverts the old curve. Fading ice to 0.13 at z14 was wrong once this
+      // became the snow layer: at the zoom where you are actually looking at a
+      // summit, the snowfield disappeared and left bare shaded rock. Now the
+      // sheet stays faint in the middle zooms — a whole icefield at full
+      // strength buries the hillshade — and firms back up close in, where it is
+      // a summit cap and not the whole frame. The shading still lands on top,
+      // because the hillshade is drawn above landcover.
       paint: {
-        "fill-color": "#b9d2dd",
-        // Close in, an icefield has to stay a translucent snowfield: at 0.44 the
-        // glaciers in an alpine view cover most of the frame with pale grey and
-        // the whole map reads as washed out. Let the shaded rock show through.
-        // Keeps fading at the closest zooms too: a 0.22 sheet over a whole
-        // glacier basin is what turns the last zoom levels into a pale haze and
-        // buries the hillshade underneath it.
+        "fill-color": "#eaf2f3",
         "fill-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          0.72,
+          0.78,
           8,
           0.5,
           12,
-          0.22,
+          0.3,
           14,
-          0.13,
+          0.5,
+          16,
+          0.62,
         ],
+      },
+    },
+    {
+      id: "landcover-rock",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "rock"],
+      minzoom: 6,
+      // Bare high ground: scree and rock slabs above the treeline. Warm brown so
+      // altitude reads as a colour band under the shading instead of the whole
+      // range sitting in one green.
+      paint: {
+        "fill-color": "#5d4c39",
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          0.18,
+          11,
+          0.28,
+          14,
+          0.34,
+          16,
+          0.4,
+        ],
+      },
+    },
+    {
+      id: "landcover-sand",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "sand"],
+      // Desert and dune sand: the one place in the palette that is allowed to be
+      // warm and bright, because sand that stays grey-moss is the single most
+      // obviously wrong thing on a world map.
+      paint: {
+        "fill-color": "#cbaa79",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.55, 6, 0.7, 12, 0.82],
       },
     },
     {
@@ -170,9 +302,24 @@ export const MAP_STYLE: StyleSpecification = {
       type: "fill",
       source: "openmaptiles",
       "source-layer": "water",
+      // Depth by body, not by bathymetry: there is no depth field in these
+      // tiles, and shipping a bathymetry raster would cost a whole extra tile
+      // pyramid for one gradient. Ocean is the deepest and darkest, lakes one
+      // step up, rivers and canals the lightest — which is true of almost every
+      // water body in the order people read them, and costs nothing at all.
       paint: {
-        "fill-color": "#082437",
-        "fill-outline-color": "#2c6d8a",
+        "fill-color": [
+          "match",
+          ["get", "class"],
+          "ocean",
+          "#03182b",
+          "lake",
+          "#06293f",
+          "river",
+          "#0a3a53",
+          "#06293f",
+        ],
+        "fill-outline-color": "#25607a",
       },
     },
     {
@@ -183,7 +330,7 @@ export const MAP_STYLE: StyleSpecification = {
       minzoom: 6,
       paint: {
         "line-color": "#0f3a4d",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 14, 1.6],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 14, 1.6, 16, 2.4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 7, 0.7],
       },
     },
@@ -256,7 +403,7 @@ export const MAP_STYLE: StyleSpecification = {
            is what made roads and marked routes hard to tell apart. Roads now
            carry the neutral slate and a casing (above), trails the colour. */
         "line-color": "#2b3945",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 1.8],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 2.8],
         // Roads bleed in over roughly one zoom level instead of snapping on:
         // a line layer has no cross-fade of its own, so the opacity ramp is
         // what keeps a zoom from flicking detail into existence.
@@ -298,6 +445,8 @@ export const MAP_STYLE: StyleSpecification = {
           4,
           14,
           5.4,
+          16,
+          7.2,
         ],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.9, 0.9],
       },
@@ -315,7 +464,7 @@ export const MAP_STYLE: StyleSpecification = {
       ],
       paint: {
         "line-color": "#465a6c",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 14, 2.6],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 14, 2.6, 16, 4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.9, 1],
       },
     },
@@ -328,7 +477,7 @@ export const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]],
       paint: {
         "line-color": "#4d6173",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3, 16, 4.6],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
       },
     },
@@ -359,7 +508,7 @@ export const MAP_STYLE: StyleSpecification = {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": "#04090e",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 1.3, 14, 3.2],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 1.3, 14, 3.2, 16, 5],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.2, 0.8],
       },
     },
@@ -383,8 +532,11 @@ export const MAP_STYLE: StyleSpecification = {
           "#e0c08a",
           "#c9a06b",
         ],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 0.7, 14, 1.9],
-        "line-dasharray": [2.4, 1.5],
+        // Dash lengths are in multiples of line width, so the array shrinks as
+        // the line widens: 2.2 at 2.6 px is a trail tick, not a screen-long
+        // stretch of gold, and the geometry past z14 is overzoomed anyway.
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 0.7, 14, 1.9, 16, 2.6],
+        "line-dasharray": [2.2, 1.4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.2, 1],
       },
     },
@@ -445,7 +597,7 @@ export const MAP_STYLE: StyleSpecification = {
       layout: {
         "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
         "text-font": ["Noto Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 10, 11, 12, 14, 13],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 10, 11, 12, 14, 13, 16, 14],
         "text-max-width": 8,
         "text-padding": 8,
       },
