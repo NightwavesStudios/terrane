@@ -66,12 +66,14 @@ export default function FilterChips({
   tone: "dark" | "light";
   scope?: HomeScope | null;
 }) {
+  /* Peaks and parks only. Landmarks and hidden gems are still on the globe and
+     still counted in "All", but they are not what anyone opens this to find, and
+     a chip row is a decision — four options plus one for home is already the
+     most that reads at a glance on a phone. */
   const filters: { id: Filter; label: string }[] = [
     { id: "all", label: `All ${PLACES.length.toLocaleString()}` },
     { id: "peak", label: TYPE_LABEL_PLURAL.peak },
     { id: "park", label: TYPE_LABEL_PLURAL.park },
-    { id: "landmark", label: TYPE_LABEL_PLURAL.landmark },
-    { id: "gem", label: TYPE_LABEL_PLURAL.gem },
   ];
   if (scope) filters.push({ id: "home", label: scope.label });
 

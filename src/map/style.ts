@@ -605,6 +605,96 @@ export const MAP_STYLE: StyleSpecification = {
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.4, 0, 13, 1],
       },
     },
+    /* ── camping kit ───────────────────────────────────────────────────────
+
+       What you need once you are there, rather than what you came to see:
+       somewhere to sleep, water to fill, a place to leave the car. All three
+       come from the `poi` layer of the same vector source the basemap already
+       downloads, so this costs no extra request and no extra bytes on the wire —
+       only two circle layers and one label layer once the tiles are in.
+
+       The schema only carries POIs in its z14 tiles (verified against the live
+       OpenFreeMap tiles: 0 features at z11.2, none at z13, 1,600+ at z14.3), so
+       these appear at the zoom where a summit has become a hillside and a
+       campsite is a clearing — which is exactly the zoom at which they matter. */
+    {
+      id: "camp-icon",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "poi",
+      minzoom: 13.8,
+      // The tent comes from addCampIcon() in ../map/campIcon: drawn into a canvas
+      // at load, because there is no sprite sheet to borrow one from. Where the
+      // icon is missing for a frame the layer draws nothing and the dot layer
+      // below still has the huts, so the map never waits on it.
+      filter: ["==", ["get", "class"], "campsite"],
+      layout: {
+        "icon-image": "camp-tent",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+    },
+    {
+      id: "camp-dot",
+      type: "circle",
+      source: "openmaptiles",
+      "source-layer": "poi",
+      minzoom: 14,
+      filter: [
+        "any",
+        ["==", ["get", "class"], "shelter"],
+        [
+          "all",
+          ["==", ["get", "class"], "lodging"],
+          ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
+        ],
+      ],
+      paint: {
+        // Amber for a hut with a roof and a bed, blue-grey for a shelter. Two
+        // different questions — booking, or an emergency — so two colours.
+        // Campsites are not here: they get the tent above.
+        "circle-color": [
+          "match",
+          ["get", "class"],
+          "shelter",
+          "#9ec7e0",
+          "#ffb066",
+        ],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 4.2, 16, 6.2],
+        "circle-stroke-color": "#05090f",
+        "circle-stroke-width": 1.8,
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 14.6, 1],
+      },
+    },
+    {
+      id: "supplies-dot",
+      type: "circle",
+      source: "openmaptiles",
+      "source-layer": "poi",
+      minzoom: 14,
+      // Water and parking, drawn small and unlabelled: they are a yes/no on the
+      // route, not destinations, and 26 drinking-water taps in one Zermatt tile
+      // would bury the map in text if every one of them got a name.
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["drinking_water", "spring", "parking"]],
+      ],
+      paint: {
+        "circle-color": [
+          "match",
+          ["get", "class"],
+          "parking",
+          "#78808c",
+          "#5fb4d8",
+        ],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2.4, 16, 3.6],
+        "circle-stroke-color": "#05090f",
+        "circle-stroke-width": 1.2,
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 14.6, 0.9],
+      },
+    },
     {
       id: "label-country",
       type: "symbol",
@@ -671,6 +761,42 @@ export const MAP_STYLE: StyleSpecification = {
         "text-halo-color": "#04060d",
         "text-halo-width": 1.5,
         "text-opacity": 0.62,
+      },
+    },
+    /* Names for the camps and huts only. The dots say a place exists; the name is
+       what you search for in a booking or on a signpost, so it is worth the one
+       extra symbol layer at these zooms. */
+    {
+      id: "camp-label",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "poi",
+      minzoom: 14.4,
+      filter: [
+        "any",
+        ["==", ["get", "class"], "campsite"],
+        ["==", ["get", "class"], "shelter"],
+        [
+          "all",
+          ["==", ["get", "class"], "lodging"],
+          ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
+        ],
+      ],
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14.4, 10.5, 16, 12.5],
+        "text-anchor": "top",
+        "text-offset": [0, 1.15],
+        "text-max-width": 9,
+        "text-padding": 4,
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": "#f3e6cd",
+        "text-halo-color": "#05090f",
+        "text-halo-width": 1.6,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 14.4, 0, 15, 1],
       },
     },
   ],

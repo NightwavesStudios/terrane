@@ -8,6 +8,7 @@ export interface LayerState {
   borders: boolean;
   labels: boolean;
   places: boolean;
+  camp: boolean;
 }
 
 export const DEFAULT_LAYERS: LayerState = {
@@ -18,6 +19,7 @@ export const DEFAULT_LAYERS: LayerState = {
   borders: true,
   labels: true,
   places: true,
+  camp: true,
 };
 
 /* One row per thing you can see. Land and water are deliberately absent: they are
@@ -30,6 +32,11 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "borders", label: "Borders", note: "Country and state lines" },
   { key: "labels", label: "Map labels", note: "Countries, cities, water" },
   { key: "places", label: "Places", note: "Markers and names for peaks, parks" },
+  {
+    key: "camp",
+    label: "Camps & huts",
+    note: "Camp sites, huts, shelters, water, parking — from zoom 14",
+  },
 ];
 
 export default function LayerControl({

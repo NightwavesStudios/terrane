@@ -516,7 +516,7 @@ target path.
 | File | Role |
 | --- | --- |
 | `Header.tsx` | Wordmark, a single `Globe` link and the place-count pill. `tone="dark"` over the globe, `"light"` on the place page. |
-| `FilterChips.tsx` | The filter bar. Exports `Filter` (`all \| PlaceType \| "home"`), `homeScope(home)` and `matches(place, filter, scope)`; the last chip is whatever `homeScope` resolved (region, country, or nothing). |
+| `FilterChips.tsx` | The filter bar: `All`, `Peaks`, `Parks`, then whatever `homeScope` resolved (region, country, or nothing). Landmarks and hidden gems are still on the globe and still counted in `All`; they are not chips, because four options plus home is the most that reads at a glance on a phone. Also exports `homeScope(home)` and `matches(place, filter, scope)`. |
 | `RidgeArt.tsx` | Deterministic SVG landscape from a `hue`: gradient sky, sun glow, two ridge lines, snow caps. Uses `useId()` for unique gradient ids so many can coexist. No photography anywhere in the app. |
 
 ## Pages (`src/pages/`)
@@ -611,12 +611,11 @@ Two controls sit on the globe, top right, below the credits line.
 matches name, region and country, ranks exact and prefix matches first, then curated
 places, and flies the camera to whatever you pick without leaving the globe: the
 selection ring follows and the card opens in place. Arrow keys move the cursor,
-`↵` selects, `esc` closes. It searches places only — mountain ranges, trails and
-campsites are records in the geographic database planned for Phase 2 and are not
-searchable yet.
+`↵` selects, `esc` closes. It searches the 1,288 atlas places only; the camps, huts
+and water points below are drawn from map tiles and are not searchable.
 
-**Layers** — seven independent switches: `Relief` (hillshade), `Contours`,
-`Footpaths`, `Roads`, `Borders`, `Map labels`, `Places`. They map to layer groups in
+**Layers** — eight independent switches: `Relief` (hillshade), `Contours`,
+`Footpaths`, `Roads`, `Borders`, `Map labels`, `Places`, `Camps & huts`. They map to layer groups in
 `Globe.tsx` (`LAYER_GROUPS`); anything created at runtime (the hillshade, the contour
 layers) re-reads the current switches after it is added, so a toggle never gets lost
 to a race.
@@ -868,3 +867,38 @@ JavaScript see the per-place tags; the rest keep the site-level ones.
 The location lookup (`/lib/locate.ts`) now runs from `requestIdleCallback`, not on
 mount: it used to race the first DEM tiles for the network and the main thread to
 fill a chip nobody had looked at yet.
+
+---
+
+## Camps, huts and water — what you need once you are there
+
+The atlas answers "where should I go". It does not answer "where do I sleep, where
+do I fill water, where do I leave the car" — so the `Camps & huts` switch (on by
+default) adds those from the **`poi` layer of the same OpenFreeMap vector source the
+basemap already downloads**. No new source, no new request, no data pipeline:
+
+| Layer | Filter | Look |
+| --- | --- | --- |
+| `camp-icon` | `class = campsite` | Tent pictogram, sand fill, drawn at runtime |
+| `camp-dot` | `class = lodging` + `alpine_hut`/`wilderness_hut`, or `class = shelter` | Amber dot for a hut, blue-grey for a shelter |
+| `camp-label` | the same three | Name, from z14.4 |
+| `supplies-dot` | `drinking_water`, `spring`, `parking` | Small unlabelled dot — a yes/no on the route, not a destination |
+
+Two things are worth knowing before changing any of it:
+
+- **POIs only exist in the z14 tiles.** Measured against the live tiles: 0 features
+  at z11.2, 29 (railways only) at z13, 1,600+ at z14.3. So a `minzoom` below 14 would
+  draw nothing, and the layers start at 13.8 (tent) / 14 (dots) / 14.4 (names) —
+  which is also the zoom at which a campsite is a clearing rather than a pixel.
+- **The tent is a canvas, not a sprite.** The style has no sprite sheet, and fetching
+  a whole image atlas for one 20 px icon is not worth a request, so `campIcon.ts`
+  draws it with four paths into a 40×40 canvas (pixel ratio 2) and hands it to
+  `addImage` at style load. `styledata` re-adds it alongside the hillshade, so a
+  style rebuild cannot leave the icon layer pointing at a missing image.
+
+Cost, measured on this machine at z14.5 / pitch 45 with a continuous bearing spin:
+**8.9 fps with the whole camp group visible, 8.9 with it hidden** — the number is
+identical, because the frame is still hillshade fill. At z11 the same query returns
+0 camp features, so overview zooms pay nothing at all. The 26 drinking-water taps in
+one Zermatt tile are drawn as 2.4 px dots and deliberately unlabelled: naming them
+would bury the trail network in text.

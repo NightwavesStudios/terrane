@@ -9,6 +9,7 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
+import { addCampIcon } from "./campIcon";
 import { installDemProtocol } from "./dem";
 import { worldZoom } from "./camera";
 import { createContours, type ContourHandle } from "./contours";
@@ -127,6 +128,7 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   roads: ["road-casing", "road-minor", "road-major", "road-highway"],
   borders: ["boundary-country", "boundary-state"],
   labels: ["label-country", "label-state", "label-city", "water-label"],
+  camp: ["camp-icon", "camp-dot", "camp-label", "supplies-dot"],
   places: [
     "places-heat",
     "places-halo",
@@ -399,6 +401,9 @@ export default function Globe({
         /* mercator fallback */
       }
       addHillshade();
+      /* The campsite tent. One canvas, drawn here rather than fetched as a sprite
+         sheet, and needed by `camp-icon` in the style. */
+      addCampIcon(map_);
 
       try {
         map_.setSky({
@@ -697,7 +702,10 @@ export default function Globe({
        does not declare, so it is also the only one a style rebuild can drop.
        Put it back if it ever goes missing. */
     const ensureRelief = () => {
-      if (booted.current && map_.isStyleLoaded()) addHillshade();
+      if (booted.current && map_.isStyleLoaded()) {
+        addHillshade();
+        addCampIcon(map_);
+      }
     };
     map_.on("styledata", ensureRelief);
 
