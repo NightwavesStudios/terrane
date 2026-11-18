@@ -9,6 +9,7 @@ export interface LayerState {
   borders: boolean;
   labels: boolean;
   places: boolean;
+  reach: boolean;
   camp: boolean;
 }
 
@@ -20,6 +21,7 @@ export const DEFAULT_LAYERS: LayerState = {
   borders: true,
   labels: true,
   places: true,
+  reach: true,
   camp: true,
 };
 
@@ -37,6 +39,15 @@ const KIT_LABEL: Record<KitIcon, string> = {
   "picnic-table": "Picnic table",
 };
 
+/* The long tail's four colours. Fourteen kinds would be a colour wheel nobody can
+   read at four pixels; these four say rock, water, green, sand. */
+const REACH_KEY: { label: string; color: string }[] = [
+  { label: "Rock", color: "#8ab4d8" },
+  { label: "Water", color: "#5fc9d4" },
+  { label: "Green", color: "#79cf9b" },
+  { label: "Sand", color: "#d9bd85" },
+];
+
 const PLACE_KEY: { label: string; color: string }[] = [
   { label: "Peak", color: "#eaf7ff" },
   { label: "Park", color: "#57f0b2" },
@@ -51,7 +62,12 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "roads", label: "Roads", note: "Tracks and roads, from zoom 10" },
   { key: "borders", label: "Borders", note: "Country and state lines" },
   { key: "labels", label: "Map labels", note: "Countries, cities, water" },
-  { key: "places", label: "Places", note: "Markers and names for peaks, parks" },
+  { key: "places", label: "Places", note: "The 1,288 written-up markers" },
+  {
+    key: "reach",
+    label: "More places",
+    note: "Peaks, lakes, parks and coasts worldwide — the famous ones first",
+  },
   {
     key: "camp",
     label: "Camps & huts",
@@ -134,6 +150,12 @@ export default function LayerControl({
             <span className="layers-key-title mono">Key</span>
             {PLACE_KEY.map((p) => (
               <span className="layers-key-item" key={p.label}>
+                <i style={{ background: p.color }} aria-hidden="true" />
+                {p.label}
+              </span>
+            ))}
+            {REACH_KEY.map((p) => (
+              <span className="layers-key-item layers-key-dot" key={p.label}>
                 <i style={{ background: p.color }} aria-hidden="true" />
                 {p.label}
               </span>

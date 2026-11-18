@@ -870,6 +870,56 @@ fill a chip nobody had looked at yet.
 
 ---
 
+## 23,254 more places — the long tail, ranked by how famous they are
+
+The 1,288 written-up places are a selection. This is the rest of the map:
+`scripts/harvest-reach.py` pulls every outdoor thing in Wikidata with a
+coordinate and an English label — 49,337 candidates — and keeps 23,254 of them.
+
+| | |
+| --- | --- |
+| Kinds | peaks, volcanoes, ranges, lakes, waterfalls, national parks, nature reserves, beaches, glaciers, caves, canyons, islands, deserts, hot springs, valleys |
+| Source | Wikidata SPARQL, ranked by `wikibase:sitelinks` (how many Wikipedia language editions cover it) |
+| Kept | 23,254 · 2,664 famous + 20,590 tail |
+| Dropped | 1,454 that duplicate an atlas place within 1.2 km, 481 that duplicate each other within 350 m, 24,148 over the per-kind caps |
+
+```bash
+python3 scripts/harvest-reach.py      # ~15 min against WDQS; responses cached in /tmp
+```
+
+**Fame is the tier.** Sitelink count is the cheapest free stand-in for "have I
+heard of this", and it is close to what a zoom level needs to know:
+
+| Tier | Sitelinks | Points | Appears at |
+| --- | --- | --- | --- |
+| 1 | ≥ 60 | 327 | z4.4 |
+| 2 | 25–59 | 2,337 | z6.0 |
+| 3 | 10–24 | 9,351 | z7.8 |
+| 4 | 4–9 | 11,239 | z9.2 |
+
+Names arrive later than dots: tiers 1–2 are named from z5.8, tiers 3–4 from z10.4.
+That is the whole trick — at country scale you see Fuji, not the 2,400 m shoulder
+next to it, and the shoulder only has to compete for space when there is space.
+
+**Four colours, not fifteen.** A dot is four pixels across: it can say rock, water,
+green or sand and nothing more. Peaks, volcanoes, ranges, caves and canyons are
+rock; lakes, waterfalls, glaciers and springs are water; parks, reserves, islands
+and valleys are green; beaches and deserts are sand.
+
+**Two files, one switch.** The famous half is `reach.json` (128 kB, 54 kB gzipped)
+and loads while the globe is idle; the tail is `reach-more.json` (867 kB, 376 kB
+gzipped) and is fetched the first time the camera passes z7.2 — the zoom its tiers
+start appearing at. Both live behind **More places** in the layers panel, so a
+reader who only wants the atlas can switch 23,000 dots off in one click.
+
+Clicking one rings it, flies to z12.6 and opens a card with the kind, the name and
+the nearest written-up place, which is the only page there is to offer: these
+entries have no field guide behind them. That is the honest difference between
+this set and the atlas — one is written, the other is mapped.
+
+**Measured**: 2.05 fps with the tail visible at z8.5 against 2.15 hidden, which is
+the run-to-run spread on this software renderer; the hillshade is still the frame.
+
 ## Camps, huts, water and parking — 6,013 places to sleep, drink and park
 
 The atlas answers "where should I go". It does not answer "where do I sleep, where

@@ -748,6 +748,24 @@ button {
     linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.25));
   border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
+/* A tail place is a dot on the map, so it is a dot on the card: same colour,
+   bigger, with a faint ring so it reads as a marker and not as a bullet. */
+.pick-art--reach {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.25));
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+.pick-reach-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: block;
+  box-shadow:
+    0 0 0 6px rgba(255, 255, 255, 0.06),
+    0 6px 16px rgba(0, 0, 0, 0.5);
+}
 .pick-art--kit img {
   display: block;
   width: 74px;

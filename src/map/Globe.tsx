@@ -118,12 +118,29 @@ export interface KitPick {
   detail: boolean;
 }
 
+/** A clicked dot from the long tail of places (peaks, lakes, parks worldwide). */
+export interface ReachPick {
+  id: number;
+  kind: number;
+  /** "Peak", "Lake", "Canyon", … */
+  label: string;
+  name: string;
+  near?: string;
+  lon: number;
+  lat: number;
+  tier: number;
+  /** True when the dot came from reach-more.json (tiers 3–4). */
+  more: boolean;
+}
+
 interface Props {
   places: Place[];
   selected: string | null;
   onSelect: (slug: string) => void;
   kitPick?: KitPick | null;
   onPickKit?: (pick: KitPick | null) => void;
+  reachPick?: ReachPick | null;
+  onPickReach?: (pick: ReachPick | null) => void;
   focus?: GlobeFocus | null;
   layers?: LayerState;
 }
@@ -151,6 +168,15 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
      applyVisibility skips ids the map does not have, so this list is safe to
      declare up front. */
   camp: ["kit-pins-0", "kit-pins-1", "kit-pins-2", "kit-pins-3", "kit-names-0", "kit-names-1"],
+  /* Same deal as the kit: these arrive after the first frame. */
+  reach: [
+    "reach-dots-1",
+    "reach-dots-2",
+    "reach-dots-3",
+    "reach-dots-4",
+    "reach-names",
+    "reach-names-more",
+  ],
   places: [
     "places-heat",
     "places-halo",
@@ -245,6 +271,8 @@ export default function Globe({
   onSelect,
   kitPick,
   onPickKit,
+  reachPick,
+  onPickReach,
   focus,
   layers = DEFAULT_LAYERS,
 }: Props) {
@@ -255,6 +283,8 @@ export default function Globe({
   const map = useRef<MlMap | null>(null);
   const selectRef = useRef(onSelect);
   const kitPickRef = useRef(onPickKit);
+  const reachPickRef = useRef(onPickReach);
+  const reachApi = useRef<typeof import("./reach") | null>(null);
   /* The kit's module, kept once it has loaded: a click needs KIT_KIND_LABEL,
      iconForKind and nearSlug synchronously, and a static import would drag the
      72 kB dataset into the entry chunk. */
@@ -265,6 +295,7 @@ export default function Globe({
   const [stalled, setStalled] = useState(false);
   selectRef.current = onSelect;
   kitPickRef.current = onPickKit;
+  reachPickRef.current = onPickReach;
   dataRef.current = places;
 
   /* ── init once ─────────────────────────────────────── */
@@ -458,6 +489,10 @@ export default function Globe({
          already usable without it. */
       const idle = window.requestIdleCallback?.(ensureKit, { timeout: 2500 });
       if (!idle) window.setTimeout(ensureKit, 1200);
+      /* The famous half of the long tail — a few thousand peaks, lakes, parks and
+         waterfalls — also waits for idle. It is dots and circles; no file. */
+      const idleReach = window.requestIdleCallback?.(ensureReach, { timeout: 3000 });
+      if (!idleReach) window.setTimeout(ensureReach, 1600);
 
       map_.addSource("places", { type: "geojson", data: toGeoJSON(dataRef.current) });
       map_.addSource("selected", {
@@ -741,15 +776,65 @@ export default function Globe({
         };
       };
 
+      /* Order of intent: an atlas dot (it has a page), then a camp pin (it is
+         what you plan around), then a dot from the long tail. */
+      const reachLayerIds = () =>
+        ["reach-dots-1", "reach-dots-2", "reach-dots-3", "reach-dots-4"].filter((id) =>
+          map_.getLayer(id),
+        );
+
+      const pickReach = (x: number, y: number): MapGeoJSONFeature | undefined => {
+        const layers = reachLayerIds();
+        if (!layers.length) return undefined;
+        const r = 8;
+        return map_.queryRenderedFeatures(
+          [
+            [x - r, y - r],
+            [x + r, y + r],
+          ],
+          { layers },
+        )[0];
+      };
+
+      const toReachPick = (hit: MapGeoJSONFeature): ReachPick => {
+        const api = reachApi.current;
+        const props = hit.properties as { k?: number; t?: number; n?: string; near?: number };
+        const kind = Number(props.k ?? 0);
+        const more = hit.layer?.id === "reach-dots-3" || hit.layer?.id === "reach-dots-4";
+        const [lon, lat] = (hit.geometry as unknown as { coordinates: [number, number] })
+          .coordinates;
+        return {
+          id: Number(hit.id ?? -1),
+          kind,
+          label: api?.REACH_KIND_LABEL[kind] ?? "Place",
+          name: String(props.n ?? ""),
+          near: api?.nearSlug(props.near, more),
+          lon,
+          lat,
+          tier: Number(props.t ?? 0),
+          more,
+        };
+      };
+
       map_.on("click", (e) => {
         const hit = pick(e.point.x, e.point.y);
         if (hit?.properties?.slug) {
           selectRef.current(hit.properties.slug);
           kitPickRef.current?.(null);
+          reachPickRef.current?.(null);
           return;
         }
         const kitHit = pickKit(e.point.x, e.point.y);
-        if (kitHit) kitPickRef.current?.(toKitPick(kitHit));
+        if (kitHit) {
+          reachPickRef.current?.(null);
+          kitPickRef.current?.(toKitPick(kitHit));
+          return;
+        }
+        const reachHit = pickReach(e.point.x, e.point.y);
+        if (reachHit) {
+          kitPickRef.current?.(null);
+          reachPickRef.current?.(toReachPick(reachHit));
+        }
       });
 
       /* Hit-testing is a spatial query over three layers and 1,288 features.
@@ -764,8 +849,10 @@ export default function Globe({
         const now = performance.now();
         if (now - lastPick < 60) return;
         lastPick = now;
-        const on = Boolean(pick(e.point.x, e.point.y)) ||
-          Boolean(pickKit(e.point.x, e.point.y));
+        const on =
+          Boolean(pick(e.point.x, e.point.y)) ||
+          Boolean(pickKit(e.point.x, e.point.y)) ||
+          Boolean(pickReach(e.point.x, e.point.y));
         if (on !== hovering) {
           hovering = on;
           map_.getCanvas().style.cursor = on ? "pointer" : "";
@@ -789,6 +876,7 @@ export default function Globe({
         addHillshade();
         addCampIcons(map_);
         ensureKit();
+        ensureReach();
       }
     };
     /* The kit: ~6,000 harvested camps, huts, shelters, water points, parking
@@ -839,7 +927,39 @@ export default function Globe({
       );
     };
 
+    /* The tail: ~20,000 more places, a file of its own. Fetched the first time
+       the camera passes z7.2 — the zoom where these tiers start appearing — so a
+       visit that never leaves the world view never downloads it. */
+    const ensureReachMore = () => {
+      if (!booted.current || !map_.getStyle()) return;
+      if (map_.getZoom() < 7.2 || map_.getSource("reach-more")) return;
+      if (!map_.getSource("reach")) return;
+      void import("./reach").then((mod) =>
+        mod.addReachMore(map_, kitSlot()).then(() => {
+          const visible = layersRef.current.reach ? "visible" : "none";
+          for (const id of mod.REACH_MORE_LAYERS) {
+            if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
+          }
+        }),
+      );
+    };
+
+    const ensureReach = () => {
+      if (!booted.current || !map_.getStyle() || map_.getSource("reach")) return;
+      void import("./reach").then((mod) => {
+        if (!booted.current) return;
+        reachApi.current = mod;
+        mod.addReach(map_, kitSlot());
+        const visible = layersRef.current.reach ? "visible" : "none";
+        for (const id of mod.REACH_LAYERS) {
+          if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
+        }
+        ensureReachMore();
+      });
+    };
+
     map_.on("zoomend", ensureKitDetail);
+    map_.on("zoomend", ensureReachMore);
     map_.on("styledata", ensureRelief);
 
     /* If the style never arrives, the usual cause is a page opened straight off
@@ -959,6 +1079,40 @@ export default function Globe({
         window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
     });
   }, [kitPick, ready]);
+
+  /* A tail place behaves like a camp pin: ring on the spot, camera down to
+     terrain detail. z12.6 is enough to see what kind of thing it is — a lake's
+     shape, a summit's ridge — without pretending there is a page to read. */
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    const src = map_.getSource("reach-pick") as GeoJSONSource | undefined;
+    src?.setData({
+      type: "FeatureCollection",
+      features: reachPick
+        ? [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [reachPick.lon, reachPick.lat] },
+              properties: {},
+            },
+          ]
+        : [],
+    });
+
+    if (!reachPick) return;
+    const zoom = Math.max(map_.getZoom(), 12.6);
+    map_.flyTo({
+      center: [reachPick.lon, reachPick.lat],
+      zoom,
+      pitch: pitchForZoom(zoom),
+      speed: 0.8,
+      curve: 1.4,
+      essential: true,
+      padding:
+        window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
+    });
+  }, [reachPick, ready]);
 
   /* ── camera travel: pitch follows zoom ───────────────
      Far out you look straight at the globe; as you close on a range the camera

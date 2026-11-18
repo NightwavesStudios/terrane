@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { worldZoom } from "../map/camera";
-import type { GlobeFocus, KitPick } from "../map/Globe";
+import type { GlobeFocus, KitPick, ReachPick } from "../map/Globe";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
+import REACH_META from "../data/reach-meta.json";
 
 /* MapLibre is by far the biggest thing this app ships (~1 MB), and it is only
    needed by the globe. Loading it through `lazy` lets the header, the filters
@@ -33,6 +34,17 @@ import { useHome } from "../lib/locate";
 
 const WORLD = { lon: 12, lat: 22 };
 
+/* The same four colours the dots use on the map: rock, water, green, sand. A
+   card that showed a different hue than the dot you clicked would undo the one
+   thing the dot was doing. */
+const REACH_COLOUR = ["#8ab4d8", "#5fc9d4", "#79cf9b", "#d9bd85"];
+function reachColour(kind: number) {
+  if ([3, 4, 8, 13].includes(kind)) return REACH_COLOUR[1];
+  if ([5, 6, 11, 14].includes(kind)) return REACH_COLOUR[2];
+  if ([7, 12].includes(kind)) return REACH_COLOUR[3];
+  return REACH_COLOUR[0];
+}
+
 export default function Home() {
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(() =>
@@ -43,6 +55,8 @@ export default function Home() {
      place) because they are different things: one has a page to read, the other
      is a pin on the ground. */
   const [kitPick, setKitPick] = useState<KitPick | null>(null);
+  /* A dot from the long tail: a peak, lake, park or coast with no page yet. */
+  const [reachPick, setReachPick] = useState<ReachPick | null>(null);
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
 
   /* Resolved after first paint, so the chip bar never waits on a network
@@ -55,24 +69,29 @@ export default function Home() {
     [filter, scope],
   );
   const place = selected ? bySlug.get(selected) : undefined;
-  const nearPlace = kitPick?.near ? bySlug.get(kitPick.near) : undefined;
+  const pinned = kitPick ?? reachPick;
+  const nearSlugOf = kitPick?.near ?? reachPick?.near;
+  const nearPlace = nearSlugOf ? bySlug.get(nearSlugOf) : undefined;
   const nearKm =
-    nearPlace && kitPick
-      ? kmApart(kitPick.lat, kitPick.lon, nearPlace.lat, nearPlace.lon)
+    nearPlace && pinned
+      ? kmApart(pinned.lat, pinned.lon, nearPlace.lat, nearPlace.lon)
       : null;
 
   /* Escape is the way out of every overlay here, so it has to work on a pin too. */
   useEffect(() => {
-    if (!kitPick) return;
+    if (!kitPick && !reachPick) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setKitPick(null);
+      if (e.key !== "Escape") return;
+      setKitPick(null);
+      setReachPick(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [kitPick]);
+  }, [kitPick, reachPick]);
 
   function pickPlace(slug: string) {
     setKitPick(null);
+    setReachPick(null);
     setSelected(slug);
   }
 
@@ -102,7 +121,18 @@ export default function Home() {
           kitPick={kitPick}
           onPickKit={(pick) => {
             setKitPick(pick);
-            if (pick) setSelected(null);
+            if (pick) {
+              setReachPick(null);
+              setSelected(null);
+            }
+          }}
+          reachPick={reachPick}
+          onPickReach={(pick) => {
+            setReachPick(pick);
+            if (pick) {
+              setKitPick(null);
+              setSelected(null);
+            }
           }}
         />
       </Suspense>
@@ -116,7 +146,7 @@ export default function Home() {
       </div>
 
       <p className="globe-hint mono">
-        {PLACES.length.toLocaleString()} places · {COUNTRY_COUNT} countries ·
+        {PLACES.length.toLocaleString()} written up · {(REACH_META.famous + REACH_META.more).toLocaleString()} more as you zoom · {COUNTRY_COUNT} countries ·
         drag to spin, click a point
       </p>
       <p className="globe-credits mono">
@@ -131,6 +161,49 @@ export default function Home() {
           scope={scope}
         />
       </div>
+
+      {reachPick && !place && (
+        <aside className="pick pick--reach" aria-live="polite">
+          <button
+            className="pick-close"
+            onClick={() => setReachPick(null)}
+            aria-label="Close place card"
+          >
+            ×
+          </button>
+          <div className="pick-art pick-art--reach">
+            <span
+              className="pick-reach-dot"
+              style={{ background: reachColour(reachPick.kind) }}
+            />
+          </div>
+          <div className="pick-body">
+            <p className="mono pick-eyebrow">
+              {reachPick.label}
+              {nearPlace && nearKm !== null && nearKm < 15 ? ` · near ${nearPlace.name}` : ""}
+            </p>
+            <h2>{reachPick.name}</h2>
+            <p className="mono pick-meta">
+              {nearKm !== null
+                ? `${nearKm < 10 ? nearKm.toFixed(1) : Math.round(nearKm)} km from ${nearPlace?.name}`
+                : "No written-up place within 60 km"}
+            </p>
+            <div className="pick-actions">
+              {nearPlace && (
+                <button
+                  className="btn btn-light"
+                  onClick={() => navigate(`/place/${nearPlace.slug}`)}
+                >
+                  {nearKm !== null && nearKm < 15
+                    ? `Read about ${nearPlace.name}`
+                    : `Nearest place: ${nearPlace.name}`}{" "}
+                  →
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
 
       {kitPick && !place && (
         <aside className="pick pick--kit" aria-live="polite">
