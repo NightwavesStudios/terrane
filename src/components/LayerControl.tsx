@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { KIT_ICONS, iconDataUrl, type KitIcon } from "../map/campIcon";
 
 export interface LayerState {
   relief: boolean;
@@ -24,6 +25,24 @@ export const DEFAULT_LAYERS: LayerState = {
 
 /* One row per thing you can see. Land and water are deliberately absent: they are
    the base of the map, and a switch that removes the ocean is not a layer switch. */
+/* The key. Half of it is text for the atlas dots, half is the same pictograms the
+   map draws — the images come from campIcon.ts, so a change to a shape here and a
+   change on the map can never disagree. */
+const KIT_LABEL: Record<KitIcon, string> = {
+  "camp-tent": "Camp site",
+  "camp-hut": "Hut",
+  "camp-shelter": "Shelter",
+  "water-drop": "Water",
+  parking: "Parking",
+};
+
+const PLACE_KEY: { label: string; color: string }[] = [
+  { label: "Peak", color: "#eaf7ff" },
+  { label: "Park", color: "#57f0b2" },
+  { label: "Landmark", color: "#ffc766" },
+  { label: "Hidden gem", color: "#c99bff" },
+];
+
 const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
   { key: "contours", label: "Contours", note: "From zoom 10" },
@@ -67,6 +86,20 @@ export default function LayerControl({
 
   const active = ROWS.filter((r) => value[r.key]).length;
 
+  /* Drawn the first time the panel opens, and not again: five canvases per render
+     would be work with nothing to show for it, and a closed panel should not pay
+     to paint a key nobody is looking at. */
+  const kitSrc = useMemo(
+    () =>
+      (open
+        ? (Object.fromEntries(KIT_ICONS.map((n) => [n, iconDataUrl(n, 40)])) as Record<
+            KitIcon,
+            string
+          >)
+        : ({} as Record<KitIcon, string>)),
+    [open],
+  );
+
   return (
     <div className="layers" ref={box}>
       <button
@@ -96,6 +129,22 @@ export default function LayerControl({
               </span>
             </label>
           ))}
+          <div className="layers-key">
+            <span className="layers-key-title mono">Key</span>
+            {PLACE_KEY.map((p) => (
+              <span className="layers-key-item" key={p.label}>
+                <i style={{ background: p.color }} aria-hidden="true" />
+                {p.label}
+              </span>
+            ))}
+            {KIT_ICONS.map((n) => (
+              <span className="layers-key-item" key={n}>
+                <img src={kitSrc[n]} alt="" width={14} height={14} />
+                {KIT_LABEL[n]}
+              </span>
+            ))}
+          </div>
+
           <p className="layers-fixed mono">
             Land, water and rivers are always drawn
           </p>

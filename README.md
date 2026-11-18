@@ -879,10 +879,19 @@ basemap already downloads**. No new source, no new request, no data pipeline:
 
 | Layer | Filter | Look |
 | --- | --- | --- |
-| `camp-icon` | `class = campsite` | Tent pictogram, sand fill, drawn at runtime |
-| `camp-dot` | `class = lodging` + `alpine_hut`/`wilderness_hut`, or `class = shelter` | Amber dot for a hut, blue-grey for a shelter |
-| `camp-label` | the same three | Name, from z14.4 |
-| `supplies-dot` | `drinking_water`, `spring`, `parking` | Small unlabelled dot — a yes/no on the route, not a destination |
+| `camp-icon` | `class = campsite` | Tent pictogram, sand fill |
+| `camp-hut` | `class = lodging` + `alpine_hut`/`wilderness_hut` | House — roof over walls |
+| `camp-shelter` | `class = shelter` | Lean-to wedge, asymmetric on purpose |
+| `supplies-icon` | `drinking_water`, `spring`, `parking` | Water droplet, or a parking sign with a P |
+| `camp-label` | camps, huts, shelters | Name, from z14.4 |
+
+**These are shapes, not coloured dots.** The first version drew five classes as five
+circles in five colours, which needed a key to be readable at all — and a key is a
+thing you have to look at twice. A tent, a roof, a lean-to, a drop and a parking
+sign are distinguishable at 12 px without one. The layer panel still carries a key
+(places by colour, kit by pictogram), and it is rendered **from the same
+`campIcon.ts` drawing code** via `iconDataUrl()`, so the legend cannot drift from the
+map: there is one place where a tent is defined.
 
 Two things are worth knowing before changing any of it:
 
@@ -890,15 +899,18 @@ Two things are worth knowing before changing any of it:
   at z11.2, 29 (railways only) at z13, 1,600+ at z14.3. So a `minzoom` below 14 would
   draw nothing, and the layers start at 13.8 (tent) / 14 (dots) / 14.4 (names) —
   which is also the zoom at which a campsite is a clearing rather than a pixel.
-- **The tent is a canvas, not a sprite.** The style has no sprite sheet, and fetching
-  a whole image atlas for one 20 px icon is not worth a request, so `campIcon.ts`
-  draws it with four paths into a 40×40 canvas (pixel ratio 2) and hands it to
-  `addImage` at style load. `styledata` re-adds it alongside the hillshade, so a
-  style rebuild cannot leave the icon layer pointing at a missing image.
+- **The pictograms are canvases, not a sprite sheet.** Fetching a whole image atlas
+  for five 20 px icons is not worth a request, so `campIcon.ts` draws each one with a
+  few paths on a 20-unit grid, rasterises it at 2× and hands it to `addImage` at
+  style load. `styledata` re-adds them alongside the hillshade, so a style rebuild
+  cannot leave the icon layers pointing at a missing image. The drawing code lives in
+  the entry chunk (the layers panel's key needs it) — 2.8 kB, ≈0.9 kB gzipped.
 
-Cost, measured on this machine at z14.5 / pitch 45 with a continuous bearing spin:
-**8.9 fps with the whole camp group visible, 8.9 with it hidden** — the number is
-identical, because the frame is still hillshade fill. At z11 the same query returns
-0 camp features, so overview zooms pay nothing at all. The 26 drinking-water taps in
+Cost, measured on this machine at z14.5 / pitch 45 with a continuous bearing spin and
+alternating samples: **9.5 fps with the whole camp group visible, 9.6 with it
+hidden** (individual samples ran 9.0–10.0 either way, so the difference is inside the
+run-to-run spread). The frame is hillshade fill; five symbol layers are not the
+problem. At z11 the same query returns 0 camp features, so overview zooms pay
+nothing at all. The 26 drinking-water taps in
 one Zermatt tile are drawn as 2.4 px dots and deliberately unlabelled: naming them
 would bury the trail network in text.

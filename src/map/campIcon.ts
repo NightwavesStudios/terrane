@@ -1,64 +1,176 @@
 import type { Map as MlMap } from "maplibre-gl";
 
 /**
- * The campsite pictogram, drawn once into a canvas at style-load time.
+ * The camping-kit pictograms, drawn once into canvases.
  *
- * The basemap has no sprite sheet, and adding one would mean a new request for a
- * whole image atlas to get a single 20 px tent. So the icon is painted here with
- * a few paths and handed to MapLibre as a 2× image — one canvas, ~40×40 device
- * pixels, no bytes on the wire, and it survives the pixel-ratio cap because the
- * image itself carries its own resolution.
+ * The basemap has no sprite sheet, and fetching an image atlas to get five 20 px
+ * icons is not worth a request. Each icon is a few paths on a 20-unit grid,
+ * rasterised at 2× and handed to MapLibre with `pixelRatio: 2` — no bytes on the
+ * wire, and the same drawing code renders the key in the layers panel, so the
+ * legend can never drift from the map.
+ *
+ * Shape carries the meaning, colour only reinforces it: a tent, a roof, a
+ * lean-to, a drop and a parking sign survive being 12 px tall in a way that five
+ * coloured circles never did.
  */
-const SIZE = 40;
+export type KitIcon = "camp-tent" | "camp-hut" | "camp-shelter" | "water-drop" | "parking";
 
-export function addCampIcon(map: MlMap) {
-  if (map.hasImage("camp-tent")) return;
+export const KIT_ICONS: KitIcon[] = [
+  "camp-tent",
+  "camp-hut",
+  "camp-shelter",
+  "water-drop",
+  "parking",
+];
 
-  const canvas = document.createElement("canvas");
-  canvas.width = SIZE;
-  canvas.height = SIZE;
-  const g = canvas.getContext("2d");
-  if (!g) return;
+const GRID = 20;
+const STROKE = "#05090f";
 
-  const s = SIZE / 20;
-  g.scale(s, s);
+const PEN = {
+  sand: "#f0d49a",
+  roof: "#e08a3c",
+  amber: "#ffb066",
+  shelter: "#9ec7e0",
+  water: "#5fb4d8",
+  sign: "#78808c",
+  glyph: "#eef4f8",
+};
+
+function paint(g: CanvasRenderingContext2D, name: KitIcon) {
   g.lineJoin = "round";
   g.lineCap = "round";
-  g.strokeStyle = "#05090f";
+  g.strokeStyle = STROKE;
   g.lineWidth = 1.2;
 
-  // The tent, filled sand with a dark edge so it holds up over bright snow and
-  // dark forest alike.
-  g.fillStyle = "#f0d49a";
-  g.beginPath();
-  g.moveTo(10, 3);
-  g.lineTo(18.7, 16.8);
-  g.lineTo(1.3, 16.8);
-  g.closePath();
-  g.fill();
-  g.stroke();
+  switch (name) {
+    case "camp-tent": {
+      // A tent: triangle with a low doorway, so it does not read as a peak.
+      g.fillStyle = PEN.sand;
+      g.beginPath();
+      g.moveTo(10, 3);
+      g.lineTo(18.7, 16.8);
+      g.lineTo(1.3, 16.8);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = STROKE;
+      g.beginPath();
+      g.moveTo(10, 12.2);
+      g.lineTo(11.5, 16.8);
+      g.lineTo(8.5, 16.8);
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.moveTo(0.6, 16.8);
+      g.lineTo(19.4, 16.8);
+      g.stroke();
+      break;
+    }
 
-  // Doorway: the one shape that makes a triangle read as a tent and not as a
-  // peak. Kept small and low — a door that reaches the apex turns the tent into
-  // an outline of itself at 12 px.
-  g.fillStyle = "#05090f";
-  g.beginPath();
-  g.moveTo(10, 12.2);
-  g.lineTo(11.5, 16.8);
-  g.lineTo(8.5, 16.8);
-  g.closePath();
-  g.fill();
+    case "camp-hut": {
+      // A hut has a roof and walls — the roof is the difference from the tent.
+      g.fillStyle = PEN.amber;
+      g.beginPath();
+      g.rect(4.4, 9.4, 11.2, 7.2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = PEN.roof;
+      g.beginPath();
+      g.moveTo(10, 2.8);
+      g.lineTo(17.6, 9.6);
+      g.lineTo(2.4, 9.6);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      // Door, centred, so the wall does not read as a plain box.
+      g.fillStyle = STROKE;
+      g.beginPath();
+      g.rect(8.6, 13, 2.8, 3.6);
+      g.fill();
+      break;
+    }
 
-  // Ground line.
-  g.beginPath();
-  g.moveTo(0.6, 16.9);
-  g.lineTo(19.4, 16.9);
-  g.stroke();
+    case "camp-shelter": {
+      // A lean-to: a slanted wedge, deliberately asymmetric next to the tent.
+      g.fillStyle = PEN.shelter;
+      g.beginPath();
+      g.moveTo(2.8, 16.8);
+      g.lineTo(13.4, 4.2);
+      g.lineTo(17.2, 16.8);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(2.8, 16.8);
+      g.lineTo(17.2, 16.8);
+      g.stroke();
+      break;
+    }
 
-  const { data } = g.getImageData(0, 0, SIZE, SIZE);
-  map.addImage(
-    "camp-tent",
-    { width: SIZE, height: SIZE, data: new Uint8Array(data) },
-    { pixelRatio: 2 },
-  );
+    case "water-drop": {
+      // A droplet, drawn as one closed path so there is no seam in the fill.
+      g.fillStyle = PEN.water;
+      g.beginPath();
+      g.moveTo(10, 2.8);
+      g.quadraticCurveTo(15.6, 10.2, 15.6, 13);
+      g.arc(10, 13, 5.6, 0, Math.PI);
+      g.quadraticCurveTo(4.4, 10.2, 10, 2.8);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      break;
+    }
+
+    case "parking": {
+      // A sign with a P on it. The bowl is an arc, the stem a thick line.
+      g.fillStyle = PEN.sign;
+      g.beginPath();
+      g.roundRect(2.8, 2.8, 14.4, 14.4, 3);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = PEN.glyph;
+      g.lineWidth = 2.2;
+      g.beginPath();
+      g.moveTo(8.2, 15);
+      g.lineTo(8.2, 5.6);
+      g.stroke();
+      g.beginPath();
+      g.arc(10.4, 8.3, 2.7, -Math.PI / 2, Math.PI / 2);
+      g.stroke();
+      break;
+    }
+  }
+}
+
+/** One icon as a square canvas, at `px` device pixels. */
+function render(name: KitIcon, px: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = px;
+  const g = canvas.getContext("2d");
+  if (!g) return canvas;
+  g.scale(px / GRID, px / GRID);
+  paint(g, name);
+  return canvas;
+}
+
+/** A data URL for DOM use — the layers-panel key. */
+export function iconDataUrl(name: KitIcon, px = 40): string {
+  return render(name, px).toDataURL("image/png");
+}
+
+/** Registers every pictogram on the map. Safe to call again after a style rebuild. */
+export function addCampIcons(map: MlMap) {
+  for (const name of KIT_ICONS) {
+    if (map.hasImage(name)) continue;
+    const px = 40;
+    const canvas = render(name, px);
+    const g = canvas.getContext("2d");
+    if (!g) continue;
+    const { data } = g.getImageData(0, 0, px, px);
+    map.addImage(
+      name,
+      { width: px, height: px, data: new Uint8Array(data) },
+      { pixelRatio: 2 },
+    );
+  }
 }

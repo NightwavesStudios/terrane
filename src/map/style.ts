@@ -611,7 +611,14 @@ export const MAP_STYLE: StyleSpecification = {
        somewhere to sleep, water to fill, a place to leave the car. All three
        come from the `poi` layer of the same vector source the basemap already
        downloads, so this costs no extra request and no extra bytes on the wire —
-       only two circle layers and one label layer once the tiles are in.
+       only four symbol layers and one label layer once the tiles are in.
+
+       Every one of them is a **shape**, not a coloured circle: a tent, a roof, a
+       lean-to, a drop, a parking sign. Five dots in five colours needed a key to
+       be readable at all, and a key is a thing you have to look at twice; a tent
+       is not. The drawings live in ../map/campIcon.ts and are rasterised into the
+       style at load, so the key in the layers panel and the map are the same
+       pixels.
 
        The schema only carries POIs in its z14 tiles (verified against the live
        OpenFreeMap tiles: 0 features at z11.2, none at z13, 1,600+ at z14.3), so
@@ -623,10 +630,6 @@ export const MAP_STYLE: StyleSpecification = {
       source: "openmaptiles",
       "source-layer": "poi",
       minzoom: 13.8,
-      // The tent comes from addCampIcon() in ../map/campIcon: drawn into a canvas
-      // at load, because there is no sprite sheet to borrow one from. Where the
-      // icon is missing for a frame the layer draws nothing and the dot layer
-      // below still has the huts, so the map never waits on it.
       filter: ["==", ["get", "class"], "campsite"],
       layout: {
         "icon-image": "camp-tent",
@@ -636,63 +639,65 @@ export const MAP_STYLE: StyleSpecification = {
       },
     },
     {
-      id: "camp-dot",
-      type: "circle",
+      id: "camp-hut",
+      type: "symbol",
       source: "openmaptiles",
       "source-layer": "poi",
-      minzoom: 14,
+      minzoom: 13.8,
+      // Alpine and wilderness huts are `lodging` POIs in this schema, so the
+      // class alone would pull in every hotel in the valley. The subclass is what
+      // separates a hut you walk to from a hotel you drive to.
       filter: [
-        "any",
-        ["==", ["get", "class"], "shelter"],
-        [
-          "all",
-          ["==", ["get", "class"], "lodging"],
-          ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
-        ],
+        "all",
+        ["==", ["get", "class"], "lodging"],
+        ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
       ],
-      paint: {
-        // Amber for a hut with a roof and a bed, blue-grey for a shelter. Two
-        // different questions — booking, or an emergency — so two colours.
-        // Campsites are not here: they get the tent above.
-        "circle-color": [
-          "match",
-          ["get", "class"],
-          "shelter",
-          "#9ec7e0",
-          "#ffb066",
-        ],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 4.2, 16, 6.2],
-        "circle-stroke-color": "#05090f",
-        "circle-stroke-width": 1.8,
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 14.6, 1],
+      layout: {
+        "icon-image": "camp-hut",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
       },
     },
     {
-      id: "supplies-dot",
-      type: "circle",
+      id: "camp-shelter",
+      type: "symbol",
       source: "openmaptiles",
       "source-layer": "poi",
-      minzoom: 14,
-      // Water and parking, drawn small and unlabelled: they are a yes/no on the
-      // route, not destinations, and 26 drinking-water taps in one Zermatt tile
-      // would bury the map in text if every one of them got a name.
+      minzoom: 13.8,
+      filter: ["==", ["get", "class"], "shelter"],
+      layout: {
+        "icon-image": "camp-shelter",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+    },
+    {
+      id: "supplies-icon",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "poi",
+      minzoom: 13.8,
+      // Water and parking: a yes/no on the route rather than a destination, so
+      // they are smaller than the camp pictograms and never labelled — 26 taps in
+      // one Zermatt tile would bury the trail network in text.
       filter: [
         "in",
         ["get", "class"],
         ["literal", ["drinking_water", "spring", "parking"]],
       ],
-      paint: {
-        "circle-color": [
+      layout: {
+        "icon-image": [
           "match",
           ["get", "class"],
           "parking",
-          "#78808c",
-          "#5fb4d8",
+          "parking",
+          "water-drop",
         ],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 2.4, 16, 3.6],
-        "circle-stroke-color": "#05090f",
-        "circle-stroke-width": 1.2,
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 14.6, 0.9],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.45, 16, 0.7],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
       },
     },
     {
