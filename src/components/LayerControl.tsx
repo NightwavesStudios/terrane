@@ -34,6 +34,7 @@ const KIT_LABEL: Record<KitIcon, string> = {
   "camp-shelter": "Shelter",
   "water-drop": "Water",
   parking: "Parking",
+  "picnic-table": "Picnic table",
 };
 
 const PLACE_KEY: { label: string; color: string }[] = [
@@ -54,7 +55,7 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   {
     key: "camp",
     label: "Camps & huts",
-    note: "Camp sites, huts, shelters, water, parking — from zoom 14",
+    note: "Nearest first, from zoom 10 — the rest as you zoom",
   },
 ];
 

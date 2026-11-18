@@ -13,7 +13,13 @@ import type { Map as MlMap } from "maplibre-gl";
  * lean-to, a drop and a parking sign survive being 12 px tall in a way that five
  * coloured circles never did.
  */
-export type KitIcon = "camp-tent" | "camp-hut" | "camp-shelter" | "water-drop" | "parking";
+export type KitIcon =
+  | "camp-tent"
+  | "camp-hut"
+  | "camp-shelter"
+  | "water-drop"
+  | "parking"
+  | "picnic-table";
 
 export const KIT_ICONS: KitIcon[] = [
   "camp-tent",
@@ -21,6 +27,7 @@ export const KIT_ICONS: KitIcon[] = [
   "camp-shelter",
   "water-drop",
   "parking",
+  "picnic-table",
 ];
 
 const GRID = 20;
@@ -118,6 +125,33 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       g.closePath();
       g.fill();
       g.stroke();
+      break;
+    }
+
+    case "picnic-table": {
+      // A table: top bar, two legs. Reads at 10 px because nothing else in the set
+      // is a horizontal bar.
+      const table = (width: number, colour: string) => {
+        g.strokeStyle = colour;
+        g.lineWidth = width;
+        g.beginPath();
+        g.moveTo(3.6, 8.4);
+        g.lineTo(16.4, 8.4);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(6.2, 8.6);
+        g.lineTo(5.2, 15.4);
+        g.moveTo(13.8, 8.6);
+        g.lineTo(14.8, 15.4);
+        g.stroke();
+        // A bench line under the top, so it reads as a picnic table and not a fence.
+        g.beginPath();
+        g.moveTo(4.6, 11.6);
+        g.lineTo(15.4, 11.6);
+        g.stroke();
+      };
+      table(3.6, STROKE);
+      table(1.9, PEN.sand);
       break;
     }
 

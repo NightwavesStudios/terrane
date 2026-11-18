@@ -607,99 +607,13 @@ export const MAP_STYLE: StyleSpecification = {
     },
     /* ── camping kit ───────────────────────────────────────────────────────
 
-       What you need once you are there, rather than what you came to see:
-       somewhere to sleep, water to fill, a place to leave the car. All three
-       come from the `poi` layer of the same vector source the basemap already
-       downloads, so this costs no extra request and no extra bytes on the wire —
-       only four symbol layers and one label layer once the tiles are in.
-
-       Every one of them is a **shape**, not a coloured circle: a tent, a roof, a
-       lean-to, a drop, a parking sign. Five dots in five colours needed a key to
-       be readable at all, and a key is a thing you have to look at twice; a tent
-       is not. The drawings live in ../map/campIcon.ts and are rasterised into the
-       style at load, so the key in the layers panel and the map are the same
-       pixels.
-
-       The schema only carries POIs in its z14 tiles (verified against the live
-       OpenFreeMap tiles: 0 features at z11.2, none at z13, 1,600+ at z14.3), so
-       these appear at the zoom where a summit has become a hillside and a
-       campsite is a clearing — which is exactly the zoom at which they matter. */
-    {
-      id: "camp-icon",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "poi",
-      minzoom: 13.8,
-      filter: ["==", ["get", "class"], "campsite"],
-      layout: {
-        "icon-image": "camp-tent",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-      },
-    },
-    {
-      id: "camp-hut",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "poi",
-      minzoom: 13.8,
-      // Alpine and wilderness huts are `lodging` POIs in this schema, so the
-      // class alone would pull in every hotel in the valley. The subclass is what
-      // separates a hut you walk to from a hotel you drive to.
-      filter: [
-        "all",
-        ["==", ["get", "class"], "lodging"],
-        ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
-      ],
-      layout: {
-        "icon-image": "camp-hut",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-      },
-    },
-    {
-      id: "camp-shelter",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "poi",
-      minzoom: 13.8,
-      filter: ["==", ["get", "class"], "shelter"],
-      layout: {
-        "icon-image": "camp-shelter",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.6, 16, 0.9],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-      },
-    },
-    {
-      id: "supplies-icon",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "poi",
-      minzoom: 13.8,
-      // Water and parking: a yes/no on the route rather than a destination, so
-      // they are smaller than the camp pictograms and never labelled — 26 taps in
-      // one Zermatt tile would bury the trail network in text.
-      filter: [
-        "in",
-        ["get", "class"],
-        ["literal", ["drinking_water", "spring", "parking"]],
-      ],
-      layout: {
-        "icon-image": [
-          "match",
-          ["get", "class"],
-          "parking",
-          "parking",
-          "water-drop",
-        ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 13.8, 0.45, 16, 0.7],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-      },
-    },
+       Not here any more. Camps, huts, shelters, water, parking and picnic tables
+       are harvested from these same tiles by scripts/harvest-kit.mjs into
+       src/data/kit.json, because the tile `poi` layer only exists at z14 and a
+       style-driven layer therefore could not show a camp at country scale or
+       rank one above another. The layers — four tier pins and two name layers —
+       are added at runtime by src/map/kit.ts once the JSON has arrived, with a
+       minzoom per tier. */
     {
       id: "label-country",
       type: "symbol",

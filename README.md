@@ -870,47 +870,61 @@ fill a chip nobody had looked at yet.
 
 ---
 
-## Camps, huts and water — what you need once you are there
+## Camps, huts, water and parking — 6,013 places to sleep, drink and park
 
 The atlas answers "where should I go". It does not answer "where do I sleep, where
-do I fill water, where do I leave the car" — so the `Camps & huts` switch (on by
-default) adds those from the **`poi` layer of the same OpenFreeMap vector source the
-basemap already downloads**. No new source, no new request, no data pipeline:
+do I fill water, where do I leave the car" — so `scripts/harvest-kit.mjs` harvests
+those from the `poi` layer of the OpenFreeMap vector tiles around every place in the
+atlas, and writes them to `src/data/kit.json` + `src/data/kit-detail.json`.
 
-| Layer | Filter | Look |
-| --- | --- | --- |
-| `camp-icon` | `class = campsite` | Tent pictogram, sand fill |
-| `camp-hut` | `class = lodging` + `alpine_hut`/`wilderness_hut` | House — roof over walls |
-| `camp-shelter` | `class = shelter` | Lean-to wedge, asymmetric on purpose |
-| `supplies-icon` | `drinking_water`, `spring`, `parking` | Water droplet, or a parking sign with a P |
-| `camp-label` | camps, huts, shelters | Name, from z14.4 |
+```bash
+npm run kit                     # harvest (tiles cached in /tmp/terrane-kit-tiles)
+npm run kit -- --radius=3       # wider net: 7×7 z14 tiles per place, ~11 km
+npm run kit -- --refresh        # ignore the tile cache
+```
 
-**These are shapes, not coloured dots.** The first version drew five classes as five
-circles in five colours, which needed a key to be readable at all — and a key is a
-thing you have to look at twice. A tent, a roof, a lean-to, a drop and a parking
-sign are distinguishable at 12 px without one. The layer panel still carries a key
-(places by colour, kit by pictogram), and it is rendered **from the same
-`campIcon.ts` drawing code** via `iconDataUrl()`, so the legend cannot drift from the
-map: there is one place where a tent is defined.
+**Why bake instead of styling the tile layer.** The schema only carries POIs in its
+z14 tiles (measured against the live tiles: 0 features at z11.2, 29 railways at z13,
+1,600+ at z14.3), so a style-driven `poi` layer can never show a camp at country
+scale and can never rank one camp above another. Baking the features lets us harvest
+a wider area — a 5×5 grid of z14 tiles per place, ~8 km — and give every one a tier.
 
-Two things are worth knowing before changing any of it:
+**Priority is the whole point.** A tier is a zoom band, not a category:
 
-- **POIs only exist in the z14 tiles.** Measured against the live tiles: 0 features
-  at z11.2, 29 (railways only) at z13, 1,600+ at z14.3. So a `minzoom` below 14 would
-  draw nothing, and the layers start at 13.8 (tent) / 14 (dots) / 14.4 (names) —
-  which is also the zoom at which a campsite is a clearing rather than a pixel.
-- **The pictograms are canvases, not a sprite sheet.** Fetching a whole image atlas
-  for five 20 px icons is not worth a request, so `campIcon.ts` draws each one with a
-  few paths on a 20-unit grid, rasterises it at 2× and hands it to `addImage` at
-  style load. `styledata` re-adds them alongside the hillshade, so a style rebuild
-  cannot leave the icon layers pointing at a missing image. The drawing code lives in
-  the entry chunk (the layers panel's key needs it) — 2.8 kB, ≈0.9 kB gzipped.
+| Tier | What is in it | Features | Appears at |
+| --- | --- | --- | --- |
+| 0 | Named camps, huts and shelters within 1.5 km of a written-up place | 36 | z9.6 |
+| 1 | Every named camp and hut within 6 km of a place | 1,765 | z11.4 |
+| 2 | Remaining named camps, all shelters, named water and parking | 1,431 | z12.9 |
+| 3 | Unnamed water, parking, picnic tables | 2,781 | z14.2 |
 
-Cost, measured on this machine at z14.5 / pitch 45 with a continuous bearing spin and
-alternating samples: **9.5 fps with the whole camp group visible, 9.6 with it
-hidden** (individual samples ran 9.0–10.0 either way, so the difference is inside the
-run-to-run spread). The frame is hillshade fill; five symbol layers are not the
-problem. At z11 the same query returns 0 camp features, so overview zooms pay
-nothing at all. The 26 drinking-water taps in
-one Zermatt tile are drawn as 2.4 px dots and deliberately unlabelled: naming them
-would bury the trail network in text.
+So the map is nearly empty of kit at country scale and only becomes dense where
+someone has zoomed in to look at a valley. Within a tier, pins never disappear to
+collision (`icon-allow-overlap`): a camp that exists but was not drawn is worse than
+two camps overlapping — the tiers are what keep the screen readable, not placement.
+
+Names follow the same rule: anchors are named from z10.3, everything else from z13.4.
+
+**Caps.** A 5×5 tile grid around a town landmark catches every car park within 8 km —
+9,655 parking spots worldwide, 71% of the raw harvest. Nobody needs the fifth-nearest
+tap either, so the nearest 4 water points, 3 car parks and 2 picnic sites per place are
+kept and the rest dropped. Camps, huts and shelters are never capped: there are never
+too many of them.
+
+**Two files, two decisions.** Tiers 0–2 ship as `kit.json` (165 kB, 72 kB gzipped) and
+load while the globe is idle; tier 3 is `kit-detail.json` (81 kB, 33 kB gzipped) and is
+fetched the first time the camera goes past z13.8. Together they were one 107 kB
+chunk; apart, neither the first frame nor the first zoom pays for the other.
+
+Cost, measured at z12.6 / pitch 0 with a continuous bearing spin and alternating
+samples: **3.83 fps with the whole kit visible, 3.63 with it hidden** — within the
+run-to-run spread, because the frame is still hillshade fill. (This VM renders in
+software; only the comparison transfers.)
+
+**Where it can be wrong, plainly.** Coverage is a radius around our 1,288 places, not
+the whole planet: pan somewhere with no atlas place within 8 km and the kit is empty
+there. Trails are *not* duplicated into it — the basemap already draws every path from
+`transportation` at z11.4 and names them from `transportation_name` at z12.4, and a
+second copy would double the lines and the labels. Names come through as OSM has them
+(so a Hebrew or Japanese camp name stays in its own script); the map's glyph stack
+covers those ranges.

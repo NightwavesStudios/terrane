@@ -128,7 +128,10 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
   roads: ["road-casing", "road-minor", "road-major", "road-highway"],
   borders: ["boundary-country", "boundary-state"],
   labels: ["label-country", "label-state", "label-city", "water-label"],
-  camp: ["camp-icon", "camp-hut", "camp-shelter", "camp-label", "supplies-icon"],
+  /* The kit layers do not exist until `kit.json` lands (see ensureKit), and
+     applyVisibility skips ids the map does not have, so this list is safe to
+     declare up front. */
+  camp: ["kit-pins-0", "kit-pins-1", "kit-pins-2", "kit-pins-3", "kit-names-0", "kit-names-1"],
   places: [
     "places-heat",
     "places-halo",
@@ -424,6 +427,11 @@ export default function Globe({
       contours.current.setEnabled(layersRef.current.contours);
       applyVisibility(map_, layersRef.current);
 
+      /* Deferred, not awaited: the kit is 6,000 features of JSON and the map is
+         already usable without it. */
+      const idle = window.requestIdleCallback?.(ensureKit, { timeout: 2500 });
+      if (!idle) window.setTimeout(ensureKit, 1200);
+
       map_.addSource("places", { type: "geojson", data: toGeoJSON(dataRef.current) });
       map_.addSource("selected", {
         type: "geojson",
@@ -706,8 +714,56 @@ export default function Globe({
       if (booted.current && map_.isStyleLoaded()) {
         addHillshade();
         addCampIcons(map_);
+        ensureKit();
       }
     };
+    /* The kit: ~6,000 harvested camps, huts, shelters, water points, parking
+       spots and picnic tables, in its own chunk so the globe paints first. It is
+       the one thing on this map that can wait — the hillshade and the atlas dots
+       are what make the first frame. Inserted under the map labels so the place
+       names stay on top of it. */
+    /* Where the kit sits in the stack: above the basemap's own labels (city,
+       trail, water names) and below the atlas places. Inserting it under
+       `label-country` — the first version — put every camp name at the bottom of
+       the symbol stack, where MapLibre's collision pass had already claimed the
+       space, so the labels were drawn but never shown. */
+    const kitSlot = () =>
+      map_.getLayer("places-heat") ? "places-heat" : undefined;
+
+    const ensureKit = () => {
+      /* `isStyleLoaded()` flickers false while tiles stream in, and the first
+         version of this guard made the whole kit a no-op whenever the idle
+         callback landed on such a frame. `getStyle()` is the stable question:
+         does the map have a style at all? */
+      if (!booted.current || !map_.getStyle() || map_.getSource("kit")) return;
+      void import("./kit").then(({ addKit, KIT_LAYERS: ids }) => {
+        if (!booted.current) return;
+        addKit(map_, kitSlot());
+        const visible = layersRef.current.camp ? "visible" : "none";
+        for (const id of ids) {
+          if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
+        }
+        ensureKitDetail();
+      });
+    };
+
+    /* Tier 3 — 2,781 water taps, car parks and picnic tables — is a second file
+       and a second decision: fetch it the first time the camera goes past z13.8,
+       not before. Most visits never ask for it. */
+    const ensureKitDetail = () => {
+      if (!booted.current || !map_.getStyle()) return;
+      if (map_.getZoom() < 13.8 || map_.getSource("kit-detail")) return;
+      void import("./kit").then(({ addKitDetail, KIT_DETAIL_LAYERS: ids }) =>
+        addKitDetail(map_, kitSlot()).then(() => {
+          const visible = layersRef.current.camp ? "visible" : "none";
+          for (const id of ids) {
+            if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
+          }
+        }),
+      );
+    };
+
+    map_.on("zoomend", ensureKitDetail);
     map_.on("styledata", ensureRelief);
 
     /* If the style never arrives, the usual cause is a page opened straight off
