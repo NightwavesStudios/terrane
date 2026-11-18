@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KIT_ICONS, iconDataUrl, type KitIcon } from "../map/campIcon";
+import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import POI_STATS from "../data/poi-stats.json";
 
 export interface LayerState {
@@ -28,79 +28,50 @@ export const DEFAULT_LAYERS: LayerState = {
   camp: true,
 };
 
-/* The key. Half of it is text for the atlas dots, half is the same pictograms the
-   map draws — the images come from campIcon.ts, so a change to a shape here and a
-   change on the map can never disagree. */
 const KIT_LABEL: Record<KitIcon, string> = {
-  "camp-tent": "Camp site",
+  "camp-tent": "Camp",
   "camp-hut": "Hut",
   "camp-shelter": "Shelter",
   "water-drop": "Water",
   parking: "Parking",
-  "picnic-table": "Picnic table",
-  viewpoint: "Viewpoint",
-  caravan: "Caravan site",
+  "picnic-table": "Picnic",
+  viewpoint: "View",
+  caravan: "Caravan",
   toilets: "Toilets",
   shower: "Shower",
-  info: "Information",
+  info: "Boards",
   trailhead: "Trailhead",
 };
 
-/* The long tail's four colours. Fourteen kinds would be a colour wheel nobody can
-   read at four pixels; these four say rock, water, green, sand. */
-const REACH_KEY: { label: string; color: string }[] = [
-  { label: "Rock", color: "#8ab4d8" },
-  { label: "Water", color: "#5fc9d4" },
-  { label: "Green", color: "#79cf9b" },
-  { label: "Sand", color: "#d9bd85" },
+/* The key lists only what you go out there for: a night, water, somewhere to park,
+   a view. The colour families and the rest of the pictograms are explained by the
+   map itself, and a legend that explains everything is read by nobody. */
+const PRACTICAL: KitIcon[] = [
+  "camp-tent",
+  "camp-hut",
+  "camp-shelter",
+  "water-drop",
+  "parking",
+  "viewpoint",
 ];
 
-const PLACE_KEY: { label: string; color: string }[] = [
-  { label: "Peak", color: "#eaf7ff" },
-  { label: "Park", color: "#57f0b2" },
-  { label: "Landmark", color: "#ffc766" },
-  { label: "Hidden gem", color: "#c99bff" },
+/* The map's own furniture. Short labels, no explanations: every one of these is a
+   thing you can see, and a sentence under it does not make it easier to find. */
+const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
+  { key: "relief", label: "Relief" },
+  { key: "contours", label: "Contours" },
+  { key: "trails", label: "Paths" },
+  { key: "roads", label: "Roads" },
+  { key: "borders", label: "Borders" },
+  { key: "labels", label: "Labels" },
 ];
 
-/* The map's own furniture: terrain, lines and labels. Separate from the pins
-   because turning off a road is not the same decision as turning off a campsite. */
-const BASE_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
-  { key: "relief", label: "Relief", note: "Hillshade from the DEM" },
-  { key: "contours", label: "Contours", note: "From zoom 10" },
-  { key: "trails", label: "Footpaths", note: "Dashed lines and names, from zoom 12" },
-  { key: "roads", label: "Roads", note: "Tracks and roads, from zoom 10" },
-  { key: "borders", label: "Borders", note: "Country and state lines" },
-  { key: "labels", label: "Map labels", note: "Countries, cities, water" },
-];
-
-/* Every point on the map, in one list, ordered by priority: what you would keep if
-   you could only keep one thing, down to what you would drop first. They are
-   sub-rows of one switch because they answer one question — "how much do I want to
-   see out here" — and four separate checkboxes pretended they were unrelated. */
+/* Every pin on the map, highest priority first. One note, one line. */
 const POINT_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
-  {
-    key: "places",
-    label: "The named places",
-    note: "Named and mapped together, ranked by how major they are — two names per country first, the rest as you zoom",
-  },
-  {
-    key: "reach",
-    label: "The famous long tail",
-    note: "Peaks, lakes, parks and coasts that have a Wikipedia entry, the most-covered first",
-  },
-  {
-    key: "poi",
-    label: "Everything mapped",
-    /* The count is read from the harvest report, not typed: the switch says how
-       much there is to find, and a stale number here would be a lie about the
-       coverage on the map. */
-    note: `${POI_STATS.total.toLocaleString("en-US")} camps, huts, shelters, water points, viewpoints, car parks and boards from ${POI_STATS.extracts} OpenStreetMap extracts — camps and water at regional zoom, car parks and toilets only when you are on the street`,
-  },
-  {
-    key: "camp",
-    label: "Camps around the named places",
-    note: "The nearest first, the rest as you zoom — lowest priority, kept last",
-  },
+  { key: "places", label: "Named places", note: "ranked" },
+  { key: "reach", label: "Famous places", note: "as you zoom" },
+  { key: "poi", label: "Everything mapped", note: POI_STATS.extracts + " extracts" },
+  { key: "camp", label: "Camps nearby", note: "nearest first" },
 ];
 
 const POINT_KEYS = POINT_ROWS.map((r) => r.key);
@@ -149,7 +120,7 @@ export default function LayerControl({
   const kitSrc = useMemo(
     () =>
       (open
-        ? (Object.fromEntries(KIT_ICONS.map((n) => [n, iconDataUrl(n, 40)])) as Record<
+        ? (Object.fromEntries(PRACTICAL.map((n) => [n, iconDataUrl(n, 40)])) as Record<
             KitIcon,
             string
           >)
@@ -182,7 +153,6 @@ export default function LayerControl({
               />
               <span className="layers-text">
                 <span className="layers-label">{row.label}</span>
-                <span className="layers-note mono">{row.note}</span>
               </span>
             </label>
           ))}
@@ -197,16 +167,12 @@ export default function LayerControl({
             <span className="layers-text">
               <span className="layers-label">Places &amp; pins</span>
               <span className="layers-note mono">
-                {allPoints
-                  ? "Everything below, highest priority first"
-                  : pointsOn === 0
-                    ? "Hidden — tick to show the map's pins again"
-                    : `${pointsOn} of ${POINT_ROWS.length} priorities on`}
+                {allPoints ? "all" : `${pointsOn}/${POINT_ROWS.length}`}
               </span>
             </span>
           </label>
 
-          <div id="layers-points" style={{ paddingLeft: 22 }}>
+          <div id="layers-points" style={{ paddingLeft: 20 }}>
             {POINT_ROWS.map((row) => (
               <label className="layers-row" key={row.key}>
                 <input
@@ -223,30 +189,14 @@ export default function LayerControl({
           </div>
 
           <div className="layers-key">
-            <span className="layers-key-title mono">Key</span>
-            {PLACE_KEY.map((p) => (
-              <span className="layers-key-item" key={p.label}>
-                <i style={{ background: p.color }} aria-hidden="true" />
-                {p.label}
-              </span>
-            ))}
-            {REACH_KEY.map((p) => (
-              <span className="layers-key-item layers-key-dot" key={p.label}>
-                <i style={{ background: p.color }} aria-hidden="true" />
-                {p.label}
-              </span>
-            ))}
-            {KIT_ICONS.map((n) => (
+            <span className="layers-key-title mono">On the ground</span>
+            {PRACTICAL.map((n) => (
               <span className="layers-key-item" key={n}>
                 <img src={kitSrc[n]} alt="" width={14} height={14} />
                 {KIT_LABEL[n]}
               </span>
             ))}
           </div>
-
-          <p className="layers-fixed mono">
-            Land, water and rivers are always drawn
-          </p>
         </div>
       )}
     </div>
