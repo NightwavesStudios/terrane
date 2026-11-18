@@ -20,7 +20,12 @@ export type KitIcon =
   | "water-drop"
   | "parking"
   | "picnic-table"
-  | "viewpoint";
+  | "viewpoint"
+  | "caravan"
+  | "toilets"
+  | "shower"
+  | "info"
+  | "trailhead";
 
 export const KIT_ICONS: KitIcon[] = [
   "camp-tent",
@@ -30,6 +35,11 @@ export const KIT_ICONS: KitIcon[] = [
   "parking",
   "picnic-table",
   "viewpoint",
+  "caravan",
+  "toilets",
+  "shower",
+  "info",
+  "trailhead",
 ];
 
 const GRID = 20;
@@ -54,7 +64,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
 
   switch (name) {
     case "camp-tent": {
-      // A tent: triangle with a low doorway, so it does not read as a peak.
       g.fillStyle = PEN.sand;
       g.beginPath();
       g.moveTo(10, 3);
@@ -78,7 +87,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
     }
 
     case "camp-hut": {
-      // A hut has a roof and walls — the roof is the difference from the tent.
       g.fillStyle = PEN.amber;
       g.beginPath();
       g.rect(4.4, 9.4, 11.2, 7.2);
@@ -92,7 +100,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       g.closePath();
       g.fill();
       g.stroke();
-      // Door, centred, so the wall does not read as a plain box.
       g.fillStyle = STROKE;
       g.beginPath();
       g.rect(8.6, 13, 2.8, 3.6);
@@ -101,7 +108,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
     }
 
     case "camp-shelter": {
-      // A lean-to: a slanted wedge, deliberately asymmetric next to the tent.
       g.fillStyle = PEN.shelter;
       g.beginPath();
       g.moveTo(2.8, 16.8);
@@ -118,7 +124,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
     }
 
     case "water-drop": {
-      // A droplet, drawn as one closed path so there is no seam in the fill.
       g.fillStyle = PEN.water;
       g.beginPath();
       g.moveTo(10, 2.8);
@@ -132,8 +137,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
     }
 
     case "picnic-table": {
-      // A table: top bar, two legs. Reads at 10 px because nothing else in the set
-      // is a horizontal bar.
       const table = (width: number, colour: string) => {
         g.strokeStyle = colour;
         g.lineWidth = width;
@@ -147,7 +150,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
         g.moveTo(13.8, 8.6);
         g.lineTo(14.8, 15.4);
         g.stroke();
-        // A bench line under the top, so it reads as a picnic table and not a fence.
         g.beginPath();
         g.moveTo(4.6, 11.6);
         g.lineTo(15.4, 11.6);
@@ -159,8 +161,6 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
     }
 
     case "viewpoint": {
-      // An eye. A viewpoint is the one thing in the set that is about looking
-      // rather than staying, and nothing else here is an open lens shape.
       g.fillStyle = PEN.eye;
       g.beginPath();
       g.moveTo(2.2, 10);
@@ -176,8 +176,145 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       break;
     }
 
+    case "caravan": {
+      g.fillStyle = PEN.sand;
+      g.beginPath();
+      g.roundRect(2.8, 6.2, 14.4, 8.4, 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = PEN.water;
+      g.beginPath();
+      g.rect(5, 8.4, 4.4, 3.6);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = STROKE;
+      g.beginPath();
+      g.moveTo(2.8, 14.6);
+      g.lineTo(0.8, 16.6);
+      g.stroke();
+      g.fillStyle = STROKE;
+      g.beginPath();
+      g.arc(13.8, 16.4, 1.9, 0, Math.PI * 2);
+      g.fill();
+      break;
+    }
+
+    case "toilets": {
+      g.fillStyle = PEN.glyph;
+      g.strokeStyle = STROKE;
+      g.beginPath();
+      g.arc(6, 5.4, 2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(4.2, 16.4);
+      g.lineTo(4.9, 9);
+      g.lineTo(7.1, 9);
+      g.lineTo(7.8, 16.4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.arc(13.9, 5.4, 2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(11.4, 16.4);
+      g.lineTo(12.4, 9);
+      g.lineTo(15.4, 9);
+      g.lineTo(16.4, 16.4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      break;
+    }
+
+    case "shower": {
+      g.strokeStyle = STROKE;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(4.4, 3.2);
+      g.lineTo(4.4, 7);
+      g.lineTo(10, 7);
+      g.stroke();
+      g.lineWidth = 1.2;
+      g.fillStyle = PEN.water;
+      g.beginPath();
+      g.moveTo(8.4, 7);
+      g.lineTo(15.8, 7);
+      g.lineTo(12.4, 11.2);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      for (const [x, y] of [
+        [9.6, 13.8],
+        [12.4, 14.2],
+        [15.2, 13.6],
+      ]) {
+        g.beginPath();
+        g.arc(x, y, 1.1, 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
+
+    case "info": {
+      g.fillStyle = PEN.sign;
+      g.beginPath();
+      g.roundRect(3.2, 3, 13.6, 10.4, 2);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = PEN.glyph;
+      g.lineWidth = 2.1;
+      g.beginPath();
+      g.moveTo(10, 5.8);
+      g.lineTo(10, 6);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(10, 8.2);
+      g.lineTo(10, 11.4);
+      g.stroke();
+      g.strokeStyle = STROKE;
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(10, 13.4);
+      g.lineTo(10, 17.4);
+      g.stroke();
+      break;
+    }
+
+    case "trailhead": {
+      g.strokeStyle = STROKE;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(9.2, 2.8);
+      g.lineTo(9.2, 17.2);
+      g.stroke();
+      g.lineWidth = 1.2;
+      g.fillStyle = PEN.roof;
+      g.beginPath();
+      g.moveTo(9.2, 4.2);
+      g.lineTo(16.2, 4.2);
+      g.lineTo(17.8, 6.6);
+      g.lineTo(16.2, 9);
+      g.lineTo(9.2, 9);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = PEN.sand;
+      g.beginPath();
+      g.moveTo(9.2, 10.8);
+      g.lineTo(3.4, 10.8);
+      g.lineTo(1.8, 13.2);
+      g.lineTo(3.4, 15.6);
+      g.lineTo(9.2, 15.6);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      break;
+    }
+
     case "parking": {
-      // A sign with a P on it. The bowl is an arc, the stem a thick line.
       g.fillStyle = PEN.sign;
       g.beginPath();
       g.roundRect(2.8, 2.8, 14.4, 14.4, 3);
