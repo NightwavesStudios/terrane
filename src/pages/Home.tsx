@@ -66,10 +66,10 @@ export default function Home() {
   const home = useHome();
   const scope = useMemo(() => homeScope(home), [home]);
 
-  /* Written-up and generated places go to the map as one set, ranked by how major
-     they are rather than by which file they came from: the first label pass is two
-     names per country, so a country's written entries no longer out-vote a summit
-     that was only ever an atlas row. */
+  /* Every place — the hand-picked ones and the generated atlas rows — goes to the
+     map as one ranked set, scored by how major it is rather than by which file it
+     came from: the first label pass is two names per country, so a country's own
+     picks no longer out-vote a summit that was only ever an atlas row. */
   const places = useMemo(
     () => rankPlaces(PLACES.filter((p) => matches(p, filter, scope))),
     [filter, scope],
@@ -78,8 +78,8 @@ export default function Home() {
   const pinned = kitPick ?? reachPick;
   const nearSlugOf = kitPick?.near ?? reachPick?.near;
   /* A pinned POI from the world set has no nearest place baked in — it was not
-     harvested around one. One pass over the 1,288 written-up places on a click is
-     cheaper than shipping 20,000 indices. */
+     harvested around one. One pass over the places on a click is cheaper than
+     shipping 20,000 indices. */
   const nearPlace = (() => {
     if (nearSlugOf) return bySlug.get(nearSlugOf);
     if (!pinned) return undefined;
@@ -171,9 +171,13 @@ export default function Home() {
         <LayerControl value={layers} onChange={setLayers} />
       </div>
 
+      {/* One map, one count: named places, the tail that arrives as you zoom, and
+          what the OSM harvest put on top. No line here separates "written up" from
+          anything else, because on the map there is no such distinction. */}
       <p className="globe-hint mono">
-        {PLACES.length.toLocaleString()} written up · {(REACH_META.famous + REACH_META.more).toLocaleString()} more as you zoom · {COUNTRY_COUNT} countries ·
-        drag to spin, click a point
+        {PLACES.length.toLocaleString()} named · {(REACH_META.famous + REACH_META.more).toLocaleString()} more as you zoom ·
+        {" "}
+        {POI_STATS.total.toLocaleString("en-US")} mapped places · {COUNTRY_COUNT} countries · drag to spin, click a point
       </p>
       {/* What the harvest found, above the licences: the number is read from the
           coverage report (`npm run poi:stats`), never typed, so it cannot drift
@@ -219,7 +223,7 @@ export default function Home() {
             <p className="mono pick-meta">
               {nearKm !== null
                 ? `${nearKm < 10 ? nearKm.toFixed(1) : Math.round(nearKm)} km from ${nearPlace?.name}`
-                : "No written-up place within 60 km"}
+                : "No named place within 60 km"}
             </p>
             <div className="pick-actions">
               {nearPlace && (
