@@ -10,6 +10,7 @@ export interface LayerState {
   labels: boolean;
   places: boolean;
   reach: boolean;
+  poi: boolean;
   camp: boolean;
 }
 
@@ -22,6 +23,7 @@ export const DEFAULT_LAYERS: LayerState = {
   labels: true,
   places: true,
   reach: true,
+  poi: true,
   camp: true,
 };
 
@@ -37,6 +39,7 @@ const KIT_LABEL: Record<KitIcon, string> = {
   "water-drop": "Water",
   parking: "Parking",
   "picnic-table": "Picnic table",
+  viewpoint: "Viewpoint",
 };
 
 /* The long tail's four colours. Fourteen kinds would be a colour wheel nobody can
@@ -69,8 +72,13 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
     note: "Peaks, lakes, parks and coasts worldwide — the famous ones first",
   },
   {
+    key: "poi",
+    label: "World POIs",
+    note: "Every campsite, hut, shelter, tap and viewpoint — loaded as you pan",
+  },
+  {
     key: "camp",
-    label: "Camps & huts",
+    label: "Camps near places",
     note: "Click any pin to focus it — nearest first, the rest as you zoom",
   },
 ];

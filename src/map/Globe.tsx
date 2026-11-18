@@ -169,6 +169,16 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
      declare up front. */
   camp: ["kit-pins-0", "kit-pins-1", "kit-pins-2", "kit-pins-3", "kit-names-0", "kit-names-1"],
   /* Same deal as the kit: these arrive after the first frame. */
+  poi: [
+    "poi-camp",
+    "poi-hut",
+    "poi-shelter",
+    "poi-water",
+    "poi-view",
+    "poi-picnic",
+    "poi-pass",
+    "poi-names",
+  ],
   reach: [
     "reach-dots-1",
     "reach-dots-2",
@@ -285,6 +295,7 @@ export default function Globe({
   const kitPickRef = useRef(onPickKit);
   const reachPickRef = useRef(onPickReach);
   const reachApi = useRef<typeof import("./reach") | null>(null);
+  const poiApi = useRef<typeof import("./poi") | null>(null);
   /* The kit's module, kept once it has loaded: a click needs KIT_KIND_LABEL,
      iconForKind and nearSlug synchronously, and a static import would drag the
      72 kB dataset into the entry chunk. */
@@ -489,6 +500,10 @@ export default function Globe({
          already usable without it. */
       const idle = window.requestIdleCallback?.(ensureKit, { timeout: 2500 });
       if (!idle) window.setTimeout(ensureKit, 1200);
+      /* World POIs: campsites, huts, shelters, water and viewpoints everywhere,
+         one file per z6 cell, fetched as the camera looks at them. Also idle. */
+      const idlePoi = window.requestIdleCallback?.(ensurePoi, { timeout: 3500 });
+      if (!idlePoi) window.setTimeout(ensurePoi, 2000);
       /* The famous half of the long tail — a few thousand peaks, lakes, parks and
          waterfalls — also waits for idle. It is dots and circles; no file. */
       const idleReach = window.requestIdleCallback?.(ensureReach, { timeout: 3000 });
@@ -783,6 +798,49 @@ export default function Globe({
           map_.getLayer(id),
         );
 
+      const poiLayerIds = () =>
+        [
+          "poi-camp",
+          "poi-hut",
+          "poi-shelter",
+          "poi-water",
+          "poi-view",
+          "poi-picnic",
+          "poi-pass",
+        ].filter((id) => map_.getLayer(id));
+
+      const pickPoi = (x: number, y: number): MapGeoJSONFeature | undefined => {
+        const layers = poiLayerIds();
+        if (!layers.length) return undefined;
+        const r = 10;
+        return map_.queryRenderedFeatures(
+          [
+            [x - r, y - r],
+            [x + r, y + r],
+          ],
+          { layers },
+        )[0];
+      };
+
+      const toPoiPick = (hit: MapGeoJSONFeature): KitPick => {
+        const api = poiApi.current;
+        const props = hit.properties as { k?: number; n?: string };
+        const kind = Number(props.k ?? 0);
+        const [lon, lat] = (hit.geometry as unknown as { coordinates: [number, number] })
+          .coordinates;
+        return {
+          id: -1,
+          kind,
+          label: api?.POI_KIND_LABEL[kind] ?? "POI",
+          icon: api?.poiIconForKind(kind) ?? "camp-tent",
+          name: String(props.n ?? ""),
+          lon,
+          lat,
+          tier: 0,
+          detail: false,
+        };
+      };
+
       const pickReach = (x: number, y: number): MapGeoJSONFeature | undefined => {
         const layers = reachLayerIds();
         if (!layers.length) return undefined;
@@ -830,6 +888,12 @@ export default function Globe({
           kitPickRef.current?.(toKitPick(kitHit));
           return;
         }
+        const poiHit = pickPoi(e.point.x, e.point.y);
+        if (poiHit) {
+          reachPickRef.current?.(null);
+          kitPickRef.current?.(toPoiPick(poiHit));
+          return;
+        }
         const reachHit = pickReach(e.point.x, e.point.y);
         if (reachHit) {
           kitPickRef.current?.(null);
@@ -852,6 +916,7 @@ export default function Globe({
         const on =
           Boolean(pick(e.point.x, e.point.y)) ||
           Boolean(pickKit(e.point.x, e.point.y)) ||
+          Boolean(pickPoi(e.point.x, e.point.y)) ||
           Boolean(pickReach(e.point.x, e.point.y));
         if (on !== hovering) {
           hovering = on;
@@ -876,6 +941,7 @@ export default function Globe({
         addHillshade();
         addCampIcons(map_);
         ensureKit();
+        ensurePoi();
         ensureReach();
       }
     };
@@ -942,6 +1008,23 @@ export default function Globe({
           }
         }),
       );
+    };
+
+    const ensurePoi = () => {
+      if (!booted.current || !map_.getStyle() || map_.getSource("poi")) return;
+      void import("./poi").then((mod) => {
+        if (!booted.current) return;
+        poiApi.current = mod;
+        mod.addPoi(map_, kitSlot());
+        const visible = layersRef.current.poi ? "visible" : "none";
+        for (const id of mod.POI_LAYERS) {
+          if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
+        }
+        /* Cells follow the camera, not the clock: one check per settled move, and
+           a no-op unless something new is in view. */
+        map_.on("moveend", () => mod.refreshPoi(map_));
+        mod.refreshPoi(map_);
+      });
     };
 
     const ensureReach = () => {

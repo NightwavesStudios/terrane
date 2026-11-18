@@ -920,6 +920,65 @@ this set and the atlas — one is written, the other is mapped.
 **Measured**: 2.05 fps with the tail visible at z8.5 against 2.15 hidden, which is
 the run-to-run spread on this software renderer; the hillshade is still the frame.
 
+## The whole world's POIs — one file per cell, fetched as you pan
+
+The campsites added earlier were harvested in a radius: 8 km around each written-up
+place. That is why Georgia had far more than Kazakhstan — coverage followed the
+atlas, not the ground. Nothing was ever added by hand; the shape of the seed list
+made it look that way.
+
+`scripts/harvest-poi.py` has no seed list. It asks OpenStreetMap (Overpass) for
+every campsite, mountain hut, wilderness hut, shelter, drinking water, spring,
+viewpoint, picnic site and pass inside a grid cell, and writes the answer to its
+own small file:
+
+```
+public/poi/6/{x}/{y}.json    # [lat, lon, kind, name?] — a z6 cell is ~600 km across
+```
+
+The browser fetches a cell the first time the camera looks at it (`src/map/poi.ts`,
+on `moveend`, only above z9.2, at most six cells per pass) and never refetches it.
+Coverage is global without a global download: at full coverage the set is roughly
+1.5 M rows in ~40 MB of cells, of which a visit touches a handful.
+
+Kinds gate the zoom, because a water tap is worthless at regional scale:
+
+| camp · hut | pass | shelter | viewpoint | picnic | water |
+| --- | --- | --- | --- | --- | --- |
+| z10.6 | z11.4 | z12.4 | z13.0 | z13.4 | z13.8 |
+
+Camps and huts keep `icon-allow-overlap` — hiding one to make room for another is a
+loss. Water, viewpoints and picnic tables collide, because a city has hundreds and
+the pins would become a wall of droplets.
+
+Rows within ~60 m of the radius harvest are dropped at harvest time, so a campsite
+beside a written-up summit is drawn once and not twice. The world set also fills
+the **World POIs** switch in the layer panel, separate from the radius set, so
+either can be turned off.
+
+### Status, plainly
+
+The pipeline is finished and proven: the Georgia box returned **19,078 rows** in 58
+seconds, against 97 from the radius harvest of the same ground — a 197× difference
+on the exact area that looked wrong. Those two cells ship in `public/poi/`.
+
+The whole planet is not done, and the reason is the source rather than the code: a
+z6 cell is one Overpass query, the public endpoint queues ~40 s per query and then
+starts answering `502`/`429`, so 4,096 cells is an hours-long unattended job, not
+something a single session finishes. It is resumable at any point — every answer is
+cached in `/tmp/terrane-poi-cache`, finished cells are skipped, and the browser
+picks up new cells with no code change:
+
+```bash
+python3 scripts/harvest-poi.py --workers=2                 # continue: whole planet
+python3 scripts/harvest-poi.py --bbox=5.5,44,15.5,48       # or one region
+```
+
+For a one-shot global fill, Geofabrik's country `.osm.pbf` extracts plus
+`pyosmium` avoid the queue entirely (no request limits, ~40 GB to stream through
+country by country). That is the path to run if this needs to be finished quickly,
+and it is a different script, not a change to this one.
+
 ## Camps, huts, water and parking — 6,013 places to sleep, drink and park
 
 The atlas answers "where should I go". It does not answer "where do I sleep, where

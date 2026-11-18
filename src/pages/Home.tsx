@@ -71,7 +71,23 @@ export default function Home() {
   const place = selected ? bySlug.get(selected) : undefined;
   const pinned = kitPick ?? reachPick;
   const nearSlugOf = kitPick?.near ?? reachPick?.near;
-  const nearPlace = nearSlugOf ? bySlug.get(nearSlugOf) : undefined;
+  /* A pinned POI from the world set has no nearest place baked in — it was not
+     harvested around one. One pass over the 1,288 written-up places on a click is
+     cheaper than shipping 20,000 indices. */
+  const nearPlace = (() => {
+    if (nearSlugOf) return bySlug.get(nearSlugOf);
+    if (!pinned) return undefined;
+    let best: (typeof PLACES)[number] | undefined;
+    let bestKm = Infinity;
+    for (const p of PLACES) {
+      const km = kmApart(pinned.lat, pinned.lon, p.lat, p.lon);
+      if (km < bestKm) {
+        bestKm = km;
+        best = p;
+      }
+    }
+    return bestKm <= 60 ? best : undefined;
+  })();
   const nearKm =
     nearPlace && pinned
       ? kmApart(pinned.lat, pinned.lon, nearPlace.lat, nearPlace.lon)
@@ -220,7 +236,9 @@ export default function Home() {
           <div className="pick-body">
             <p className="mono pick-eyebrow">
               {kitPick.label}
-              {nearPlace ? ` · near ${nearPlace.name}` : ""}
+              {nearPlace && nearKm !== null && nearKm < 15
+                ? ` · near ${nearPlace.name}`
+                : ""}
             </p>
             <h2>{kitPick.name || `Unnamed ${kitPick.label.toLowerCase()}`}</h2>
             <p className="mono pick-meta">
@@ -232,7 +250,10 @@ export default function Home() {
                   className="btn btn-light"
                   onClick={() => navigate(`/place/${nearPlace.slug}`)}
                 >
-                  Read about {nearPlace.name} →
+                  {nearKm !== null && nearKm < 15
+                    ? `Read about ${nearPlace.name}`
+                    : `Nearest place: ${nearPlace.name}`}{" "}
+                  →
                 </button>
               )}
             </div>

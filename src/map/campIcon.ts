@@ -19,7 +19,8 @@ export type KitIcon =
   | "camp-shelter"
   | "water-drop"
   | "parking"
-  | "picnic-table";
+  | "picnic-table"
+  | "viewpoint";
 
 export const KIT_ICONS: KitIcon[] = [
   "camp-tent",
@@ -28,6 +29,7 @@ export const KIT_ICONS: KitIcon[] = [
   "water-drop",
   "parking",
   "picnic-table",
+  "viewpoint",
 ];
 
 const GRID = 20;
@@ -40,6 +42,7 @@ const PEN = {
   shelter: "#9ec7e0",
   water: "#5fb4d8",
   sign: "#78808c",
+  eye: "#c9dced",
   glyph: "#eef4f8",
 };
 
@@ -152,6 +155,24 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       };
       table(3.6, STROKE);
       table(1.9, PEN.sand);
+      break;
+    }
+
+    case "viewpoint": {
+      // An eye. A viewpoint is the one thing in the set that is about looking
+      // rather than staying, and nothing else here is an open lens shape.
+      g.fillStyle = PEN.eye;
+      g.beginPath();
+      g.moveTo(2.2, 10);
+      g.quadraticCurveTo(10, 3.2, 17.8, 10);
+      g.quadraticCurveTo(10, 16.8, 2.2, 10);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = STROKE;
+      g.beginPath();
+      g.arc(10, 10, 2.5, 0, Math.PI * 2);
+      g.fill();
       break;
     }
 

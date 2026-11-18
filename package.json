@@ -10,7 +10,8 @@
     "single": "node scripts/build-standalone.mjs",
     "preview": "vite preview",
     "seo": "node scripts/gen-seo.mjs",
-    "kit": "node scripts/harvest-kit.mjs"
+    "kit": "node scripts/harvest-kit.mjs",
+    "poi": "python3 scripts/harvest-poi.py"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.1",
