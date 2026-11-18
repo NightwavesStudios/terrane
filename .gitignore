@@ -6,3 +6,13 @@ dist
 .env.local
 terrane.html
 shots/
+.cache
+# The harvested cells live in object storage, not in git: 370 MB, 1,869 files.
+# `npm run poi:push` sends them to the bucket; the map reads them from there.
+public/poi/
+public/.poi-staging
+public/.poi-previous
+
+# Python bytecode from the harvest script
+__pycache__/
+*.pyc
