@@ -983,6 +983,17 @@ export const GEORGIA = PLACES.filter((p) => p.region?.includes("Georgia"));
 export const COUNTRY_COUNT = new Set(PLACES.map((p) => p.country)).size;
 
 /** Great-circle distance in km between two atlas rows. */
+/** Great-circle distance in kilometres between two points. */
+export function kmApart(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLon = (bLon - aLon) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 export function distanceKm(a: Place, b: Place): number {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;

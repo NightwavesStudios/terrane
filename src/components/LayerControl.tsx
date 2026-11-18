@@ -55,7 +55,7 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   {
     key: "camp",
     label: "Camps & huts",
-    note: "Nearest first, from zoom 10 — the rest as you zoom",
+    note: "Click any pin to focus it — nearest first, the rest as you zoom",
   },
 ];
 

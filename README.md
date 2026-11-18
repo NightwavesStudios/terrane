@@ -921,6 +921,16 @@ samples: **3.83 fps with the whole kit visible, 3.63 with it hidden** — within
 run-to-run spread, because the frame is still hillshade fill. (This VM renders in
 software; only the comparison transfers.)
 
+**Focusing a pin.** Every one of the 6,013 is clickable, at every tier, whether or
+not it has a name. A click puts a mint ring on the spot, flies the camera to z15
+(the zoom where a tent icon becomes a clearing with a track to it), raises the
+pointer cursor while you hover, and opens a card with the kind, the OSM name, how
+far the nearest written-up place is, and a button through to that place's page.
+Escape or the × closes it; clicking an atlas dot swaps the pin card for the place
+card. The payload travels with the click (kind, name, coords, nearest place), so
+there is no lookup table and no second request — the ring is a one-feature source
+next to the pins rather than a rewrite of the 3,232-feature one.
+
 **Where it can be wrong, plainly.** Coverage is a radius around our 1,288 places, not
 the whole planet: pan somewhere with no atlas place within 8 km and the kit is empty
 there. Trails are *not* duplicated into it — the basemap already draws every path from

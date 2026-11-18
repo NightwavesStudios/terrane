@@ -101,10 +101,29 @@ export interface GlobeFocus {
   key: number;
 }
 
+/** A clicked kit pin, as the card needs it: no lookup, no second request. */
+export interface KitPick {
+  id: number;
+  kind: number;
+  /** Card title for the kind: "Camp site", "Mountain hut", … */
+  label: string;
+  /** Pictogram name, for the card's art. */
+  icon: string;
+  name: string;
+  /** Slug of the nearest atlas place, when the harvest recorded one. */
+  near?: string;
+  lon: number;
+  lat: number;
+  tier: number;
+  detail: boolean;
+}
+
 interface Props {
   places: Place[];
   selected: string | null;
   onSelect: (slug: string) => void;
+  kitPick?: KitPick | null;
+  onPickKit?: (pick: KitPick | null) => void;
   focus?: GlobeFocus | null;
   layers?: LayerState;
 }
@@ -224,6 +243,8 @@ export default function Globe({
   places,
   selected,
   onSelect,
+  kitPick,
+  onPickKit,
   focus,
   layers = DEFAULT_LAYERS,
 }: Props) {
@@ -233,11 +254,17 @@ export default function Globe({
   layersRef.current = layers;
   const map = useRef<MlMap | null>(null);
   const selectRef = useRef(onSelect);
+  const kitPickRef = useRef(onPickKit);
+  /* The kit's module, kept once it has loaded: a click needs KIT_KIND_LABEL,
+     iconForKind and nearSlug synchronously, and a static import would drag the
+     72 kB dataset into the entry chunk. */
+  const kitApi = useRef<typeof import("./kit") | null>(null);
   const booted = useRef(false);
   const dataRef = useRef(places);
   const [ready, setReady] = useState(false);
   const [stalled, setStalled] = useState(false);
   selectRef.current = onSelect;
+  kitPickRef.current = onPickKit;
   dataRef.current = places;
 
   /* ── init once ─────────────────────────────────────── */
@@ -674,9 +701,55 @@ export default function Globe({
         return hits[0];
       };
 
+      /* Kit pins are hit-tested after the atlas dots: where a camp sits on top of
+         a written-up summit, the summit is still what the click meant. */
+      const kitLayerIds = () =>
+        ["kit-pins-0", "kit-pins-1", "kit-pins-2", "kit-pins-3"].filter((id) =>
+          map_.getLayer(id),
+        );
+
+      const pickKit = (x: number, y: number): MapGeoJSONFeature | undefined => {
+        const layers = kitLayerIds();
+        if (!layers.length) return undefined;
+        const r = 10;
+        return map_.queryRenderedFeatures(
+          [
+            [x - r, y - r],
+            [x + r, y + r],
+          ],
+          { layers },
+        )[0];
+      };
+
+      const toKitPick = (hit: MapGeoJSONFeature): KitPick => {
+        const api = kitApi.current;
+        const props = hit.properties as { k?: number; t?: number; n?: string; near?: number };
+        const kind = Number(props.k ?? 0);
+        const [lon, lat] = (hit.geometry as unknown as { coordinates: [number, number] })
+          .coordinates;
+        return {
+          id: Number(hit.id ?? -1),
+          kind,
+          label: api?.KIT_KIND_LABEL[kind] ?? "Camp site",
+          icon: api?.iconForKind(kind) ?? "camp-tent",
+          name: String(props.n ?? ""),
+          near: api?.nearSlug(props.near),
+          lon,
+          lat,
+          tier: Number(props.t ?? 0),
+          detail: hit.layer?.id === "kit-pins-3",
+        };
+      };
+
       map_.on("click", (e) => {
         const hit = pick(e.point.x, e.point.y);
-        if (hit?.properties?.slug) selectRef.current(hit.properties.slug);
+        if (hit?.properties?.slug) {
+          selectRef.current(hit.properties.slug);
+          kitPickRef.current?.(null);
+          return;
+        }
+        const kitHit = pickKit(e.point.x, e.point.y);
+        if (kitHit) kitPickRef.current?.(toKitPick(kitHit));
       });
 
       /* Hit-testing is a spatial query over three layers and 1,288 features.
@@ -691,7 +764,8 @@ export default function Globe({
         const now = performance.now();
         if (now - lastPick < 60) return;
         lastPick = now;
-        const on = Boolean(pick(e.point.x, e.point.y));
+        const on = Boolean(pick(e.point.x, e.point.y)) ||
+          Boolean(pickKit(e.point.x, e.point.y));
         if (on !== hovering) {
           hovering = on;
           map_.getCanvas().style.cursor = on ? "pointer" : "";
@@ -736,8 +810,10 @@ export default function Globe({
          callback landed on such a frame. `getStyle()` is the stable question:
          does the map have a style at all? */
       if (!booted.current || !map_.getStyle() || map_.getSource("kit")) return;
-      void import("./kit").then(({ addKit, KIT_LAYERS: ids }) => {
+      void import("./kit").then((mod) => {
         if (!booted.current) return;
+        kitApi.current = mod;
+        const { addKit, KIT_LAYERS: ids } = mod;
         addKit(map_, kitSlot());
         const visible = layersRef.current.camp ? "visible" : "none";
         for (const id of ids) {
@@ -847,6 +923,42 @@ export default function Globe({
         window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
     });
   }, [selected, ready, places]);
+
+  /* A picked kit pin gets the same treatment as a place: a ring on the spot and
+     a camera that closes in far enough to read the ground around it. The ring
+     lives in its own source so this costs one feature, not 3,232. */
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    const src = map_.getSource("kit-pick") as GeoJSONSource | undefined;
+    src?.setData({
+      type: "FeatureCollection",
+      features: kitPick
+        ? [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [kitPick.lon, kitPick.lat] },
+              properties: {},
+            },
+          ]
+        : [],
+    });
+
+    if (!kitPick) return;
+    /* z15 is the "I can see the clearing" zoom: a tent icon becomes a place with
+       a track to it. Deeper stays put, same rule as clicking a place. */
+    const zoom = Math.max(map_.getZoom(), 15);
+    map_.flyTo({
+      center: [kitPick.lon, kitPick.lat],
+      zoom,
+      pitch: pitchForZoom(zoom),
+      speed: 0.8,
+      curve: 1.4,
+      essential: true,
+      padding:
+        window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
+    });
+  }, [kitPick, ready]);
 
   /* ── camera travel: pitch follows zoom ───────────────
      Far out you look straight at the globe; as you close on a range the camera

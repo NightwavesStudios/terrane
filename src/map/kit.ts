@@ -30,6 +30,18 @@ export const KIT_LAYERS = [
 
 export const KIT_DETAIL_LAYERS = ["kit-pins-3"];
 
+/** The card title for each kind. Order matches `kinds` in kit.json. */
+export const KIT_KIND_LABEL = [
+  "Camp site",
+  "Mountain hut",
+  "Shelter",
+  "Water",
+  "Parking",
+  "Viewpoint",
+  "Picnic table",
+  "Mountain pass",
+];
+
 /** kind index → pictogram. Order matches `kinds` in kit.json. */
 const ICONS = [
   "camp-tent", // camp
@@ -48,9 +60,12 @@ type KitFile = { z: number; kinds: string[]; near: string[]; items: Row[] };
 function featuresOf(file: KitFile): FeatureCollection<Point> {
   return {
     type: "FeatureCollection",
-    features: file.items.map((row) => {
+    features: file.items.map((row, index) => {
       const [lat, lon, kind, tier, name, near] = row;
       const feature: Feature<Point> = {
+        /* Stable id: this is what a click hands back, and what the selection ring
+           is keyed on. */
+        id: index,
         type: "Feature",
         geometry: { type: "Point", coordinates: [lon, lat] },
         properties: { k: kind, t: tier, n: name ?? "", near: near ?? -1 },
@@ -86,11 +101,27 @@ const TIERS = [
 
 const core = featuresOf(raw as unknown as KitFile);
 
+/** The slug of the atlas place a kit row is nearest to, for the card's link. */
+export function nearSlug(index: number | undefined): string | undefined {
+  if (typeof index !== "number" || index < 0) return undefined;
+  return (raw as unknown as KitFile).near[index];
+}
+
+export const iconForKind = (kind: number) => ICONS[kind] ?? ICONS[0];
+
 /** Adds the core kit (tiers 0–2) under the map labels. Idempotent. */
 export function addKit(map: MlMap, before?: string) {
   if (map.getSource("kit")) return;
 
   map.addSource("kit", { type: "geojson", data: core });
+
+  /* The ring that marks a picked pin. Its own tiny source, because a selection
+     changes on every click and rewriting 3,232 features for one highlight would
+     be absurd. */
+  map.addSource("kit-pick", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
 
   for (const tier of TIERS) {
     map.addLayer(
@@ -177,6 +208,21 @@ export function addKit(map: MlMap, before?: string) {
         "text-color": "#e9dcc4",
         "text-halo-color": "#05090f",
         "text-halo-width": 1.5,
+      },
+    },
+    before,
+  );
+
+  map.addLayer(
+    {
+      id: "kit-pick-ring",
+      type: "circle",
+      source: "kit-pick",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 10, 16, 20],
+        "circle-color": "rgba(124, 224, 192, 0.12)",
+        "circle-stroke-color": "#7ce0c0",
+        "circle-stroke-width": 2,
       },
     },
     before,
