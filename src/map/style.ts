@@ -262,8 +262,12 @@ export const MAP_STYLE: StyleSpecification = {
       minzoom: 10,
       filter: ["in", ["get", "class"], ["literal", ["minor", "service", "track"]]],
       paint: {
-        "line-color": "#22303d",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 2.5],
+        /* Dark and thin, and deliberately narrower than before: at trail zooms
+           the minor/track network was the layer that read as a footpath, which
+           is what made roads and marked routes hard to tell apart. Roads now
+           carry the neutral slate and a casing (above), trails the colour. */
+        "line-color": "#2b3945",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 1.8],
         // Roads bleed in over roughly one zoom level instead of snapping on:
         // a line layer has no cross-fade of its own, so the opacity ramp is
         // what keeps a zoom from flicking detail into existence.
@@ -278,6 +282,37 @@ export const MAP_STYLE: StyleSpecification = {
         ],
       },
     },
+    /* A casing under the drivable network: a dark line two pixels wider than the
+       road on top of it. Roads read as built infrastructure — solid, cased,
+       neutral slate — while marked trails are coloured routes with shields. Without
+       the casing both were thin lines of similar weight and colour on a dark map. */
+    {
+      id: "road-casing",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 6,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["motorway", "trunk", "primary", "secondary", "tertiary"]],
+      ],
+      paint: {
+        "line-color": "#050a10",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          1.4,
+          12,
+          4,
+          14,
+          5.4,
+        ],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.9, 0.9],
+      },
+    },
     {
       id: "road-major",
       type: "line",
@@ -290,8 +325,8 @@ export const MAP_STYLE: StyleSpecification = {
         ["literal", ["primary", "secondary", "tertiary"]],
       ],
       paint: {
-        "line-color": "#2a4052",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 14, 3],
+        "line-color": "#465a6c",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 14, 2.6],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.9, 1],
       },
     },
@@ -303,8 +338,8 @@ export const MAP_STYLE: StyleSpecification = {
       minzoom: 4,
       filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]],
       paint: {
-        "line-color": "#375a70",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3.4],
+        "line-color": "#4d6173",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 3],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
       },
     },
@@ -329,7 +364,7 @@ export const MAP_STYLE: StyleSpecification = {
           11.8,
           0.42,
           13.2,
-          0.85,
+          0.8,
         ],
         "raster-resampling": "linear",
         "raster-fade-duration": 250,

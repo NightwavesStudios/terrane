@@ -102,6 +102,7 @@ const LAYER_GROUPS: Record<keyof LayerState, string[]> = {
     "water-label",
     "boundary-country",
     "boundary-state",
+    "road-casing",
     "road-minor",
     "road-major",
     "road-highway",
@@ -252,14 +253,14 @@ export default function Globe({
            out and diving again costs nothing.
          - renderWorldCopies:false: a globe never needs the world twice, and the
            duplicate copies were extra tiles in flight. */
-      fadeDuration: 280,
+      fadeDuration: 180,
       refreshExpiredTiles: false,
-      /* 512 px DEM tiles keep a 1 MB texture plus a 1 MB hillshade normal
-         texture each, four times what the old 256 px tiles cost. A phone
-         viewport at z14 keeps 10–17 live (20–34 MiB); this bounds the worst
-         case at 48 tiles, ~96 MiB of terrain texture, without starving the
-         basemap of reuse. */
-      maxTileCacheSize: 48,
+      /* 128 rather than MapLibre's dynamic sizing: the cache is what lets the
+         basemap draw the parent tile, stretched, while the tiles of the new zoom
+         are still arriving — an evicted parent is a hole you zoom "into nothing"
+         through. 48 was too small for that role (it was chosen to bound DEM
+         textures), so a zoom gesture was reloading levels it had just left. */
+      maxTileCacheSize: 128,
       renderWorldCopies: false,
     });
     map.current = map_;
@@ -707,23 +708,20 @@ export default function Globe({
       if (e.originalEvent) userPitched = true;
     };
 
-    /* Never touch the camera while MapLibre is animating a flight — a setPitch
-       mid-flight cancels it (that bug stopped selections at zoom 2 instead of
-       6.4). Programmatic flights carry their own pitch; this only handles
-       zooming by hand. */
-    let lastPitch = 0;
+    /* Tilt is applied when the camera comes to rest, not while it moves.
+
+       Doing it on every zoom frame re-project the camera mid-gesture: the tile
+       cover changes under the finger, tiles for the new tilt start loading and
+       the ones on screen get thrown away, so a zoom went blank exactly when the
+       reader was watching. Rest-to-rest, the pitch follows the zoom without any
+       of that.
+
+       Never touch the camera while MapLibre is animating a flight — a setPitch
+       mid-flight cancels it. */
     const applyPitch = () => {
-      if (userPitched || map_.isEasing()) return;
-      // setPitch re-renders the whole camera, so doing it on every zoom frame
-      // doubles the work of a gesture. Eight times a second still reads as
-      // continuous, and only when the tilt has actually moved.
-      const now = performance.now();
-      if (now - lastPitch < 120) return;
+      if (userPitched || map_.isEasing() || map_.isMoving()) return;
       const target = pitchForZoom(map_.getZoom());
-      if (Math.abs(map_.getPitch() - target) > 1.2) {
-        lastPitch = now;
-        map_.setPitch(target);
-      }
+      if (Math.abs(map_.getPitch() - target) > 1.2) map_.setPitch(target);
     };
 
     const onMoveEnd = () => {
@@ -792,11 +790,9 @@ export default function Globe({
 
     map_.on("pitchstart", onPitchStart);
     map_.on("zoom", prefetch);
-    map_.on("zoom", applyPitch);
     map_.on("moveend", onMoveEnd);
 
     return () => {
-      map_.off("zoom", applyPitch);
       map_.off("zoom", prefetch);
       map_.off("moveend", onMoveEnd);
       map_.off("pitchstart", onPitchStart);

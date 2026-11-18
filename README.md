@@ -250,8 +250,10 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
 
 - **Loading while zooming.** The app is tile-bound before it is anything else, so
   the map is configured for continuity (`Globe.tsx`):
-  - `fadeDuration: 280` — arriving tiles cross-fade; this also fades symbols in
-    and out as they cross their `minzoom` thresholds.
+  - `fadeDuration: 180` — arriving tiles cross-fade; this also fades symbols in
+    and out as they cross their `minzoom` thresholds. Kept short: a 280 ms fade
+    over every tile of a zoom gesture is itself a full-screen alpha blend, and it
+    made a dive read as a slow dissolve rather than a move.
   - **Cache prefetch.** MapLibre 5 dropped `prefetchZoomDelta` (and `map.setPrefetchZoomDelta`
     no longer exists), so every zoom step is a cold request for a new pyramid.
     While a gesture runs, `prefetch()` in `Globe.tsx` fetches up to eight tiles for
@@ -263,9 +265,17 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     noise (12.7 s vs 12.5 s). Treat it as cheap insurance, not a guarantee.
   - `refreshExpiredTiles: false` — OSM tiles carry a short expiry, and refetching
     them mid-zoom is what puts holes in a range you are diving into.
-  - `maxTileCacheSize: 48`, `renderWorldCopies: false` — keep a couple of zoom
-    levels resident, never request the globe twice, and bound the DEM tiles' GPU
-    memory (see the limits below).
+  - `maxTileCacheSize: 128`, `renderWorldCopies: false` — keep the levels you
+    just left resident, never request the globe twice. This cache is what lets
+    MapLibre draw the **parent** tile, stretched, while the tiles of the new zoom
+    are still arriving. It is headroom, not a measured fix: sampling the drawing
+    buffer through a ten-step wheel zoom showed **0 % background pixels** at both
+    48 and 128 here, so the extra retention is for slower networks and long pans,
+    where an evicted parent would be a hole.
+  - **Pitch follows the zoom at rest, not during the gesture.** Setting the
+    pitch mid-gesture re-projects the camera, changes the tile cover under the
+    finger and throws away what is on screen; a zoom then goes blank exactly when
+    you are watching it. It is applied on `moveend` instead.
   - Line layers have no cross-fade of their own, so roads fade in over roughly one
     zoom level via `line-opacity` ramps (`style.ts`).
   - Marker dots and both label tiers fade in over a zoom range rather than popping
@@ -290,11 +300,14 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   zero rendered names appear in both layers.
 - **Zooming is camera travel.** `pitchForZoom(z)` tilts the camera from level at
   planet scale to 55° over a range, so the same continuous zoom reveals relief
-  instead of switching modes. Programmatic `flyTo`s carry their own `pitch` and the
-  auto-pitch bails out while `map.isEasing()` — a `setPitch` mid-flight cancels the
-  flight, which is what once stopped selections at zoom 2 instead of 6.4. It also
-  hands over permanently the moment the user pitches by hand (`pitchstart` with an
-  `originalEvent`).
+  instead of switching modes. The tilt is applied when the camera comes to rest
+  (`moveend`), not on every zoom frame: a mid-gesture `setPitch` re-projects the
+  camera, changes the tile cover under the finger and reloads what is already on
+  screen, which is what made a zoom flicker and go blank. Programmatic `flyTo`s
+  carry their own `pitch`, and the auto-pitch bails out while `map.isEasing()` — a
+  `setPitch` mid-flight cancels the flight, which is what once stopped selections
+  at zoom 2 instead of 6.4. It also hands over permanently the moment the user
+  pitches by hand (`pitchstart` with an `originalEvent`).
 - **Markers are GPU geometry, not DOM, and they reveal themselves.** 1,288 DOM
   markers would crawl, so places are one GeoJSON source drawn by:
   - `places-heat` — large blurred discs that pile up into a density wash where the
@@ -584,8 +597,13 @@ OpenMapTiles vector schema the basemap uses carries paths but not the routes ove
 them, so this is the keyless way to get real trails: transparent PNGs, CORS-open,
 256 px, no key.
 
+On the other side of the same problem, the drivable network got its own visual
+language: a `road-casing` line under the roads, neutral slate instead of blue-grey,
+and a narrower `road-minor` — roads are solid cased ribbons, trails are coloured
+routes with shields, and neither reads as the other.
+
 It fades in from z10.2 and stays faint while a whole range is in frame (0.42 by
-z11.8, 0.85 past z13.2) — over somewhere like the Dolomites a full-strength overlay
+z11.8, 0.8 past z13.2) — over somewhere like the Dolomites a full-strength overlay
 is a web of coloured routes that buries the relief the map exists for. The layer
 sits above the hillshade and roads but below every label, so route shields never
 cover a place name. The tiles are drawn for a light basemap; on this palette the
@@ -619,7 +637,18 @@ ground.
   each against ~120 kB for the old 256 px AWS tiles; a deep view is ~2 MB of
   elevation. Each live tile also holds 2 MiB of GPU texture (1 MB DEM + 1 MB
   hillshade normal): a measured phone viewport at z14 keeps 10–17 live, i.e.
-  20–34 MiB, and `maxTileCacheSize: 48` bounds the worst case at 96 MiB.
+  20–34 MiB. Cached (off-screen) tiles keep only the decoded elevation grid,
+  ~1 MiB each, and `maxTileCacheSize: 128` caps how many can accumulate.
+- **The hillshade is the most expensive thing on the map while zooming.**
+  Measured on a 1280×800 viewport with this style, during a z13 → 13.8 ease:
+  background only ≈ 38 fps, +roads ≈ 31, +landcover/water ≈ 25, and the hillshade
+  alone takes it to ≈ 8 — each new zoom level needs a prepare pass and a ~1 MiB
+  DEM upload per tile. `hillshade-method: "basic"` measured the same, so the cost
+  is the tiles, not the shading curve. What did *not* move those numbers: the
+  cache size (48 vs 128 measured the same), the fade duration, and the shading
+  method. That is the next thing to attack if zooms still feel heavy on real
+  hardware: fewer, smaller DEM texels at regional zoom (a 256 px grid below z12
+  would cut this ~4×) at the price of softer relief.
 - **The fallback is coarser.** AWS Terrarium is a ~150 m surface resampled to the
   requested zoom: relief stays on screen, but a range that was crisp on Mapterhorn
   looks soft until the primary recovers.
