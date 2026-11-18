@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 import Header from "../components/Header";
-import PlaceCard from "../components/PlaceCard";
 import RidgeArt from "../components/RidgeArt";
 import SaveButton from "../components/SaveButton";
-import { TYPE_LABEL, bySlug, nearbyFor } from "../data/places";
+import { TYPE_LABEL, aroundPlace, bySlug } from "../data/places";
 import { navigate } from "../lib/router";
 
 export default function Place({ slug }: { slug: string }) {
@@ -28,7 +27,7 @@ export default function Place({ slug }: { slug: string }) {
     );
   }
 
-  const nearby = nearbyFor(place);
+  const around = aroundPlace(place);
 
   return (
     <div className="page">
@@ -36,7 +35,7 @@ export default function Place({ slug }: { slug: string }) {
 
       <article className="place">
         <button className="back" onClick={() => navigate("/explore")}>
-          ← Index
+          ← All places
         </button>
 
         <div className="place-hero">
@@ -79,13 +78,50 @@ export default function Place({ slug }: { slug: string }) {
               </div>
             </div>
 
-            <section className="nearby">
-              <h2>Nearby</h2>
-              <div className="grid grid--small">
-                {nearby.map((p) => (
-                  <PlaceCard key={p.slug} place={p} />
-                ))}
+            <section className="around">
+              <div className="around-head">
+                <h2>Around it</h2>
+                <span className="mono around-note">
+                  {around.nearest.length > 0
+                    ? `${around.activities.reduce((n, a) => n + a.count, 0)} atlas entries within ${around.radiusKm} km`
+                    : `nothing else within ${around.radiusKm} km`}
+                </span>
               </div>
+
+              {around.activities.length > 0 && (
+                <ul className="around-acts">
+                  {around.activities.map((a) => (
+                    <li key={a.type}>
+                      <span className="n">{a.count}</span>
+                      <span className="l">{a.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {around.nearest.length > 0 && (
+                <ol className="around-list">
+                  {around.nearest.map(({ place: p, km }) => (
+                    <li key={p.slug}>
+                      <button
+                        className="around-row"
+                        onClick={() => navigate(`/place/${p.slug}`)}
+                      >
+                        <span className="around-name">{p.name}</span>
+                        <span className="around-type mono">{TYPE_LABEL[p.type]}</span>
+                        <span className="around-km mono">
+                          {km < 10 ? km.toFixed(1) : Math.round(km)} km
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+
+              <p className="around-foot">
+                Straight-line distance over the atlas, not a route database: peaks stand
+                in for hiking terrain, so treat this as what is near, not as a trail list.
+              </p>
             </section>
           </div>
 
@@ -107,7 +143,7 @@ export default function Place({ slug }: { slug: string }) {
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          MAP © OPENSTREETMAP · OPENFREEMAP · TERRAIN: AWS · DATA: WIKIDATA
+          MAP © OPENSTREETMAP · OPENFREEMAP · TERRAIN: MAPTERHORN · DATA: WIKIDATA
         </span>
       </footer>
     </div>

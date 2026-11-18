@@ -17,27 +17,27 @@ export default function Saved() {
 
       <div className="page-head">
         <p className="eyebrow eyebrow--light">Saved</p>
-        <h1 className="page-title">Your shortlist.</h1>
+        <h1 className="page-title">Saved places.</h1>
         <p className="page-sub">
           {total === 0
-            ? "Nothing saved yet. Tap the star on any place and it lands here."
-            : `${total} ${total === 1 ? "place" : "places"} across ${collections.length} ${
+            ? "Nothing saved yet. The star on any place puts it here."
+            : `${total} ${total === 1 ? "place" : "places"} in ${collections.length} ${
                 collections.length === 1 ? "collection" : "collections"
-              }.`}
+              }. Kept in this browser.`}
         </p>
       </div>
 
       <div className="page-body">
         {total === 0 && (
           <div className="empty-block">
-            <p className="empty">Your collections are empty.</p>
+            <p className="empty">Nothing here yet.</p>
             <button className="btn btn-dark" onClick={() => navigate("/explore")}>
-              Find something worth the detour →
+              Browse the atlas →
             </button>
           </div>
         )}
 
-        {collections.map((c) => {
+        {(total > 0 ? collections : []).map((c) => {
           const places = c.slugs
             .map((s) => bySlug.get(s))
             .filter((p): p is Place => Boolean(p));
@@ -58,7 +58,7 @@ export default function Saved() {
                 )}
               </div>
               {places.length === 0 ? (
-                <p className="empty">Empty — save a place into it from any field guide.</p>
+                <p className="empty">Empty. Save a place into it from anywhere.</p>
               ) : (
                 <div className="grid">
                   {places.map((p, i) => (

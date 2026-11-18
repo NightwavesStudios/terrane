@@ -645,10 +645,6 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
-.grid--small {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
 
 /* ── place card ──────────────────────────────────────────── */
 .card {
@@ -924,16 +920,6 @@ button {
   letter-spacing: 0;
 }
 
-.nearby {
-  margin-top: 44px;
-}
-.nearby h2 {
-  font-family: var(--serif);
-  font-weight: 500;
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  margin-bottom: 16px;
-}
 
 .place-aside {
   position: relative;
@@ -1121,8 +1107,7 @@ button {
 
 /* ── responsive ──────────────────────────────────────────── */
 @media (max-width: 1080px) {
-  .grid,
-  .grid--small {
+  .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .place-main {
@@ -1197,8 +1182,7 @@ button {
   .page-title {
     font-size: 34px;
   }
-  .grid,
-  .grid--small {
+  .grid {
     grid-template-columns: 1fr;
   }
   .place-hero {
@@ -1822,4 +1806,182 @@ button {
   .layers-panel {
     width: 200px;
   }
+}
+
+/* ── dark reading pages ──────────────────────────────────── */
+/* The globe is the product; leaving it for Explore, Saved, About or a place
+   should not flash to paper. The paper layout was built on variables, so they
+   are re-pointed here: geometry, spacing and type stay, only the light changes. */
+.page {
+  --paper: #06080a;
+  --paper-2: #0b0f13;
+  --ink: #e9edf0;
+  --ink-2: #a9b3ba;
+  --ink-3: #6d7880;
+  --line-light: rgba(237, 239, 245, 0.1);
+}
+.page .header--light {
+  background: rgba(6, 8, 10, 0.92);
+  backdrop-filter: blur(12px);
+}
+.page .header--light .wordmark i {
+  background: var(--mint);
+}
+.page .header--light .nav-count {
+  background: rgba(124, 224, 192, 0.16);
+  color: var(--mint);
+}
+.page .header--light .header-nav button {
+  color: rgba(237, 239, 245, 0.6);
+}
+.page .header--light .header-nav button:hover,
+.page .header--light .header-nav button.on {
+  color: #fff;
+}
+.page .header--light .pill--ghost {
+  border-color: rgba(237, 239, 245, 0.18);
+  color: rgba(237, 239, 245, 0.7);
+}
+.page .eyebrow--light {
+  color: var(--mint);
+}
+.page .card {
+  border-color: var(--line-light);
+}
+.page .card:hover {
+  border-color: rgba(237, 239, 245, 0.24);
+  box-shadow: 0 20px 40px -26px #000;
+}
+.page .card-type {
+  background: rgba(5, 7, 12, 0.74);
+  color: rgba(237, 239, 245, 0.86);
+}
+.page .search:focus {
+  border-color: rgba(237, 239, 245, 0.3);
+}
+.page .lede {
+  color: var(--ink);
+}
+.page .month {
+  background: rgba(237, 239, 245, 0.05);
+}
+.page .chips--light .chip.on {
+  background: rgba(124, 224, 192, 0.14);
+  border-color: rgba(124, 224, 192, 0.4);
+  color: #d8fff2;
+}
+.page .grade {
+  background: rgba(124, 224, 192, 0.12);
+  color: var(--mint);
+}
+.page .grade-4,
+.page .grade-5 {
+  background: rgba(216, 140, 90, 0.14);
+  color: #d99a6c;
+}
+.page .link-btn:hover {
+  color: var(--mint);
+}
+.page .about p.about-lede {
+  background: none;
+  color: #cf9d74;
+  -webkit-text-fill-color: currentColor;
+}
+.page .about-note a {
+  color: var(--mint);
+}
+
+/* ── around it (place page) ──────────────────────────────── */
+.around {
+  margin-top: 44px;
+}
+.around-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.around-head h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+.around-note {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.around-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 18px;
+}
+.around-acts li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border: 1px solid var(--line-light);
+  border-radius: 100px;
+  background: var(--paper-2);
+  padding: 6px 14px 6px 12px;
+}
+.around-acts .n {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--mint);
+}
+.around-acts .l {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+.around-list {
+  margin-top: 20px;
+  border-top: 1px solid var(--line-light);
+  list-style: none;
+  padding: 0;
+}
+.around-list li {
+  border-bottom: 1px solid var(--line-light);
+}
+.around-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 2px;
+  text-align: left;
+  transition: color 0.15s;
+}
+.around-row:hover {
+  color: var(--mint);
+}
+.around-name {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.around-type,
+.around-km {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.around-km {
+  min-width: 56px;
+  text-align: right;
+}
+.around-foot {
+  margin-top: 14px;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--ink-3);
+  max-width: 56ch;
 }

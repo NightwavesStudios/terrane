@@ -995,17 +995,58 @@ export const FEATURED = PLACES.filter((p) => p.featured);
 
 export const GEORGIA = PLACES.filter((p) => p.region?.includes("Georgia"));
 
-export function nearbyFor(place: Place, count = 3): Place[] {
-  return PLACES.filter((p) => p.slug !== place.slug)
-    .map((p) => ({
-      p,
-      d:
-        Math.hypot(p.lat - place.lat, p.lon - place.lon) +
-        (p.type === place.type ? 0 : 6),
-    }))
-    .sort((a, b) => a.d - b.d)
-    .slice(0, count)
-    .map((x) => x.p);
+export const COUNTRY_COUNT = new Set(PLACES.map((p) => p.country)).size;
+
+/** Great-circle distance in km between two atlas rows. */
+export function distanceKm(a: Place, b: Place): number {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export const COUNTRY_COUNT = new Set(PLACES.map((p) => p.country)).size;
+/** How far it is to each activity, in plain words. */
+const ACTIVITY: Record<PlaceType, string> = {
+  peak: "Hiking · scrambling",
+  park: "Walking · wildlife",
+  landmark: "Sightseeing",
+  gem: "Detours",
+};
+
+export type Around = {
+  radiusKm: number;
+  /** Nearest atlas entries, closest first. */
+  nearest: { place: Place; km: number }[];
+  /** Counts per activity, largest first, empty types dropped. */
+  activities: { type: PlaceType; label: string; count: number }[];
+};
+
+/**
+ * What is around a place, computed from the atlas rather than from a trail or POI
+ * dataset: one pass over the 1,288 rows, keep what falls inside the radius, group
+ * by the activity its type implies, and take the closest few for the list.
+ *
+ * Deliberately a proxy. There is no route database behind this, so the honest
+ * thing to show is "what kinds of place are near, and how near" — not invented
+ * trail names or a difficulty for a walk nobody has surveyed here.
+ */
+export function aroundPlace(place: Place, radiusKm = 30): Around {
+  const inside: { place: Place; km: number }[] = [];
+  for (const other of PLACES) {
+    if (other.slug === place.slug) continue;
+    const km = distanceKm(place, other);
+    if (km <= radiusKm) inside.push({ place: other, km });
+  }
+  inside.sort((a, b) => a.km - b.km);
+
+  const counts = new Map<PlaceType, number>();
+  for (const { place: p } of inside) counts.set(p.type, (counts.get(p.type) ?? 0) + 1);
+  const activities = [...counts.entries()]
+    .map(([type, count]) => ({ type, label: ACTIVITY[type], count }))
+    .sort((a, b) => b.count - a.count);
+
+  return { radiusKm, nearest: inside.slice(0, 6), activities };
+}

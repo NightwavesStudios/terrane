@@ -29,11 +29,11 @@ export default function Explore() {
       <Header tone="light" />
 
       <div className="page-head">
-        <p className="eyebrow eyebrow--light">The index</p>
-        <h1 className="page-title">Every place, one map.</h1>
+        <p className="eyebrow eyebrow--light">Explore</p>
+        <h1 className="page-title">{PLACES.length.toLocaleString()} places.</h1>
         <p className="page-sub">
-          {PLACES.length.toLocaleString()} destinations — national parks, peaks, World
-          Heritage sites and Georgia’s best. Search, filter by type, or spin the globe.
+          Peaks, national parks, landmarks and hidden gems, each with real coordinates
+          and a high point. Search by name, filter by type.
         </p>
 
         <div className="page-tools">
@@ -76,8 +76,7 @@ export default function Explore() {
 
       <footer className="foot">
         <span>
-          Map data © OpenStreetMap · OpenFreeMap · Terrain Tiles (AWS) · Places © Wikidata
-          (CC0)
+          Map © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Places © Wikidata (CC0)
         </span>
         <span className="mono">TERRANE · THE WORLD, WORTH THE DETOUR</span>
       </footer>

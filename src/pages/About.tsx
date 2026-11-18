@@ -8,27 +8,33 @@ export default function About() {
       <Header tone="light" />
 
       <div className="about">
-        <p className="eyebrow eyebrow--light">Terrane</p>
+        <p className="eyebrow eyebrow--light">About</p>
         <h1 className="about-title">
-          The world is bigger
+          A globe of places
           <br />
-          than your feed.
+          worth going outside for.
         </h1>
-        <p className="about-lede">Go find the light.</p>
+        <p className="about-lede">
+          Peaks, national parks, landmarks and hidden gems — {PLACES.length.toLocaleString()}{" "}
+          of them, across {COUNTRY_COUNT} countries.
+        </p>
 
         <div className="about-cols">
           <div>
-            <p>An interactive globe of mountains, national parks and wild places —
-              peaks first, every point somewhere you would actually go outside.</p>
             <p>
-              Most travel sites are lists. This one is a map you can spin: real
-              coordinates, a real type, a real high point. No invented copy, no filler, no
-              padding written to fill a card.
+              Terrane is one map instead of a list. Spin the globe, click a point, and you
+              get where it is, how high it stands, and what is around it.
             </p>
             <p>
-              Spin the globe, click a light, and land somewhere. When you find something
-              you want to keep, save it to a collection — they live in this browser, and
-              nothing is sent anywhere.
+              Every place is a record — name, type, coordinates, elevation, country — from
+              Wikidata. The Georgia entries are written by hand. Nothing is invented to
+              fill a card.
+            </p>
+            <p>
+              The globe is MapLibre with OpenStreetMap data, shaded from Mapterhorn
+              elevation tiles. Footpaths are drawn from the basemap as dashed lines. Saved
+              places live in this browser only: no account, no server, nothing sent
+              anywhere.
             </p>
           </div>
           <div className="about-facts">
@@ -56,20 +62,16 @@ export default function About() {
         </div>
 
         <div className="about-note">
-          <h2>About the data</h2>
+          <h2>What it does not have</h2>
           <p>
-            Every place here is a structured record — name, type, coordinates, high point,
-            country — pulled from{" "}
-            <a href="https://www.wikidata.org" target="_blank" rel="noreferrer">
-              Wikidata
-            </a>{" "}
-            (CC0), with a hand-checked set across Georgia. Nothing is written to fill space.
-            Proper field guides are the next thing to build, and they’ll arrive when
-            they’re worth reading.
+            No route database, so no named trails, difficulty grading or elevation
+            profiles — footpaths come from the basemap and stay unlabelled. No field
+            guides either. Both need data this app does not carry yet, and shipping
+            guesses instead would be worse than leaving them out.
           </p>
           <p className="mono about-credits">
-            Map © OpenStreetMap contributors · OpenFreeMap · Terrain Tiles (AWS Open Data)
-            · Place data © Wikidata contributors
+            Map © OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn · Place
+            data © Wikidata contributors (CC0)
           </p>
         </div>
 
@@ -80,7 +82,7 @@ export default function About() {
 
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
-        <span className="mono">BUILT FOR PEOPLE WHO GO</span>
+        <span className="mono">MAPS FOR PEOPLE WHO GO</span>
       </footer>
     </div>
   );
