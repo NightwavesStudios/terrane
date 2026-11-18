@@ -276,20 +276,23 @@ export const MAP_STYLE: StyleSpecification = {
       // Bare high ground: scree and rock slabs above the treeline. Warm brown so
       // altitude reads as a colour band under the shading instead of the whole
       // range sitting in one green.
+      // Sits under the hillshade with the vegetation, so a rock boundary is a
+      // shift of tone rather than a cut-out edge. Kept translucent for the same
+      // reason: the base band and the shade carry most of the colour.
       paint: {
-        "fill-color": "#5d4c39",
+        "fill-color": "#5a4c3a",
         "fill-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           6,
-          0.18,
+          0.16,
           11,
-          0.28,
+          0.24,
           14,
-          0.34,
+          0.28,
           16,
-          0.4,
+          0.32,
         ],
       },
     },
@@ -303,8 +306,8 @@ export const MAP_STYLE: StyleSpecification = {
       // warm and bright, because sand that stays grey-moss is the single most
       // obviously wrong thing on a world map.
       paint: {
-        "fill-color": "#cbaa79",
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.55, 6, 0.7, 12, 0.82],
+        "fill-color": "#c6a474",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.55, 6, 0.66, 12, 0.74],
       },
     },
     {
@@ -315,7 +318,7 @@ export const MAP_STYLE: StyleSpecification = {
       filter: ["==", ["get", "class"], "residential"],
       paint: {
         "fill-color": "#2b3a4e",
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 9, 0.42, 12, 0.26],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 9, 0.34, 12, 0.22],
       },
     },
     {

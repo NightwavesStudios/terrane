@@ -87,7 +87,9 @@ const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
     16,
     "#76855e",
   ],
-  "hillshade-shadow-color": "#030b08",
+  // Deeper than the first pass: the shade is now under every polygon, so the
+  // dark end of it is what gives rock, forest and snow their separation.
+  "hillshade-shadow-color": "#020806",
   "hillshade-accent-color": "#05110b",
 };
 
@@ -309,18 +311,15 @@ export default function Globe({
             source: "relief",
             paint: HILLSHADE_PAINT,
           },
-          // Above the vegetation fills but BELOW the snow, water, roads and
-          // labels. Two constraints pull in opposite directions here:
-          // - vegetation has to sit under the shade, or a flat green polygon on
-          //   top erases both the colour and the 3D at mid zoom;
-          // - snow has to sit OVER the shade, or the lit-shade colour (a green)
-          //   tints every glacier into a grey-green smear instead of white.
-          // Splitting them at `landcover-ice` satisfies both with one insertion.
-          map_.getLayer("landcover-ice")
-            ? "landcover-ice"
-            : map_.getLayer("water")
-              ? "water"
-              : FIRST_SYMBOL_LAYER,
+          // Directly under the water, which puts it ABOVE every land polygon.
+          //
+          // That is the whole point: a fill drawn over the shade is flat, and a
+          // flat patch with a hard edge is what made rock, sand and built-up areas
+          // look pasted onto the map while forest and grass looked embedded. With
+          // everything underneath, every polygon gets the same shading, so its
+          // boundary is a tone change rather than an edge — which is how sand and
+          // rock were always meant to behave.
+          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
         );
         /* Snow by elevation, from the same DEM the hillshade is reading.
 
@@ -357,25 +356,24 @@ export default function Globe({
                   // looks like from above. Spread over 2.6 km of altitude the
                   // boundary is a haze that thickens upward, which is how snow
                   // actually arrives on a face.
-                  2600,
+                  2800,
                   "rgba(228, 238, 241, 0)",
-                  3000,
-                  "rgba(231, 240, 243, 0.1)",
-                  3400,
-                  "rgba(236, 244, 247, 0.26)",
-                  3900,
-                  "rgba(242, 248, 250, 0.44)",
-                  4500,
-                  "rgba(248, 251, 252, 0.58)",
-                  5000,
-                  "rgba(251, 253, 253, 0.68)",
+                  3200,
+                  "rgba(231, 240, 243, 0.08)",
+                  3600,
+                  "rgba(236, 244, 247, 0.22)",
+                  4000,
+                  "rgba(242, 248, 250, 0.38)",
+                  4600,
+                  "rgba(248, 251, 252, 0.5)",
+                  5200,
+                  "rgba(251, 253, 253, 0.6)",
                 ],
               },
             } as unknown as LayerSpecification,
-            /* Above the hillshade, below water, roads and labels. `landcover-ice`
-               is the layer the hillshade was inserted before, so anchoring here
-               puts the snow above the shade by construction. */
-            map_.getLayer("landcover-ice") ? "landcover-ice" : undefined,
+            /* Same anchor as the hillshade, added after it, so the snow lands
+               above the shade and below the water. */
+            map_.getLayer("water") ? "water" : undefined,
           );
         }
       } catch {

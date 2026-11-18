@@ -129,24 +129,27 @@ to declare the hillshade statically look like a broken layer.
 Layer order, bottom to top:
 
 ```
-bg → land-base → landcover-{wood,grass,farmland} → relief-hillshade
-→ relief-snow → landcover-{ice,rock,sand} → landuse-residential → contours-{minor,major}
+bg → land-base → landcover-{wood,grass,farmland,ice,rock,sand}
+→ landuse-residential → relief-hillshade → relief-snow
+→ contours-{minor,major}
 → water → waterway → boundary-{country,state} → water-label
 → road-{minor,major,highway} → trails-{casing,path} → label-{country,state,city}
 → places-heat → places-halo → places-dot → places-curated
 → places-selected → places-label-top → places-label
 ```
 
-The hillshade is inserted *inside* the landcover stack, not above all of it, and
-that split is deliberate in both directions:
+The hillshade sits **above every land polygon and below the snow**. That is the
+single ordering rule the palette depends on, and it was learned the hard way:
 
-- **Above vegetation**, because a semi-transparent green fill on top of the shade
-  covers it and the middle zooms flatten into one green blanket — colours survive,
-  relief does not.
-- **Below snow**, because the hillshade's lit colour is a green (`#61774f`). Drawn
-  on top of an ice polygon, it tints every glacier into a grey-green smear; the
-  Matterhorn's snowfields looked like shaded moss. Snow has to sit over the shade
-  to be white, and at 0.5–0.62 opacity the shading still shows through it.
+- **Every fill underneath.** Rock, sand and built-up areas used to be drawn after
+  the shade. A fill over the shade is flat, and a flat patch with a hard edge is
+  what made those three look pasted onto the map while forest and grass looked
+  embedded — the same OSM polygon, blended or not depending purely on where it sat
+  in the stack. With all of them below, each boundary is a shift of tone instead of
+  a cut-out edge.
+- **Snow above the shade.** The shade's lit colour is a green; drawn over snow it
+  tints a snowfield moss-coloured. Snow sits on top, translucent, so it stays white
+  and the shading still reads through.
 
 **Why snow is a DEM layer and not a fill.** It started as a white fill on the
 `landcover class=ice` polygons, and past z13 those read as what they are: flat
