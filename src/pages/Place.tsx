@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import Header from "../components/Header";
 import RidgeArt from "../components/RidgeArt";
-import SaveButton from "../components/SaveButton";
 import { TYPE_LABEL, aroundPlace, bySlug } from "../data/places";
 import { navigate } from "../lib/router";
 
@@ -19,8 +18,8 @@ export default function Place({ slug }: { slug: string }) {
         <div className="page-head">
           <h1 className="page-title">That place isn’t here.</h1>
           <p className="page-sub">It may have moved, or never existed.</p>
-          <button className="btn btn-dark" onClick={() => navigate("/explore")}>
-            Back to the index →
+          <button className="btn btn-dark" onClick={() => navigate("/")}>
+            Back to the globe →
           </button>
         </div>
       </div>
@@ -34,8 +33,8 @@ export default function Place({ slug }: { slug: string }) {
       <Header tone="light" />
 
       <article className="place">
-        <button className="back" onClick={() => navigate("/explore")}>
-          ← All places
+        <button className="back" onClick={() => navigate("/")}>
+          ← Globe
         </button>
 
         <div className="place-hero">
@@ -123,8 +122,6 @@ export default function Place({ slug }: { slug: string }) {
 
           <aside className="place-aside">
             <div className="aside-card">
-              <p className="mono k">Save this place</p>
-              <SaveButton slug={place.slug} />
               <button
                 className="btn btn-dark btn-full"
                 onClick={() => navigate(`/?place=${place.slug}`)}

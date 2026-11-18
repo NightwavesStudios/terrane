@@ -75,10 +75,8 @@ Routing is real paths via the History API, parsed by hand.
 | --- | --- | --- |
 | `/` | `Home` | The globe, full bleed. Nothing else but the header, a caption and filters. |
 | `/?place=<slug>` | `Home` | Globe with that place pre-selected and flown to. |
-| `/explore` | `Explore` | Searchable, filterable index. 60 cards per page, "Load more". |
-| `/saved` | `Saved` | Collections stored in this browser. |
-| `/about` | `About` | The manifesto, plus data credits and counts. |
-| `/place/:slug` | `Place` | Fact sheet for one place: hero art, type, high point, country, coordinates, nearby. |
+| `/explore`, `/saved`, `/about` | — | Removed. All three now fall through to the globe, which is the index. |
+| `/place/:slug` | `Place` | Fact sheet: hero art, type, high point, country, coordinates, "Around it" (activities and distances computed from the atlas). |
 | anything else | `Home` | Unknown paths fall through to the globe. |
 
 ---
@@ -150,6 +148,8 @@ that split is deliberate in both directions:
   Matterhorn's snowfields looked like shaded moss. Snow has to sit over the shade
   to be white, and at 0.5–0.62 opacity the shading still shows through it.
 
+Snow also cannot be fully opaque: it is drawn over the shade, so opacity is the only thing that lets a snowfield sit on a slope instead of floating above it.
+
 Splitting the fills at `landcover-ice` satisfies both with one insertion point
 (`FIRST_SYMBOL_LAYER` / `landcover-ice` fallback chain in `Globe.tsx`).
 
@@ -157,7 +157,7 @@ Colour, all of it vector — no extra tile pyramid, no per-frame cost:
 
 | | |
 |---|---|
-| Snow, ice caps | `landcover class=ice`, white `#eaf2f3`, ramped *up* past z14 (0.5 → 0.62) because that is where it becomes a summit cap rather than a whole icefield |
+| Snow, ice caps | `landcover class=ice`, `#e4edef` — not paper white, and kept at 0.3–0.4 opacity above the hillshade so the shading reads *through* the sheet. At 0.5 the glacier edges were hard white boundaries against shaded rock; a one-pixel outline of the same tone feathers the border |
 | Rock, scree | `landcover class=rock`, warm brown, so altitude reads as a colour band |
 | Sand | `landcover class=sand`, warm `#cbaa79`; only where OSM maps sand, so ergs and beaches, not the whole Sahara (the latitude bands handle the rest) |
 | Farmland | `landcover class=farmland`, a lighter field green under wood and grass |
@@ -408,16 +408,16 @@ Other exports:
 - `TYPE_LABEL` / `TYPE_LABEL_PLURAL` — "Peak"/"Peaks" etc.
 - `DIFFICULTY_LABEL` — `["", "Gentle", "Easy", "Moderate", "Hard", "Severe"]`
 - `MONTHS` — three-letter month names
-- `bySlug` — `Map<string, Place>`, used by routes and saved collections
+- `bySlug` — `Map<string, Place>`, used by routes
 - `FEATURED`, `GEORGIA`, `CURATED_PLACES` — prefiltered arrays left over from the
-  pre-globe layout; currently **unused by the UI**. (The Georgia chip does not use
-  `GEORGIA`: it goes through `matches()` in `FilterChips`, which tests whether
-  `region` contains "Georgia" — that is what catches curated entries whose region is
-  a county name.)
+  pre-globe layout; currently **unused by the UI**
 - `CURATED_COUNT` — 68
 - `COUNTRY_COUNT` — distinct countries across `PLACES` (144)
-- `nearbyFor(place, count = 3)` — nearest places by naive degree distance, with a
-  +6 penalty for a different type so a summit doesn't return four other summits
+- `distanceKm(a, b)` — great-circle distance
+- `aroundPlace(place, radiusKm = 30)` — one pass over `PLACES`, keep what falls
+  inside the radius, group by the activity its type implies, return the closest
+  six. Straight-line distance from the atlas, not a route or POI database; the
+  UI says so rather than implying trail names
 
 ### `src/data/atlas.json` (generated, 1,220 rows)
 
@@ -467,20 +467,21 @@ Raising `TARGET` and `PER_COUNTRY` is the one-line way to make the globe denser.
 
 ## State and persistence
 
-### `src/lib/saved.ts` — collections in `localStorage`
+### `src/lib/locate.ts` — where the visitor is
 
-Key `terrane.collections.v1`, value `[{ id, name, slugs }]`. A default "Want to go"
-collection is created on first read, and unreadable/blocked storage falls back to an
-in-memory copy rather than throwing.
+`locate()` asks `https://ipwho.is/` once per session for country, region and
+coordinates. Keyless, CORS-enabled, no permission prompt — `navigator.geolocation`
+would ask before the visitor has touched the map, and a canton is all this needs.
+The answer is cached in `sessionStorage` (`terrane:home`), and a failure is recorded
+so a blocked or broken lookup is not retried on every render: the chip simply does
+not appear.
 
-- `useCollections()` — `useSyncExternalStore` over a module-level array, so `Header`,
-  `SaveButton` and `Saved` all re-render together
-- `toggleIn(collectionId, slug)` — add or remove one slug, `removeFromAll(slug)` —
-  drop it everywhere
-- `createCollection(name)` → id, `removeCollection(id)` (never deletes the last one,
-  it just empties it)
+`homeScope()` turns that into the extra filter chip. It looks for a *region* first,
+then a country, then gives up — a chip that filters to an empty map is worse than no
+chip. Region names never match across sources ("Valais" against "Canton du Valais"),
+so comparison is on letters only, in either direction.
 
-There is no account and no network call: everything lives in this browser.
+There is no account, no server and nothing persisted between sessions.
 
 ### `src/lib/router.ts`
 
@@ -495,21 +496,20 @@ target path.
 
 | File | Role |
 | --- | --- |
-| `Header.tsx` | Wordmark, nav (Globe / Explore / Saved / About), saved count badge, place-count pill. `tone="dark"` over the globe, `"light"` on paper pages. |
-| `FilterChips.tsx` | The filter bar. Exports `Filter` (`all \| PlaceType \| "georgia"`) and `matches(place, filter)` — the single source of truth shared by the globe and Explore. |
-| `PlaceCard.tsx` | Index/saved card: ridge art, type chip, name, region · country, elevation and effort grade. Navigates to `/place/:slug`. |
-| `SaveButton.tsx` | Star button plus a popover of collections with checkboxes and an inline "new collection" form. Closes on outside click and Escape. `compact` renders the star only (used on the globe card). |
+| `Header.tsx` | Wordmark, a single `Globe` link and the place-count pill. `tone="dark"` over the globe, `"light"` on the place page. |
+| `FilterChips.tsx` | The filter bar. Exports `Filter` (`all \| PlaceType \| "home"`), `homeScope(home)` and `matches(place, filter, scope)`; the last chip is whatever `homeScope` resolved (region, country, or nothing). |
 | `RidgeArt.tsx` | Deterministic SVG landscape from a `hue`: gradient sky, sun glow, two ridge lines, snow caps. Uses `useId()` for unique gradient ids so many can coexist. No photography anywhere in the app. |
 
 ## Pages (`src/pages/`)
 
 | File | Role |
 | --- | --- |
-| `Home.tsx` | Owns filter + selection state, composes `Globe`, the header, the mono caption, the credits line, the filter pill and the selection card (`.pick`). Filter changes refocus the camera (world or Georgia); selecting a place closes nothing else. |
-| `Explore.tsx` | Text search over name/region/country/tagline, the same chips, 60-per-page paging and a result count. |
-| `Saved.tsx` | Renders each collection with its cards; empty states; delete collection. |
-| `About.tsx` | Manifesto, counts (places, countries, peaks, parks), data and map credits. |
-| `Place.tsx` | Fact sheet. Hero art + eyebrow, optional elevation under the title, a four-cell stat grid (type / high point / country / coordinates), nearby cards, save + "See it on the globe" in the aside. Unknown slugs get a friendly not-found block. |
+| `Home.tsx` | Owns filter + selection state, composes `Globe`, the header, the mono caption, the credits line, the filter bar and the selection card (`.pick`). Filter changes refocus the camera (the visitor's own country, or the world); selecting a place closes nothing else. |
+| `Place.tsx` | Fact sheet. Hero art + eyebrow, optional elevation under the title, a four-cell stat grid (type / high point / country / coordinates), "Around it", and "See it on the globe" in the aside. Unknown slugs get a not-found block. |
+
+There are only two pages now. Explore was removed as a slower copy of the globe's
+own search and filters; Saved and its collections were removed with it, and About
+went too — a four-paragraph page that explained a map is worse than the map.
 
 `src/App.tsx` maps the route to a page and sets `document.title`;
 `src/main.tsx` mounts it into `#root` inside `StrictMode`.
@@ -756,3 +756,30 @@ Also note: OpenFreeMap's stable alias
 `https://tiles.openfreemap.org/planet/2/2/1.pbf` returns **200 with 0 bytes**; always
 go through the TileJSON `url` (`https://tiles.openfreemap.org/planet`), as
 `style.ts` does.
+
+### Where a zoom actually goes (z11, 1280x800, this machine)
+
+Measured by hiding one layer at a time and sampling frame rate across a 0.4-zoom
+jump, repeated:
+
+| Configuration | fps |
+| --- | --- |
+| Everything on | 1.5 |
+| Contours off | 1.6 |
+| Trails off | 1.8 |
+| **Hillshade off** | **41.3** |
+
+The DEM is the whole cost of a low-zoom gesture, and nothing else is close. Two
+plausible fixes were tried and both were rejected on the measurement:
+
+- `antialias: false` (skip MSAA): 1.8–1.9 fps against a 1.6–1.8 baseline. No gain —
+  what dominates is DEM tiles, not the multisample resolve.
+- Coarser DEM grids at low zoom (128 px at z9–11): 1.4 fps either way. The cost is
+  not texels, so the detail was restored.
+
+Per-tile DEM timings say the same thing from the other side: 400–750 ms per tile at
+z10–11 against 0 ms for tiles served from cache. A zoom is waiting on tile
+production, not on shading. The honest next lever is to not produce DEM tiles for
+levels the camera is only passing through, which needs either a prefetched DEM
+pyramid or a hillshade that can drop out during a gesture (hiding it is worth 41 fps,
+but it also removes the relief exactly when you are looking for it).

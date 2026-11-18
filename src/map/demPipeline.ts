@@ -43,6 +43,10 @@ export const FULL_GRID_ZOOM = 12;
 
 /** Image grid for a tile at `z`, in px. */
 export function gridForZoom(z: number) {
+  // Tried dropping this to 128 at z9–11 on the theory that the DEM was texel-bound.
+  // Measured at z11: 1.4 fps both ways against a 1.5–1.8 baseline, so the texture
+  // size is not what a zoom is waiting on and the coarser grid is not worth its
+  // loss of detail. What does cost, measured with the layer hidden: 41 fps at z11.
   return z >= FULL_GRID_ZOOM ? OUT_SIZE : OUT_SIZE / 2;
 }
 

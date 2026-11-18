@@ -8,14 +8,17 @@ import type { GlobeFocus } from "../map/Globe";
    them, instead of the whole screen waiting on one 1.4 MB chunk. */
 const Globe = lazy(() => import("../map/Globe"));
 import Header from "../components/Header";
-import FilterChips, { matches, type Filter } from "../components/FilterChips";
+import FilterChips, {
+  homeScope,
+  matches,
+  type Filter,
+} from "../components/FilterChips";
 import LayerControl, {
   DEFAULT_LAYERS,
   type LayerState,
 } from "../components/LayerControl";
 import MapSearch from "../components/MapSearch";
 import RidgeArt from "../components/RidgeArt";
-import SaveButton from "../components/SaveButton";
 import {
   COUNTRY_COUNT,
   DIFFICULTY_LABEL,
@@ -24,6 +27,7 @@ import {
   bySlug,
 } from "../data/places";
 import { navigate } from "../lib/router";
+import { useHome } from "../lib/locate";
 
 const WORLD = { lon: 12, lat: 22 };
 
@@ -35,21 +39,29 @@ export default function Home() {
   const [focus, setFocus] = useState<GlobeFocus | null>(null);
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
 
-  const places = useMemo(() => PLACES.filter((p) => matches(p, filter)), [filter]);
+  /* Resolved after first paint, so the chip bar never waits on a network
+     request: it is the same row of chips, plus one more if the lookup worked. */
+  const home = useHome();
+  const scope = useMemo(() => homeScope(home), [home]);
+
+  const places = useMemo(
+    () => PLACES.filter((p) => matches(p, filter, scope)),
+    [filter, scope],
+  );
   const place = selected ? bySlug.get(selected) : undefined;
 
   function changeFilter(next: Filter) {
     setFilter(next);
     setSelected(null);
-    setFocus(
-      next === "georgia"
-        ? { lon: -83.55, lat: 32.9, zoom: 5.2, key: Date.now() }
-        : {
-            ...WORLD,
-            zoom: worldZoom(window.innerWidth, window.innerHeight),
-            key: Date.now(),
-          },
-    );
+    if (next === "home" && home) {
+      setFocus({ lon: home.lon, lat: home.lat, zoom: 5.6, key: Date.now() });
+      return;
+    }
+    setFocus({
+      ...WORLD,
+      zoom: worldZoom(window.innerWidth, window.innerHeight),
+      key: Date.now(),
+    });
   }
 
   return (
@@ -81,7 +93,12 @@ export default function Home() {
       </p>
 
       <div className="globe-filters">
-        <FilterChips value={filter} onChange={changeFilter} tone="dark" />
+        <FilterChips
+          value={filter}
+          onChange={changeFilter}
+          tone="dark"
+          scope={scope}
+        />
       </div>
 
       {place && (
@@ -113,7 +130,6 @@ export default function Home() {
               >
                 View place →
               </button>
-              <SaveButton slug={place.slug} compact />
             </div>
           </div>
         </aside>

@@ -240,22 +240,32 @@ export const MAP_STYLE: StyleSpecification = {
       // a summit cap and not the whole frame. The shading still lands on top,
       // because the hillshade is drawn above landcover.
       paint: {
-        "fill-color": "#eaf2f3",
+        // Not paper white: a hint of blue-grey keeps a snowfield reading as part
+        // of the landscape rather than as a cut-out pasted over it.
+        "fill-color": "#e4edef",
+        // Low enough that the hillshade shows through the sheet, which is what
+        // makes snow sit ON a slope instead of floating above it. A glacier edge
+        // meets shaded rock on every side; at 0.5 that edge was a hard white
+        // boundary, and at 0.34 the underlying shading carries through the snow
+        // and the two meet in the same tone.
         "fill-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          0.78,
+          0.74,
           8,
-          0.5,
+          0.46,
           12,
           0.3,
           14,
-          0.5,
+          0.34,
           16,
-          0.62,
+          0.4,
         ],
+        // A soft outline of the same tone feathers the boundary by a pixel
+        // instead of ending the polygon on a razor edge.
+        "fill-outline-color": "rgba(228, 237, 239, 0.22)",
       },
     },
     {

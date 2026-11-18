@@ -265,6 +265,9 @@ export default function Globe({
            out and diving again costs nothing.
          - renderWorldCopies:false: a globe never needs the world twice, and the
            duplicate copies were extra tiles in flight. */
+      /* MSAA stays on: `antialias: false` was measured at z11 and bought nothing
+         (1.8–1.9 fps against 1.6–1.8), because what costs there is DEM tiles, not
+         the multisample resolve. Worth knowing before anyone tries it again. */
       fadeDuration: 180,
       refreshExpiredTiles: false,
       /* A deliberate cap rather than MapLibre's dynamic sizing, so the DEM

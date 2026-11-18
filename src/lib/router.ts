@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type Route =
-  | { name: "home" }
-  | { name: "explore" }
-  | { name: "saved" }
-  | { name: "about" }
-  | { name: "place"; slug: string };
+export type Route = { name: "home" } | { name: "place"; slug: string };
 
 const listeners = new Set<() => void>();
 
@@ -23,9 +18,6 @@ export function navigate(to: string) {
 export function parseRoute(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/") return { name: "home" };
-  if (path === "/explore") return { name: "explore" };
-  if (path === "/saved") return { name: "saved" };
-  if (path === "/about") return { name: "about" };
   const m = path.match(/^\/place\/([a-z0-9-]+)$/);
   if (m) return { name: "place", slug: m[1] };
   return { name: "home" };
