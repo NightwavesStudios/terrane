@@ -610,9 +610,17 @@ It fades in from z10.2 and stays faint while a whole range is in frame (0.42 by
 z11.8, 0.8 past z13.2) — over somewhere like the Dolomites a full-strength overlay
 is a web of coloured routes that buries the relief the map exists for. The layer
 sits above the hillshade and roads but below every label, so route shields never
-cover a place name. The tiles are drawn for a light basemap; on this palette the
-route lines read well, and their pale casings are what keeps them legible over dark
-ground.
+cover a place name. The tiles are drawn for a light basemap — pure primary red and violet at full
+brightness, with pale shields — which on this palette read as a warning overlay, so
+the layer carries a zoom-ramped raster treatment (`style.ts`): saturation from −0.05
+at z10.2 to −0.4 at z14, `raster-brightness-max` from 1 to 0.84, and a small 3° → 7°
+hue shift. That turns the primaries into terracotta and dull violet and dims the
+shields to annotation weight. The ramp is gentle at regional zoom on purpose: there
+the layer is already at 0.42 opacity, so muting a colour that is barely there just
+erases the trail. The hue shift stays small because the colours code difficulty (red
+hiking, orange mountain, violet alpine), and a larger rotation would blur red into
+orange. The grey pictogram markers are part of the provider's tiles and cannot be
+styled individually — only dimmed with the rest of the overlay.
 
 ---
 

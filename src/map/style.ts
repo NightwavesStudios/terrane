@@ -368,6 +368,56 @@ export const MAP_STYLE: StyleSpecification = {
         ],
         "raster-resampling": "linear",
         "raster-fade-duration": 250,
+        /* The provider draws its routes for a light basemap: pure primary red and
+           violet at full brightness, plus pale route shields, which read as a
+           warning overlay on this palette. Pulling saturation and the top of the
+           brightness range down turns those primaries into terracotta and a dull
+           violet that sit with the moss and the hillshade, and dims the shields so
+           they annotate instead of glare.
+
+           Deliberately gentler at regional zoom: there the layer is already at low
+           opacity, so muting a colour that is barely there just erases the trail.
+           The hue shift is small on purpose — the colours code difficulty (red
+           hiking, orange mountain, violet alpine) and a big rotation would blur
+           red into orange. */
+        "raster-saturation": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10.2,
+          -0.05,
+          12.5,
+          -0.22,
+          14,
+          -0.4,
+        ],
+        "raster-hue-rotate": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10.2,
+          3,
+          14,
+          7,
+        ],
+        "raster-brightness-max": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10.2,
+          1,
+          14,
+          0.84,
+        ],
+        "raster-contrast": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10.2,
+          0,
+          14,
+          0.06,
+        ],
       },
     },
     {
