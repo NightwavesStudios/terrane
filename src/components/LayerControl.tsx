@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KIT_ICONS, iconDataUrl, type KitIcon } from "../map/campIcon";
+import POI_STATS from "../data/poi-stats.json";
 
 export interface LayerState {
   relief: boolean;
@@ -40,6 +41,11 @@ const KIT_LABEL: Record<KitIcon, string> = {
   parking: "Parking",
   "picnic-table": "Picnic table",
   viewpoint: "Viewpoint",
+  caravan: "Caravan site",
+  toilets: "Toilets",
+  shower: "Shower",
+  info: "Information",
+  trailhead: "Trailhead",
 };
 
 /* The long tail's four colours. Fourteen kinds would be a colour wheel nobody can
@@ -74,7 +80,10 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   {
     key: "poi",
     label: "World POIs",
-    note: "Every campsite, hut, shelter, tap and viewpoint — loaded as you pan",
+    /* The count is read from the harvest report, not typed: the switch says how
+       much there is to find, and a stale number here would be a lie about the
+       coverage on the map. */
+    note: `${POI_STATS.total.toLocaleString("en-US")} camps, huts, shelters, water points, car parks and viewpoints from ${POI_STATS.extracts} OpenStreetMap extracts — loaded as you pan`,
   },
   {
     key: "camp",
