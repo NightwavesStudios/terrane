@@ -11,20 +11,21 @@ import raw from "../data/reach.json";
  * caves, canyons, islands, beaches, hot springs and deserts pulled from Wikidata
  * by `scripts/harvest-reach.py`.
  *
- * These are places, not campsites: they belong to the same family as the 1,288
- * the globe already draws, but there are roughly twenty times as many of them and
- * none has a written page. So they get their own smaller dots, their own switch,
- * and a card that says what the thing is and which written-up place it is near.
+ * These are places, not campsites: they belong to the same family as the 1,288 the
+ * globe already draws, but there are roughly twenty times as many of them and each
+ * has no page of its own. They get their own smaller dots and a card that says what
+ * the thing is and which named place it is near.
  *
  * **Fame is the priority.** Rows are ranked by how many Wikipedia language
  * editions carry an article about them, which is the cheapest free stand-in for
  * "have I heard of this". Tier 1 is Fuji and Victoria Falls; tier 4 is a 2,400 m
  * shoulder with an article in four languages. Tiers are zoom bands:
  *
- *   tier 1  z4.4   tier 2  z6.0   tier 3  z7.8   tier 4  z9.2
+ *   tier 1  z2.8   tier 2  z4.4   tier 3  z6.2   tier 4  z7.6
  *
- * The 1,288 atlas places already cover the globe at z2.2, so this set starts
- * where the eye can start telling dots apart.
+ * The famous half (1–2) loads with the globe and covers the planet from the first
+ * frame — at z4.4 it used to leave whole countries blank. The tail (3–4) loads the
+ * first time the camera passes a region it can read.
  */
 export const REACH_LAYERS = ["reach-dots-1", "reach-dots-2", "reach-names"];
 
@@ -89,10 +90,15 @@ const colourExpression = [
 ] as unknown as ExpressionSpecification;
 
 const TIERS = [
-  { id: "reach-dots-1", tier: 1, minzoom: 4.4, radius: [2.6, 4.4], more: false },
-  { id: "reach-dots-2", tier: 2, minzoom: 6.0, radius: [2.2, 3.8], more: false },
-  { id: "reach-dots-3", tier: 3, minzoom: 7.8, radius: [1.9, 3.2], more: true },
-  { id: "reach-dots-4", tier: 4, minzoom: 9.2, radius: [1.7, 2.8], more: true },
+  /* These arrive at world scale on purpose. A 2,664-dot famous set that only appears
+     at z4.4 leaves continents with visible holes: whole countries with no mark on
+     them read as "nothing here" rather than "nothing famous enough". The dots are
+     2–4 px and the tiers stay ordered, so filling in earlier costs nothing but a
+     busier planet view. */
+  { id: "reach-dots-1", tier: 1, minzoom: 2.8, radius: [2.6, 4.4], more: false },
+  { id: "reach-dots-2", tier: 2, minzoom: 4.4, radius: [2.2, 3.8], more: false },
+  { id: "reach-dots-3", tier: 3, minzoom: 6.2, radius: [1.9, 3.2], more: true },
+  { id: "reach-dots-4", tier: 4, minzoom: 7.6, radius: [1.7, 2.8], more: true },
 ] as const;
 
 function dotLayer(source: string, tier: (typeof TIERS)[number]) {
