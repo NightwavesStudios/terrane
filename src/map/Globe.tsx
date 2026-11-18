@@ -116,6 +116,9 @@ export interface KitPick {
   lat: number;
   tier: number;
   detail: boolean;
+  /** The mapped facts behind a world POI (fee, capacity, facilities), when the
+   *  harvest kept them. Empty for the radius set and for non-camping kinds. */
+  note?: string;
 }
 
 /** A clicked dot from the long tail of places (peaks, lakes, parks worldwide). */
@@ -804,9 +807,15 @@ export default function Globe({
           "poi-hut",
           "poi-shelter",
           "poi-water",
+          "poi-parking",
           "poi-view",
           "poi-picnic",
           "poi-pass",
+          "poi-caravan",
+          "poi-toilets",
+          "poi-shower",
+          "poi-info",
+          "poi-trailhead",
         ].filter((id) => map_.getLayer(id));
 
       const pickPoi = (x: number, y: number): MapGeoJSONFeature | undefined => {
@@ -824,7 +833,7 @@ export default function Globe({
 
       const toPoiPick = (hit: MapGeoJSONFeature): KitPick => {
         const api = poiApi.current;
-        const props = hit.properties as { k?: number; n?: string };
+        const props = hit.properties as { k?: number; n?: string; d?: string };
         const kind = Number(props.k ?? 0);
         const [lon, lat] = (hit.geometry as unknown as { coordinates: [number, number] })
           .coordinates;
@@ -838,6 +847,7 @@ export default function Globe({
           lat,
           tier: 0,
           detail: false,
+          note: String(props.d ?? ""),
         };
       };
 
@@ -1020,9 +1030,9 @@ export default function Globe({
         for (const id of mod.POI_LAYERS) {
           if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visible);
         }
-        /* Cells follow the camera, not the clock: one check per settled move, and
-           a no-op unless something new is in view. */
-        map_.on("moveend", () => mod.refreshPoi(map_));
+        /* Cells follow the camera, not the clock: `addPoi` binds one `moveend`
+           hook (once per map, so a rebuild does not stack another) and this call
+           does the first pass immediately. */
         mod.refreshPoi(map_);
       });
     };

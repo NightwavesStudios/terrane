@@ -241,33 +241,33 @@ def main():
         y = int((1 - math.log(math.tan(r) + 1 / math.cos(r)) / math.pi) / 2 * n)
         return os.path.join(OUT_DIR, str(OUT_Z), str(x), f"{y}.json")
 
+    skipped = [0]
+
     def write_rows(rows):
-        """Group by output cell, merge with what is on disk, and keep it deduped."""
+        """Group by output cell, and leave cells that already exist alone.
+
+        The world cells come from `harvest-poi-bulk.py`, which stores OSM element
+        ids and the camping tags alongside each row. Writing an Overpass batch into
+        one of those files would drop both (this script does not produce them), so
+        it fills gaps only: a cell that exists belongs to the bulk harvester.
+        """
         groups = {}
         for row in rows:
             groups.setdefault(out_path(row[0], row[1]), []).append(row)
         written_rows = 0
         for path, group in groups.items():
-            existing = []
             if os.path.exists(path):
-                try:
-                    with open(path) as f:
-                        existing = json.load(f)["items"]
-                except Exception:
-                    existing = []
-            seen = {(r[0], r[1], r[2]) for r in existing}
-            fresh = [r for r in group if (r[0], r[1], r[2]) not in seen]
-            if not fresh:
+                skipped[0] += 1
                 continue
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w") as f:
                 json.dump(
-                    {"z": OUT_Z, "kinds": KINDS, "items": existing + fresh},
+                    {"z": OUT_Z, "kinds": KINDS, "items": group},
                     f,
                     separators=(",", ":"),
                     ensure_ascii=False,
                 )
-            written_rows += len(fresh)
+            written_rows += len(group)
         return written_rows
 
     def job(cell):
@@ -294,6 +294,8 @@ def main():
         list(pool.map(job, cells))
 
     print(f"\n  {written} cells written · {total_rows} rows · {done} visited · {time.time() - t0:.0f}s")
+    if skipped[0]:
+        print(f"  {skipped[0]} cells left alone: they belong to the bulk harvest")
     print(f"  {sum(1 for _ in os.walk(OUT_DIR))} directories under {OUT_DIR}")
 
 

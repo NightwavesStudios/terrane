@@ -4,11 +4,13 @@ import type { Feature, FeatureCollection, Point } from "geojson";
 /**
  * World POIs, one JSON file per z6 cell, fetched as you look at them.
  *
- * `scripts/harvest-poi.py` walks the whole planet through Overpass and writes
- * `public/poi/6/{x}/{y}.json` — campsites, mountain huts, shelters, water points,
- * springs, viewpoints, picnic sites and passes, everywhere, with no seed list. A
- * cell is ~600 km across, so the map fetches one file the first time you zoom into
- * a region and never refetches it: global coverage without a global download.
+ * `scripts/harvest-poi-bulk.py` streams 437 Geofabrik country extracts through
+ * pyosmium and writes `public/poi/6/{x}/{y}.json` — campsites, caravan sites,
+ * mountain huts, shelters, drinking water and springs, parking, viewpoints, picnic
+ * sites, passes, toilets, showers, information boards and trailheads, everywhere,
+ * with no seed list and no Overpass queue. A cell is ~600 km across, so the map
+ * fetches one file the first time you zoom into a region and never refetches it:
+ * global coverage without a global download.
  *
  * The radius harvest near the written-up places (`kit.json`) is still there and
  * these rows deliberately exclude anything within ~60 m of it, so a campsite
@@ -17,8 +19,9 @@ import type { Feature, FeatureCollection, Point } from "geojson";
  * **Priority by kind, not by fame.** Water taps and picnic tables are worthless at
  * regional scale and useful at street scale, so they simply start later:
  *
- *   camp · hut  z10.6    pass  z11.4    shelter  z12.4
- *   viewpoint   z13.0    picnic z13.4   water    z13.8
+ *   camp · hut  z10.6    pass  z11.4    caravan  z12.2    shelter  z12.4
+ *   trailhead   z12.8    viewpoint z13.0    picnic    z13.4    water z13.8
+ *   toilets     z13.6    info   z13.6    shower    z14.0    parking z14.4
  */
 
 export const POI_LAYERS = [
@@ -26,9 +29,15 @@ export const POI_LAYERS = [
   "poi-hut",
   "poi-shelter",
   "poi-water",
+  "poi-parking",
   "poi-view",
   "poi-picnic",
   "poi-pass",
+  "poi-caravan",
+  "poi-toilets",
+  "poi-shower",
+  "poi-info",
+  "poi-trailhead",
   "poi-names",
 ];
 
@@ -41,6 +50,11 @@ export const POI_KIND_LABEL = [
   "Viewpoint",
   "Picnic table",
   "Mountain pass",
+  "Caravan site",
+  "Toilets",
+  "Shower",
+  "Information board",
+  "Trailhead",
 ];
 
 const ICONS = [
@@ -52,39 +66,113 @@ const ICONS = [
   "viewpoint",
   "picnic-table",
   "camp-hut",
+  "caravan",
+  "toilets",
+  "shower",
+  "info",
+  "trailhead",
 ];
 
 export const poiIconForKind = (kind: number) => ICONS[kind] ?? "camp-tent";
 
 /** Zoom each kind starts at. Dense, low-value kinds wait until you are close. */
-const MINZOOM = [10.6, 10.6, 12.4, 13.8, 14.4, 13, 13.4, 11.4];
+const MINZOOM = [10.6, 10.6, 12.4, 13.8, 14.4, 13, 13.4, 11.4, 12.2, 13.6, 14, 13.6, 12.8];
+
+/** These collide with each other: a city has hundreds, and the pins would become a
+ *  wall of droplets. Camps, huts, caravans and passes never hide for collision. */
+const DENSE = new Set([3, 4, 5, 6, 9, 10, 11]);
 
 /** Only these have a name worth reading early. */
-const NAMED_KINDS = [0, 1, 7];
+const NAMED_KINDS = [0, 1, 7, 8];
 
-const MAX_FEATURES = 60_000;
+/* The feature budget for the main source. It has to be generous: a z6 cell over the
+   Alps holds 276,000 rows on its own (Germany and Austria between them map 155,000
+   information boards), and a budget smaller than that cell would evict it on the
+   next `moveend` and fetch its 11 MB again. At this size the biggest cell stays put
+   and its neighbours join it. */
+const MAX_FEATURES = 320_000;
 const MAX_CELLS_PER_PASS = 6;
+
+/* Parking lives in its own file per cell and its own source. There are millions of
+   car parks in OSM — often two thirds of the rows in a country — and they are only
+   worth drawing at street zoom, so they travel separately: a cell's main file stays
+   small, and parking is fetched only when the layer that draws it is on screen. */
+const PARKING_KIND = 4;
+const PARKING_MINZOOM = 14.4;
+/** At z14.4 a z6 cell is much wider than the screen; four is a border straddle. */
+const PARKING_MAX_CELLS = 4;
+const PARKING_MAX_FEATURES = 120_000;
+
+/** How long a cell that was not there waits before the map asks again. Nothing
+ *  about a missing cell is permanent: the harvest writes new files every night, so
+ *  remembering a 404 forever means a region stays blank until the tab is reloaded. */
+const MISS_RETRY_MS = 5 * 60_000;
+/** A cell whose request failed for any other reason retries sooner, but not on
+ *  every single move — a dead network would otherwise be one request per cell per
+ *  pan. */
+const ERROR_RETRY_MS = 20_000;
 
 export const POI_CELL_ZOOM = 6;
 
 type Row = [number, number, number, string?];
-type Cell = { z: number; kinds: string[]; items: Row[] };
+/** The camping tags the harvest kept, keyed by item index in the same cell. */
+type Detail = [number, Record<string, string>][];
+type Cell = { z: number; kinds: string[]; items: Row[]; detail?: Detail };
 
 /* Kept outside React: the map wants the cumulative collection, and a re-render
    must not throw it away. Insertion order is the eviction order. */
 const loaded = new Map<string, Feature<Point>[]>();
 let total = 0;
 const pending = new Set<string>();
-let emptyCells = new Set<string>();
+/** Cell key → the earliest time it is worth asking for again. */
+const misses = new Map<string, number>();
+/** The maps that already have a `moveend` hook, so a style rebuild cannot add a
+ *  second one. A rebuild replaces the source and the layers; the map, and this
+ *  listener, live on. */
+const bound = new WeakSet<MlMap>();
+
+/* Parking: the same bookkeeping, separate budget, separate source. */
+const parkingLoaded = new Map<string, Feature<Point>[]>();
+const parkingPending = new Set<string>();
+const parkingMisses = new Map<string, number>();
+let parkingTotal = 0;
 
 const cellKey = (z: number, x: number, y: number) => `${z}/${x}/${y}`;
 
-function toFeature(row: Row): Feature<Point> {
+/**
+ * "Free · 40 pitches · water, toilets · Sola Camping" — the mapped facts a camper
+ * actually picks between sites by, from the tags the harvester preserved. Three
+ * facts at most: a card is not a table.
+ */
+function summary(d: Record<string, string>): string {
+  const out: string[] = [];
+  if (d.fee === "no") out.push("Free");
+  else if (d.charge) out.push(d.charge);
+  else if (d.fee === "yes") out.push("Fee charged");
+  if (d.capacity) out.push(`${d.capacity} pitches`);
+  const facilities = [
+    d.drinking_water === "yes" ? "water" : "",
+    d.toilets === "yes" ? "toilets" : "",
+    d.shower === "yes" ? "shower" : "",
+    d.power_supply === "yes" ? "power" : "",
+  ].filter(Boolean);
+  if (facilities.length) out.push(facilities.join(", "));
+  if (d.backcountry === "yes" || d.informal === "yes") out.push("informal");
+  else if (d.access && d.access !== "yes") out.push(d.access);
+  if (d.operator) out.push(d.operator);
+  return out.slice(0, 3).join(" · ").slice(0, 90);
+}
+
+function toFeature(row: Row, meta?: Record<string, string>): Feature<Point> {
   const [lat, lon, kind, name] = row;
+  const note = meta ? summary(meta) : "";
+  const properties: { k: number; n?: string; d?: string } = { k: kind };
+  if (name) properties.n = name;
+  if (note) properties.d = note;
   return {
     type: "Feature",
     geometry: { type: "Point", coordinates: [lon, lat] },
-    properties: name ? { k: kind, n: name } : { k: kind },
+    properties,
   };
 }
 
@@ -94,9 +182,19 @@ function collection(): FeatureCollection<Point> {
   return { type: "FeatureCollection", features };
 }
 
+function parkingCollection(): FeatureCollection<Point> {
+  const features: Feature<Point>[] = [];
+  for (const cell of parkingLoaded.values()) features.push(...cell);
+  return { type: "FeatureCollection", features };
+}
+
 function pushToMap(map: MlMap) {
   const src = map.getSource("poi") as { setData?: (d: unknown) => void } | undefined;
   src?.setData?.(collection());
+  const park = map.getSource("poi-parking") as
+    | { setData?: (d: unknown) => void }
+    | undefined;
+  park?.setData?.(parkingCollection());
 }
 
 function evictIfNeeded() {
@@ -133,20 +231,27 @@ const LAYER_FOR_KIND = [
 
 /** Adds the (empty) POI source and its layers. Data arrives per cell. */
 export function addPoi(map: MlMap, before?: string) {
+  if (!bound.has(map)) {
+    bound.add(map);
+    map.on("moveend", () => refreshPoi(map));
+  }
   if (map.getSource("poi")) return;
   map.addSource("poi", {
     type: "geojson",
     data: { type: "FeatureCollection", features: [] },
   });
+  map.addSource("poi-parking", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
 
   for (let kind = 0; kind < LAYER_FOR_KIND.length; kind += 1) {
-    if (kind === 4) continue; // parking is not in the global harvest
-    const dense = kind === 3 || kind === 5 || kind === 6;
+    const dense = DENSE.has(kind);
     map.addLayer(
       {
         id: LAYER_FOR_KIND[kind],
         type: "symbol",
-        source: "poi",
+        source: kind === PARKING_KIND ? "poi-parking" : "poi",
         minzoom: MINZOOM[kind],
         filter: ["==", ["get", "k"], kind] as unknown as ExpressionSpecification,
         layout: {
@@ -200,6 +305,12 @@ export function addPoi(map: MlMap, before?: string) {
     },
     before,
   );
+
+  /* A rebuilt style comes back with no features in the new source, but every cell
+     this session already downloaded is still in `loaded`. Without this line the
+     pins vanish on the first rebuild and stay gone: `refreshPoi` skips cells it has
+     already got, so nothing ever puts them back. Re-pushing costs one setData. */
+  if (loaded.size) pushToMap(map);
 }
 
 /**
@@ -228,16 +339,19 @@ export function refreshPoi(map: MlMap) {
   const y0 = lat2y(Math.min(85, bounds.getNorth()));
   const y1 = lat2y(Math.max(-85, bounds.getSouth()));
 
-  const wanted: [number, number][] = [];
+  const visible: [number, number][] = [];
   for (let x = x0; x <= x1; x += 1) {
     for (let y = y0; y <= y1; y += 1) {
-      const cx = ((x % n) + n) % n;
-      const cy = Math.max(0, Math.min(n - 1, y));
-      const key = cellKey(POI_CELL_ZOOM, cx, cy);
-      if (loaded.has(key) || pending.has(key) || emptyCells.has(key)) continue;
-      wanted.push([cx, cy]);
+      visible.push([((x % n) + n) % n, Math.max(0, Math.min(n - 1, y))]);
     }
   }
+
+  const wanted = visible.filter(([x, y]) => {
+    const key = cellKey(POI_CELL_ZOOM, x, y);
+    if (loaded.has(key) || pending.has(key)) return false;
+    const until = misses.get(key);
+    return !(until && until > Date.now());
+  });
 
   for (const [x, y] of wanted.slice(0, MAX_CELLS_PER_PASS)) {
     const key = cellKey(POI_CELL_ZOOM, x, y);
@@ -248,18 +362,70 @@ export function refreshPoi(map: MlMap) {
         return res.json() as Promise<Cell>;
       })
       .then((cell) => {
-        const features = cell.items.map(toFeature);
+        /* Camping rows carry the tags the harvester kept, index-aligned with the
+           items; the card reads them, the map ignores them. */
+        const meta = new Map<number, Record<string, string>>();
+        for (const [index, tags] of cell.detail ?? []) meta.set(index, tags);
+        const features = cell.items.map((row, index) => toFeature(row, meta.get(index)));
+        misses.delete(key);
         loaded.set(key, features);
         total += features.length;
         evictIfNeeded();
         pushToMap(map);
       })
-      .catch(() => {
-        /* A cell with nothing in it is a 404 and stays a 404 — remember it so
-           panning back and forth does not re-ask. */
-        emptyCells.add(key);
+      .catch((err: unknown) => {
+        /* 404 is the normal answer for a cell with nothing in it, and for a cell
+           the harvest has not reached yet — so it is remembered, with an expiry,
+           rather than either retried in a loop or written off for good. Anything
+           else (offline, a 500, a cancelled request) gets a shorter pause. */
+        const status = Number(String((err as Error)?.message ?? err));
+        misses.set(key, Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS));
       })
       .finally(() => pending.delete(key));
+  }
+
+  /* The same cells, a different file: parking is only worth the request once the
+     parking layer itself is on screen. */
+  if (zoom >= PARKING_MINZOOM) {
+    const parkWanted = visible.filter(([x, y]) => {
+      const key = cellKey(POI_CELL_ZOOM, x, y);
+      if (parkingLoaded.has(key) || parkingPending.has(key)) return false;
+      const until = parkingMisses.get(key);
+      return !(until && until > Date.now());
+    });
+
+    for (const [x, y] of parkWanted.slice(0, PARKING_MAX_CELLS)) {
+      const key = cellKey(POI_CELL_ZOOM, x, y);
+      parkingPending.add(key);
+      void fetch(`/poi/${POI_CELL_ZOOM}/${x}/${y}.parking.json`)
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json() as Promise<Cell>;
+        })
+        .then((cell) => {
+          const features = cell.items.map((row) => toFeature(row));
+          parkingMisses.delete(key);
+          parkingLoaded.set(key, features);
+          parkingTotal += features.length;
+          while (parkingTotal > PARKING_MAX_FEATURES && parkingLoaded.size > 1) {
+            const [oldKey, old] = parkingLoaded.entries().next().value as [
+              string,
+              Feature<Point>[],
+            ];
+            parkingLoaded.delete(oldKey);
+            parkingTotal -= old.length;
+          }
+          pushToMap(map);
+        })
+        .catch((err: unknown) => {
+          const status = Number(String((err as Error)?.message ?? err));
+          parkingMisses.set(
+            key,
+            Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS),
+          );
+        })
+        .finally(() => parkingPending.delete(key));
+    }
   }
 }
 
@@ -267,8 +433,12 @@ export function refreshPoi(map: MlMap) {
 export function resetPoi() {
   loaded.clear();
   pending.clear();
-  emptyCells = new Set();
+  misses.clear();
+  parkingLoaded.clear();
+  parkingPending.clear();
+  parkingMisses.clear();
   total = 0;
+  parkingTotal = 0;
 }
 
 export const poiCellKey = cellKey;

@@ -920,64 +920,159 @@ this set and the atlas — one is written, the other is mapped.
 **Measured**: 2.05 fps with the tail visible at z8.5 against 2.15 hidden, which is
 the run-to-run spread on this software renderer; the hillshade is still the frame.
 
-## The whole world's POIs — one file per cell, fetched as you pan
+## The world's outdoor POIs — country extracts in, one file per cell out
 
-The campsites added earlier were harvested in a radius: 8 km around each written-up
-place. That is why Georgia had far more than Kazakhstan — coverage followed the
-atlas, not the ground. Nothing was ever added by hand; the shape of the seed list
-made it look that way.
+The first campsite harvest worked in a radius: 8 km around each written-up place.
+That is why Georgia had far more than Kazakhstan — coverage followed the atlas, not
+the ground. Nothing was ever added by hand; the shape of the seed list made it look
+that way, and it was never a coverage policy.
 
-`scripts/harvest-poi.py` has no seed list. It asks OpenStreetMap (Overpass) for
-every campsite, mountain hut, wilderness hut, shelter, drinking water, spring,
-viewpoint, picnic site and pass inside a grid cell, and writes the answer to its
-own small file:
+`scripts/harvest-poi-bulk.py` does not use Overpass and has no seed list. It streams
+Geofabrik's country extracts — the same OpenStreetMap data, cut by country, with no
+request queue and no rate limit — through `pyosmium`, and writes the cells the map
+already reads:
 
 ```
-public/poi/6/{x}/{y}.json    # [lat, lon, kind, name?] — a z6 cell is ~600 km across
+public/poi/6/{x}/{y}.json           # [lat, lon, kind, name?], plus ids and detail
+public/poi/6/{x}/{y}.parking.json   # parking only — fetched at street zoom
 ```
 
-The browser fetches a cell the first time the camera looks at it (`src/map/poi.ts`,
-on `moveend`, only above z9.2, at most six cells per pass) and never refetches it.
-Coverage is global without a global download: at full coverage the set is roughly
-1.5 M rows in ~40 MB of cells, of which a visit touches a handful.
+The plan is 437 leaf extracts (~75 GB): every country, and states/provinces for the
+dozen countries Geofabrik splits. Extracts that summarise other extracts — Europe
+alongside every European country, the United States alongside its fifty states — are
+dropped, so no ground is downloaded twice. A z6 cell is ~600 km across.
 
-Kinds gate the zoom, because a water tap is worthless at regional scale:
+### What is captured
 
-| camp · hut | pass | shelter | viewpoint | picnic | water |
-| --- | --- | --- | --- | --- | --- |
-| z10.6 | z11.4 | z12.4 | z13.0 | z13.4 | z13.8 |
+| kind | OSM tags | starts at |
+| --- | --- | --- |
+| camp site | `tourism=camp_site`, `tourism=camp_pitch` | z10.6 |
+| mountain hut | `tourism=alpine_hut`, `tourism=wilderness_hut` | z10.6 |
+| mountain pass | `mountain_pass=yes` | z11.4 |
+| caravan site | `tourism=caravan_site` | z12.2 |
+| shelter | `amenity=shelter` — lean-tos, bivouac shelters, cabins | z12.4 |
+| trailhead | `highway=trailhead` | z12.8 |
+| viewpoint | `tourism=viewpoint` | z13.0 |
+| picnic site | `tourism=picnic_site` | z13.4 |
+| toilets · information board | `amenity=toilets`, `tourism=information` + `information=board/map/guidepost/trail_blaze/route_marker` | z13.6 |
+| drinking water | `amenity=drinking_water`, `amenity=water_point`, `man_made=water_tap`, `natural=spring` | z13.8 |
+| shower | `amenity=shower` | z14.0 |
+| parking | `amenity=parking` — its own file | z14.4 |
 
-Camps and huts keep `icon-allow-overlap` — hiding one to make room for another is a
-loss. Water, viewpoints and picnic tables collide, because a city has hundreds and
-the pins would become a wall of droplets.
+Everything mapped is taken: no per-country cap, no "named only" filter (an unnamed
+campsite is still a place to sleep), and a feature mapped both as a node and as its
+own outline is deduplicated by OSM identity rather than by name.
 
-Rows within ~60 m of the radius harvest are dropped at harvest time, so a campsite
-beside a written-up summit is drawn once and not twice. The world set also fills
-the **World POIs** switch in the layer panel, separate from the radius set, so
-either can be turned off.
+Rows carry the OSM element id (`n123…`, `w456…`), so the store can be deduplicated,
+refreshed and pointed back at its source. Camping kinds also carry the tags that
+decide whether you can stay — `fee`, `charge`, `capacity`, `access`, `operator`,
+`reservation`, `opening_hours`, `tent`, `caravan`, `motorhome`, `backcountry`,
+`informal`, `shelter_type`, `toilets`, `shower`, `drinking_water`, `power_supply` —
+and the card under a pin summarises them ("Free · 40 pitches · water").
 
-### Status, plainly
+Deliberately not collected:
 
-The pipeline is finished and proven: the Georgia box returned **19,078 rows** in 58
-seconds, against 97 from the radius harvest of the same ground — a 197× difference
-on the exact area that looked wrong. Those two cells ship in `public/poi/`.
+- **Bicycle parking, parking entrances, picnic tables.** Hundreds of thousands of
+  rows that repeat what the basemap already draws.
+- **Routes and trails as pins.** Hiking, foot and bicycle route relations are
+  counted in the report and nothing else: the basemap serves OSM's path network as
+  vector tiles, and the Footpaths layer already shows it.
+- **Camping areas mapped as multipolygon relations.** They are counted as unplaced
+  in the report; the same ground is nearly always a node or a way.
 
-The whole planet is not done, and the reason is the source rather than the code: a
-z6 cell is one Overpass query, the public endpoint queues ~40 s per query and then
-starts answering `502`/`429`, so 4,096 cells is an hours-long unattended job, not
-something a single session finishes. It is resumable at any point — every answer is
-cached in `/tmp/terrane-poi-cache`, finished cells are skipped, and the browser
-picks up new cells with no code change:
+Parking is the exception that gets a file of its own. It is the largest category by
+a wide margin — often two thirds of a country's rows — and it only matters at
+street zoom, so `{y}.parking.json` is fetched when you are close enough for the
+layer to draw, instead of weighing down every cell you pan across.
+
+### How the file and the browser fit together
+
+```
+{ "z": 6, "kinds": [...13...], "items": [[lat, lon, kind, name?], ...],
+  "ids": ["n123", ...], "sources": ["europe/albania"], "detail": [[index, {...}]] }
+```
+
+`items` keeps the shape the first version had, so older readers still work; `ids`
+runs parallel to it, and `detail` holds the camping tags for the rows that have any.
+
+A cell is fetched the first time the camera looks at it (`src/map/poi.ts`, on
+`moveend`, above z9.2, at most six cells per pass), which keeps 60,000 features in
+memory and evicts whole cells rather than thinning pins. Misses expire after five
+minutes, so a cell added later is picked up without a reload, and a rebuilt style
+re-pushes what is already loaded. Kinds gate the zoom — the table above — because a
+water tap is worthless at regional scale and a city has hundreds of them. Camps and
+huts keep `icon-allow-overlap`; everything else collides.
+
+Rows within ~60 m of the radius harvest are dropped at merge time, so a campsite
+beside a written-up summit is drawn once and not twice. The world set fills the
+**World POIs** switch in the layer panel, separate from the radius set, so either
+can be turned off.
+
+### Resumable, and honest about failures
+
+Every extract has a record: status, row count, per-kind counts, bytes, source
+`Last-Modified`, attempts and error. Nothing is skipped silently.
+
+```
+.cache/poi-bulk/state.json      # per-extract manifest, rewritten atomically
+.cache/poi-bulk/failures.log    # one line per failure: time, extract, stage, error
+.cache/poi-bulk/rows/*.tsv      # parsed rows, one file per extract
+.cache/poi-bulk/plan.json       # extracts, sizes, Last-Modified
+reports/poi-coverage.md/.json   # the coverage report
+```
+
+Kill the job at any point and run it again: parsed extracts are skipped, a
+half-written row file is never mistaken for a parse, and a partial download resumes
+with `Range`. Rows are sorted smallest-first by download size, so a stopped run has
+real coverage on every continent rather than three quarters of Europe.
+
+Merging is separate, and cannot overwrite a good store with a bad one: rows go to
+`public/.poi-staging`, every cell is read back and validated (coordinates, known
+kinds, an id for every item, detail pointing at real items, the kinds table matching
+the client), and only then is the tree swapped in, with the old one kept until the
+new one is in place. A merge refuses to run while extracts are still missing unless
+you pass `--allow-partial`.
 
 ```bash
-python3 scripts/harvest-poi.py --workers=2                 # continue: whole planet
-python3 scripts/harvest-poi.py --bbox=5.5,44,15.5,48       # or one region
+npm run poi:world      # harvest: resumable, smallest extracts first
+npm run poi:status     # what is parsed, failed, pending, and the last merge
+npm run poi:merge      # rebuild the cells and the report (refuses a partial set)
+npm run poi:report     # write reports/poi-coverage.{md,json} from what is parsed
+npm run poi:refresh    # download only extracts whose Last-Modified changed
 ```
 
-For a one-shot global fill, Geofabrik's country `.osm.pbf` extracts plus
-`pyosmium` avoid the queue entirely (no request limits, ~40 GB to stream through
-country by country). That is the path to run if this needs to be finished quickly,
-and it is a different script, not a change to this one.
+Updates are at extract granularity: Geofabrik rebuilds daily and sends
+`Last-Modified`, `--refresh` re-queues only what changed, and a merge rewrites the
+cells those extracts touch. It is coarse — a cell is rewritten when any extract
+overlapping it changed — but it never leaves a stale country in the store.
+
+`scripts/harvest-poi.py` (Overpass, radius) stays for a quick regional fill; it now
+skips cells that already exist, so it cannot strip ids or tags from a bulk cell.
+
+### The run
+
+**Measured on 2026-11-18.** All 437 extracts in the plan were streamed — 75.5 GB of
+`.osm.pbf`, 385 countries counting the ones Geofabrik splits — and none failed. The row
+cache holds 10,131,201 rows and the merge read every one: 1,007 cells of 3,530,458 rows
+(186 MB), plus parking in its own 862 files, 5,840,666 rows (196 MB).
+
+**239,120 campsites** survived deduplication, which is more than the ~156,000 that
+commercial camping directories report worldwide, alongside 28,913 huts, 585,409
+shelters, 29,776 caravan sites, 678,605 water sources, 239,844 viewpoints and 39,267
+mountain passes. Deduplication removed 237,618 repeated elements, 513,869 pins within
+25 m of another of their kind, and 8,590 inside the old radius harvest; every cell was
+then read back and validated.
+
+Per-country counts and the full table are in
+[`reports/poi-coverage.md`](reports/poi-coverage.md).
+
+### Attribution
+
+OpenStreetMap data is © OpenStreetMap contributors, licensed under
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/). The map credits it in the
+footer, and the cells are derived from it. Mapped does not mean verified: these are
+community-maintained positions and tags, and Terrane does not check that a shelter
+still stands or that a tap still runs.
 
 ## Camps, huts, water and parking — 6,013 places to sleep, drink and park
 

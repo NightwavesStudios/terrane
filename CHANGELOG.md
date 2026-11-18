@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026-11-18 — The world's outdoor places, harvested from country extracts
+
+Places to sleep, drink, shelter and park are no longer harvested in a radius around
+written-up places. Every country's OpenStreetMap extract is streamed through
+`pyosmium` and tiled into the cells the map already reads, so coverage follows the
+ground rather than the atlas.
+
+### The bulk path
+
+- `scripts/harvest-poi-bulk.py` replaces the Overpass queue for the world pass:
+  437 Geofabrik leaf extracts, ~75 GB, smallest first, with no request limits. The
+  Overpass script stays as a regional fallback and now skips cells that already
+  exist, so it cannot strip ids or tags from a bulk cell.
+- **Thirteen categories**, no per-country cap and no "named only" filter: campsites
+  (named or not), caravan sites, alpine and wilderness huts, shelters, drinking
+  water, springs and taps, toilets, showers, parking, viewpoints, picnic sites,
+  mountain passes, information boards and trailheads. Routes are counted, not drawn;
+  the basemap already serves OSM's path network.
+- Rows keep the OSM element id, and camping rows keep the tags that decide whether
+  you can stay (`fee`, `capacity`, `access`, `operator`, `reservation`, facilities).
+  A pin's card now summarises them — "Free · 40 pitches · water".
+- **Parking travels separately.** It is often two thirds of a country's rows and
+  only matters at street zoom, so it is written to `{y}.parking.json` and fetched
+  only above z14.4.
+
+### Resumable, validated, never silently partial
+
+- Per-extract manifest (`state.json`) with status, counts, bytes, `Last-Modified`
+  and attempts; failures in `failures.log`; rows written to `.part` and renamed.
+- Merging goes to `public/.poi-staging`, reads every cell back and checks
+  coordinates, kinds, id alignment and detail indices, then swaps atomically. It
+  refuses to merge while extracts are missing unless `--allow-partial` is passed.
+- `reports/poi-coverage.{md,json}` lists countries parsed and pending, totals per
+  category, duplicate and exclusion stats, trail relations observed, failures and
+  the validation result.
+
+### The client
+
+- New kinds with their own pictograms and zoom floors; parking in its own source and
+  its own file; the World POIs switch and legend describe what is there.
+- A failed cell load no longer caches its 404 forever: misses expire after five
+  minutes, and a style rebuild re-pushes the loaded cells instead of leaving the
+  layer empty.
+- Credits now read "© OpenStreetMap contributors · OpenFreeMap · Terrain:
+  Mapterhorn · Data: Wikidata".
+
+The first full import is complete: 437 of 437 extracts, 75.5 GB streamed, no failures.
+The merge wrote 3,530,458 places into 1,007 cells (186 MB) and 5,840,666 parking rows
+into 862 files of their own (196 MB): **239,120 campsites**, 28,913 huts, 585,409
+shelters, 29,776 caravan sites, 678,605 water sources, 445,756 toilets and 1,053,188
+information boards, after dropping 237,618 repeated elements and 513,869 pins that sat
+within 25 m of another of their kind. Every cell was read back and passed validation;
+per-country counts are in `reports/poi-coverage.md`.
+
 ## 2026-11-15 — Phase 1: the map becomes terrain
 
 Relief, colour and camera, reworked so the map reads as landscape at every zoom

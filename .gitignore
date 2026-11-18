@@ -6,3 +6,10 @@ dist
 .env.local
 terrane.html
 shots/
+.cache
+public/.poi-staging
+public/.poi-previous
+
+# Python bytecode from the harvest script
+__pycache__/
+*.pyc

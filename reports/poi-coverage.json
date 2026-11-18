@@ -1,0 +1,376 @@
+{
+ "generated": "2026-11-18T20:25:03Z",
+ "source": "https://download.geofabrik.de/index-v1.json",
+ "license": "ODbL 1.0 — © OpenStreetMap contributors",
+ "attribution": "© OpenStreetMap contributors",
+ "plan": {
+  "extracts": 437,
+  "bytes": 75513564889
+ },
+ "coverage": {
+  "extracts_parsed": 437,
+  "extracts_failed": 0,
+  "extracts_pending": 0,
+  "countries_parsed": 385,
+  "countries_in_plan": 385,
+  "extract_bytes_parsed": 75513564889,
+  "regions": {
+   "australia-oceania": {
+    "extracts": 36,
+    "parsed": 36,
+    "rows": 306827,
+    "kinds": {
+     "camp": 15239,
+     "hut": 2391,
+     "shelter": 31337,
+     "water": 16390,
+     "parking": 174131,
+     "view": 11430,
+     "picnic": 5303,
+     "pass": 204,
+     "caravan": 2417,
+     "toilets": 26610,
+     "shower": 2599,
+     "info": 18641,
+     "trailhead": 135
+    }
+   },
+   "europe": {
+    "extracts": 155,
+    "parsed": 155,
+    "rows": 5506947,
+    "kinds": {
+     "camp": 78649,
+     "hut": 16215,
+     "shelter": 353095,
+     "water": 390757,
+     "parking": 3219424,
+     "view": 136025,
+     "picnic": 101444,
+     "pass": 18463,
+     "caravan": 15561,
+     "toilets": 166799,
+     "shower": 20872,
+     "info": 985693,
+     "trailhead": 3950
+    }
+   },
+   "africa": {
+    "extracts": 55,
+    "parsed": 55,
+    "rows": 253185,
+    "kinds": {
+     "camp": 8382,
+     "hut": 1340,
+     "shelter": 15398,
+     "water": 65153,
+     "parking": 66622,
+     "view": 9366,
+     "picnic": 1905,
+     "pass": 1079,
+     "caravan": 629,
+     "toilets": 73292,
+     "shower": 3180,
+     "info": 6789,
+     "trailhead": 50
+    }
+   },
+   "asia": {
+    "extracts": 88,
+    "parsed": 88,
+    "rows": 1258378,
+    "kinds": {
+     "camp": 24635,
+     "hut": 3970,
+     "shelter": 90748,
+     "water": 66348,
+     "parking": 790220,
+     "view": 42311,
+     "picnic": 6467,
+     "pass": 15178,
+     "caravan": 1602,
+     "toilets": 115225,
+     "shower": 2592,
+     "info": 96535,
+     "trailhead": 2547
+    }
+   },
+   "north-america": {
+    "extracts": 65,
+    "parsed": 65,
+    "rows": 2134743,
+    "kinds": {
+     "camp": 127409,
+     "hut": 1836,
+     "shelter": 128332,
+     "water": 65661,
+     "parking": 1580129,
+     "view": 27868,
+     "picnic": 22189,
+     "pass": 1547,
+     "caravan": 9321,
+     "toilets": 82097,
+     "shower": 4742,
+     "info": 73151,
+     "trailhead": 10461
+    }
+   },
+   "central-america": {
+    "extracts": 11,
+    "parsed": 11,
+    "rows": 31537,
+    "kinds": {
+     "camp": 697,
+     "hut": 317,
+     "shelter": 1638,
+     "water": 3091,
+     "parking": 19540,
+     "view": 1647,
+     "picnic": 238,
+     "pass": 53,
+     "caravan": 14,
+     "toilets": 3140,
+     "shower": 389,
+     "info": 729,
+     "trailhead": 44
+    }
+   },
+   "south-america": {
+    "extracts": 16,
+    "parsed": 16,
+    "rows": 237789,
+    "kinds": {
+     "camp": 8670,
+     "hut": 2279,
+     "shelter": 10755,
+     "water": 68434,
+     "parking": 111589,
+     "view": 12456,
+     "picnic": 2266,
+     "pass": 892,
+     "caravan": 273,
+     "toilets": 12851,
+     "shower": 652,
+     "info": 6439,
+     "trailhead": 233
+    }
+   },
+   "russia": {
+    "extracts": 10,
+    "parsed": 10,
+    "rows": 401608,
+    "kinds": {
+     "camp": 18417,
+     "hut": 2881,
+     "shelter": 19185,
+     "water": 31084,
+     "parking": 268093,
+     "view": 10193,
+     "picnic": 11534,
+     "pass": 7423,
+     "caravan": 740,
+     "toilets": 16033,
+     "shower": 617,
+     "info": 15384,
+     "trailhead": 24
+    }
+   },
+   "antarctica": {
+    "extracts": 1,
+    "parsed": 1,
+    "rows": 187,
+    "kinds": {
+     "camp": 4,
+     "hut": 10,
+     "shelter": 74,
+     "water": 9,
+     "parking": 9,
+     "view": 26,
+     "picnic": 0,
+     "pass": 10,
+     "caravan": 0,
+     "toilets": 13,
+     "shower": 17,
+     "info": 15,
+     "trailhead": 0
+    }
+   }
+  }
+ },
+ "features": {
+  "extracted": {
+   "camp": 282102,
+   "hut": 31239,
+   "shelter": 650562,
+   "water": 706927,
+   "parking": 6229757,
+   "view": 251322,
+   "picnic": 151346,
+   "pass": 44849,
+   "caravan": 30557,
+   "toilets": 496060,
+   "shower": 35660,
+   "info": 1203376,
+   "trailhead": 17444
+  },
+  "in_cells": {
+   "camp": 239120,
+   "hut": 28913,
+   "shelter": 585409,
+   "water": 678605,
+   "parking": 5840666,
+   "view": 239844,
+   "picnic": 141322,
+   "pass": 39267,
+   "caravan": 29776,
+   "toilets": 445756,
+   "shower": 32234,
+   "info": 1053188,
+   "trailhead": 17024
+  },
+  "cells": 1869,
+  "cell_bytes": 382215414,
+  "detail_records": null
+ },
+ "duplicates": {
+  "kit_radius": 8590,
+  "same_element": 237618,
+  "same_ground": 513869,
+  "unreadable": 0
+ },
+ "routes_observed": {
+  "hiking": 249752,
+  "foot": 69017,
+  "bicycle": 113024,
+  "camp_relations_unplaced": 86373
+ },
+ "failures": [],
+ "pending": [],
+ "validation": {
+  "ok": true,
+  "problems": [],
+  "checked": "every cell"
+ },
+ "top_extracts": [
+  {
+   "extract": "nord-ovest",
+   "region": "europe",
+   "rows": 220085,
+   "bytes": 595652765
+  },
+  {
+   "extract": "austria",
+   "region": "europe",
+   "rows": 214797,
+   "bytes": 815869546
+  },
+  {
+   "extract": "switzerland",
+   "region": "europe",
+   "rows": 210008,
+   "bytes": 551363804
+  },
+  {
+   "extract": "kanto",
+   "region": "asia",
+   "rows": 188699,
+   "bytes": 524829835
+  },
+  {
+   "extract": "nord-est",
+   "region": "europe",
+   "rows": 172009,
+   "bytes": 627405116
+  },
+  {
+   "extract": "sweden",
+   "region": "europe",
+   "rows": 157042,
+   "bytes": 986496198
+  },
+  {
+   "extract": "niedersachsen",
+   "region": "europe",
+   "rows": 152612,
+   "bytes": 510646264
+  },
+  {
+   "extract": "rhone-alpes",
+   "region": "europe",
+   "rows": 145949,
+   "bytes": 533375557
+  },
+  {
+   "extract": "chubu",
+   "region": "asia",
+   "rows": 135986,
+   "bytes": 520045601
+  },
+  {
+   "extract": "brandenburg",
+   "region": "europe",
+   "rows": 121005,
+   "bytes": 297398850
+  },
+  {
+   "extract": "ontario",
+   "region": "north-america",
+   "rows": 118781,
+   "bytes": 1017920572
+  },
+  {
+   "extract": "kansai",
+   "region": "asia",
+   "rows": 114720,
+   "bytes": 356149361
+  },
+  {
+   "extract": "belgium",
+   "region": "europe",
+   "rows": 113482,
+   "bytes": 699566913
+  },
+  {
+   "extract": "central-fed-district",
+   "region": "russia",
+   "rows": 107613,
+   "bytes": 886347364
+  },
+  {
+   "extract": "finland",
+   "region": "europe",
+   "rows": 106422,
+   "bytes": 777797992
+  },
+  {
+   "extract": "hessen",
+   "region": "europe",
+   "rows": 103876,
+   "bytes": 348100007
+  },
+  {
+   "extract": "us/texas",
+   "region": "north-america",
+   "rows": 102347,
+   "bytes": 728358529
+  },
+  {
+   "extract": "slovakia",
+   "region": "europe",
+   "rows": 96600,
+   "bytes": 348709703
+  },
+  {
+   "extract": "portugal",
+   "region": "europe",
+   "rows": 95082,
+   "bytes": 428764428
+  },
+  {
+   "extract": "sachsen",
+   "region": "europe",
+   "rows": 94243,
+   "bytes": 270135525
+  }
+ ]
+}

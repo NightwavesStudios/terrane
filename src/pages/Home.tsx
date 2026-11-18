@@ -166,7 +166,7 @@ export default function Home() {
         drag to spin, click a point
       </p>
       <p className="globe-credits mono">
-        © OpenStreetMap · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
+        © OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn · Data: Wikidata
       </p>
 
       <div className="globe-filters">
@@ -241,6 +241,7 @@ export default function Home() {
                 : ""}
             </p>
             <h2>{kitPick.name || `Unnamed ${kitPick.label.toLowerCase()}`}</h2>
+            {kitPick.note ? <p className="mono pick-meta">{kitPick.note}</p> : null}
             <p className="mono pick-meta">
               {nearKm !== null ? `${nearKm < 10 ? nearKm.toFixed(1) : Math.round(nearKm)} km from ${nearPlace?.name}` : ""}
             </p>

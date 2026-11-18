@@ -11,7 +11,11 @@
     "preview": "vite preview",
     "seo": "node scripts/gen-seo.mjs",
     "kit": "node scripts/harvest-kit.mjs",
-    "poi": "python3 scripts/harvest-poi.py"
+    "poi": "python3 scripts/harvest-poi.py",
+    "poi:world": "python3 scripts/harvest-poi-bulk.py",
+    "poi:merge": "python3 scripts/harvest-poi-bulk.py --merge",
+    "poi:report": "python3 scripts/harvest-poi-bulk.py --report",
+    "poi:status": "python3 scripts/harvest-poi-bulk.py --status"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.1",

@@ -40,6 +40,11 @@ const KIT_LABEL: Record<KitIcon, string> = {
   parking: "Parking",
   "picnic-table": "Picnic table",
   viewpoint: "Viewpoint",
+  caravan: "Caravan site",
+  toilets: "Toilets",
+  shower: "Shower",
+  info: "Information",
+  trailhead: "Trailhead",
 };
 
 /* The long tail's four colours. Fourteen kinds would be a colour wheel nobody can
@@ -74,7 +79,7 @@ const ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   {
     key: "poi",
     label: "World POIs",
-    note: "Every campsite, hut, shelter, tap and viewpoint — loaded as you pan",
+    note: "Every campsite, caravan site, hut, shelter, water point, parking and viewpoint — loaded as you pan",
   },
   {
     key: "camp",

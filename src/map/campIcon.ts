@@ -20,7 +20,12 @@ export type KitIcon =
   | "water-drop"
   | "parking"
   | "picnic-table"
-  | "viewpoint";
+  | "viewpoint"
+  | "caravan"
+  | "toilets"
+  | "shower"
+  | "info"
+  | "trailhead";
 
 export const KIT_ICONS: KitIcon[] = [
   "camp-tent",
@@ -30,6 +35,11 @@ export const KIT_ICONS: KitIcon[] = [
   "parking",
   "picnic-table",
   "viewpoint",
+  "caravan",
+  "toilets",
+  "shower",
+  "info",
+  "trailhead",
 ];
 
 const GRID = 20;
@@ -173,6 +183,152 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       g.beginPath();
       g.arc(10, 10, 2.5, 0, Math.PI * 2);
       g.fill();
+      break;
+    }
+
+    case "caravan": {
+      // A box on a wheel with a tow bar: the one shape in the set that means "you
+      // can sleep in it and drive it away".
+      g.fillStyle = PEN.sand;
+      g.beginPath();
+      g.roundRect(2.8, 6.2, 14.4, 8.4, 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = PEN.water;
+      g.beginPath();
+      g.rect(5, 8.4, 4.4, 3.6);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = STROKE;
+      g.beginPath();
+      g.moveTo(2.8, 14.6);
+      g.lineTo(0.8, 16.6);
+      g.stroke();
+      g.fillStyle = STROKE;
+      g.beginPath();
+      g.arc(13.8, 16.4, 1.9, 0, Math.PI * 2);
+      g.fill();
+      break;
+    }
+
+    case "toilets": {
+      // Two figures, one in a skirt — the ordinary sign for a WC, readable even
+      // when the two heads are three pixels across.
+      g.fillStyle = PEN.glyph;
+      g.strokeStyle = STROKE;
+      g.beginPath();
+      g.arc(6, 5.4, 2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(4.2, 16.4);
+      g.lineTo(4.9, 9);
+      g.lineTo(7.1, 9);
+      g.lineTo(7.8, 16.4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.arc(13.9, 5.4, 2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(11.4, 16.4);
+      g.lineTo(12.4, 9);
+      g.lineTo(15.4, 9);
+      g.lineTo(16.4, 16.4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      break;
+    }
+
+    case "shower": {
+      // A pipe, a head and three drops.
+      g.strokeStyle = STROKE;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(4.4, 3.2);
+      g.lineTo(4.4, 7);
+      g.lineTo(10, 7);
+      g.stroke();
+      g.lineWidth = 1.2;
+      g.fillStyle = PEN.water;
+      g.beginPath();
+      g.moveTo(8.4, 7);
+      g.lineTo(15.8, 7);
+      g.lineTo(12.4, 11.2);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      for (const [x, y] of [
+        [9.6, 13.8],
+        [12.4, 14.2],
+        [15.2, 13.6],
+      ]) {
+        g.beginPath();
+        g.arc(x, y, 1.1, 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
+
+    case "info": {
+      // A board with an "i" on it, on a post.
+      g.fillStyle = PEN.sign;
+      g.beginPath();
+      g.roundRect(3.2, 3, 13.6, 10.4, 2);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = PEN.glyph;
+      g.lineWidth = 2.1;
+      g.beginPath();
+      g.moveTo(10, 5.8);
+      g.lineTo(10, 6);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(10, 8.2);
+      g.lineTo(10, 11.4);
+      g.stroke();
+      g.strokeStyle = STROKE;
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(10, 13.4);
+      g.lineTo(10, 17.4);
+      g.stroke();
+      break;
+    }
+
+    case "trailhead": {
+      // A post with two boards pointing opposite ways — the start of a path, not
+      // a viewpoint that happens to be signposted.
+      g.strokeStyle = STROKE;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(9.2, 2.8);
+      g.lineTo(9.2, 17.2);
+      g.stroke();
+      g.lineWidth = 1.2;
+      g.fillStyle = PEN.roof;
+      g.beginPath();
+      g.moveTo(9.2, 4.2);
+      g.lineTo(16.2, 4.2);
+      g.lineTo(17.8, 6.6);
+      g.lineTo(16.2, 9);
+      g.lineTo(9.2, 9);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = PEN.sand;
+      g.beginPath();
+      g.moveTo(9.2, 10.8);
+      g.lineTo(3.4, 10.8);
+      g.lineTo(1.8, 13.2);
+      g.lineTo(3.4, 15.6);
+      g.lineTo(9.2, 15.6);
+      g.closePath();
+      g.fill();
+      g.stroke();
       break;
     }
 
