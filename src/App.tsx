@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useRoute } from "./lib/router";
+import { HOME_META, setMeta } from "./lib/meta";
 import Home from "./pages/Home";
 
 /* Home is the landing route, so it stays in the entry chunk; a deep link to a
@@ -10,9 +11,7 @@ export default function App() {
   const route = useRoute();
 
   useEffect(() => {
-    if (route.name !== "place") {
-      document.title = "Terrane — the world, worth the detour";
-    }
+    if (route.name !== "place") setMeta(HOME_META);
   }, [route]);
 
   return (

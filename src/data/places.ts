@@ -50,21 +50,6 @@ export const DIFFICULTY_LABEL = [
   "Severe",
 ] as const;
 
-export const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
 const CURATED: Place[] = [
   /* ── The greats ─────────────────────────────────────────── */
   {

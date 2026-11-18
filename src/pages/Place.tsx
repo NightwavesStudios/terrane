@@ -2,14 +2,31 @@ import { useEffect } from "react";
 import Header from "../components/Header";
 import RidgeArt from "../components/RidgeArt";
 import { TYPE_LABEL, aroundPlace, bySlug } from "../data/places";
+import { setMeta } from "../lib/meta";
 import { navigate } from "../lib/router";
 
 export default function Place({ slug }: { slug: string }) {
   const place = bySlug.get(slug);
 
   useEffect(() => {
-    document.title = place ? `${place.name} — Terrane` : "Place not found — Terrane";
-  }, [place]);
+    if (!place) {
+      setMeta({
+        title: "Place not found — Terrane",
+        description: "That place isn’t on the globe.",
+        path: `/place/${slug}`,
+      });
+      return;
+    }
+    const kind = TYPE_LABEL[place.type].toLowerCase();
+    const where = place.region ? `${place.region}, ${place.country}` : place.country;
+    const height = place.elevation ? `, ${place.elevation.toLocaleString()} m high` : "";
+    setMeta({
+      title: `${place.name} — Terrane`,
+      description: `${place.name} is a ${kind} in ${where}${height}. Coordinates, elevation and the places within 30 km of it.`,
+      path: `/place/${place.slug}`,
+      type: "article",
+    });
+  }, [place, slug]);
 
   if (!place) {
     return (

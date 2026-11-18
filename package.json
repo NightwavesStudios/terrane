@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/gen-seo.mjs && tsc -b && vite build",
     "atlas": "python3 scripts/build-atlas.py",
     "single": "node scripts/build-standalone.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seo": "node scripts/gen-seo.mjs"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.1",

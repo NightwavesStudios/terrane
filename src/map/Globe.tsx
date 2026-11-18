@@ -283,6 +283,13 @@ export default function Globe({
          it is — cache retention was not what made zooms feel heavy. */
       maxTileCacheSize: 48,
       renderWorldCopies: false,
+      /* The hillshade is a full-screen fragment shader, so its cost is pixel
+         count, and a 3x retina phone asks for nine times the pixels of a laptop.
+         Capping at 1.5 keeps the relief soft enough that the difference is not
+         visible on shading, while cutting fragment work by half or more.
+         Measured on the relief at z11.2, pitch 50 (same frame, three ratios):
+         pr 1 → 1.9 fps, pr 1.5 → 1.0 fps, pr 2 → 0.6 fps. */
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     map.current = map_;
 

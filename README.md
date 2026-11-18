@@ -567,7 +567,8 @@ links `/fonts.css`, and no font is fetched from Google.
 
 | Path | What it is |
 | --- | --- |
-| `public/` | Only fonts and `fonts.css`. |
+| `public/` | Fonts and `fonts.css`, the icons (`favicon.svg`, `icon-180.png`), `og.jpg`, `manifest.webmanifest`, and the generated `robots.txt` + `sitemap.xml`. |
+| `scripts/gen-seo.mjs` | Writes `public/sitemap.xml` (home + every place slug) and `public/robots.txt`. Runs before every build; `npm run seo` runs it alone. |
 | `scripts/build-atlas.py` | Regenerates `src/data/atlas.json` from Wikidata + Natural Earth. Reads `src/data/curated-index.json` for the protected slug list. |
 | `scripts/build-standalone.mjs` | Packs `dist/` into the single-file `terrane.html`. |
 | `terrane.html` | Build output (gitignored): the whole app in one file. |
@@ -582,12 +583,19 @@ npm run build     # tsc -b (strict, noUnusedLocals) + vite build
 
 There is no test suite, no linter and no CI. Typechecking happens inside `build`.
 
-Expected build footprint: entry chunk ~425 kB JS (≈119 kB gzip) plus a lazy
-`Globe` chunk ~1.05 MB (≈280 kB gzip) that carries MapLibre and its CSS, and
-~26 kB of page CSS. The globe route paints its header, filters and caption off the
-entry chunk and pulls the map in behind them; `/explore`, `/saved`, `/about` and
-`/place/*` never download MapLibre at all. Vite warns about the size of the Globe
-chunk; that warning is expected, not a failure.
+Expected build footprint: entry chunk ~434 kB JS (≈122 kB gzip, most of it the
+1,288-row atlas) plus a lazy `Globe` chunk ~1.06 MB (≈284 kB gzip) that carries
+MapLibre, and ~16.5 kB of app CSS. The globe route paints its header, filters and
+caption off the entry chunk and pulls the map in behind them; `/place/*` never
+downloads MapLibre at all.
+
+`npm run build` starts with `node scripts/gen-seo.mjs`, so a build always ships a
+sitemap matching the atlas. Set `SITE_URL` (e.g. `SITE_URL=https://terrane.example
+npm run build`) to make the canonical, `og:url`, `og:image` and the sitemap absolute;
+without it they stay root-relative, which is valid but not submittable to a search
+console. The placeholder `__SITE_URL__` in `index.html` is replaced by a small Vite
+plugin in `vite.config.ts` for both dev and build — never hardcode the domain into
+the head.
 
 For the map, `npm run dev` plus `window.__terraneMap` in the console is the practical
 debugging loop (`__terraneMap.isStyleLoaded()`, `getStyle().layers`,
@@ -820,3 +828,43 @@ from z10.5, white above ~2600 m with a long ramp; the OSM ice polygons handle se
 ice and the poles and fade out by z13.6 so the two never overlap. The handoff exists
 because a polygon is right at continental scale and wrong at summit scale, where the
 eye is close enough to see that the edge is a straight line.
+
+### Pixel ratio is capped at 1.5
+
+The hillshade is a full-screen fragment shader, so its cost follows pixel count, and
+a 3x phone asks for nine times the pixels of a laptop. `Globe.tsx` sets
+`pixelRatio: min(devicePixelRatio, 1.5)`: relief is soft enough that the difference
+is invisible on shading, while fragment work drops by half or more. Measured on the
+relief at z11.2, pitch 50, same frame, three ratios: **pr 1 → 1.9 fps, pr 1.5 → 1.0,
+pr 2 → 0.6**. (This VM renders in software at dpr 1, so only the ratio — not the
+absolute numbers — transfers to a real GPU.)
+
+---
+
+## Head, icons and the mark
+
+The mark is a diamond with a mountain ridge inside it, drawn once in
+`src/components/Logo.tsx` (stroke `currentColor`, so it takes `--mint` in the header)
+and again as `public/favicon.svg`, which is the same geometry on a rounded dark tile.
+`public/icon-180.png` is a 180 px render of that SVG; `public/og.jpg` is a 1200×630
+frame of the Alps at z12.4, pitch 55.
+
+`index.html` carries the static head: title, description, canonical, robots, OG and
+Twitter cards, `WebApplication` JSON-LD, the icon links, the manifest, three font
+preloads and preconnects to both tile hosts. Two rules held while writing it:
+
+- **Only latin subsets are preloaded** (`f5` Sora, `f9` Plus Jakarta, `f15` JetBrains
+  Mono — the faces the globe actually paints). Fraunces is the place page's serif and
+  is left to load normally.
+- **No absolute URL without a domain.** Everything that needs one carries the
+  `__SITE_URL__` placeholder described above.
+
+Per-route tags come from `src/lib/meta.ts`: the place page rewrites title,
+description, canonical, `og:type=article` and the Twitter pair from the place itself
+("*X* is a peak in the Alps, 4,808 m high. Coordinates, elevation and the places
+within 30 km of it."), and every other route restores `HOME_META`. Crawlers that run
+JavaScript see the per-place tags; the rest keep the site-level ones.
+
+The location lookup (`/lib/locate.ts`) now runs from `requestIdleCallback`, not on
+mount: it used to race the first DEM tiles for the network and the main thread to
+fill a chip nobody had looked at yet.

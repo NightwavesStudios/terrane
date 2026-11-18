@@ -92,11 +92,20 @@ export function useHome(): Home | null {
 
   useEffect(() => {
     let live = true;
-    locate().then((h) => {
-      if (live) setHome(h);
-    });
+    const run = () => {
+      locate().then((h) => {
+        if (live) setHome(h);
+      });
+    };
+    /* After the first frame, not on mount: the globe is fetching tiles and DEM in
+       the first seconds, and an IP lookup competing with them buys a chip nobody
+       is looking at yet at the cost of the map appearing later. */
+    const idle = window.requestIdleCallback?.(run, { timeout: 2500 });
+    const timer = idle ? null : window.setTimeout(run, 1200);
     return () => {
       live = false;
+      if (idle) window.cancelIdleCallback?.(idle);
+      if (timer) window.clearTimeout(timer);
     };
   }, []);
 

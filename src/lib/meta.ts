@@ -1,0 +1,53 @@
+/**
+ * Per-route head tags.
+ *
+ * The app is a single document, so every route shares `index.html`'s title,
+ * description, canonical and social tags until one of these runs. Crawlers that
+ * execute JavaScript pick up the change; the ones that do not still get the
+ * generic site-level tags from the static head, which is the correct fallback.
+ */
+const SITE = "Terrane";
+
+function upsert(selector: string, attrs: Record<string, string>) {
+  let el = document.head.querySelector(selector);
+  if (!el) {
+    const tag = selector.startsWith("link") ? "link" : "meta";
+    el = document.createElement(tag);
+    document.head.appendChild(el);
+  }
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+}
+
+export type Meta = {
+  title: string;
+  description: string;
+  path: string;
+  type?: "website" | "article";
+};
+
+export function setMeta({ title, description, path, type = "website" }: Meta) {
+  const url = `${location.origin}${path}`;
+  document.title = title;
+
+  upsert('meta[name="description"]', { name: "description", content: description });
+  upsert('link[rel="canonical"]', { rel: "canonical", href: url });
+  upsert('meta[property="og:title"]', { property: "og:title", content: title });
+  upsert('meta[property="og:description"]', {
+    property: "og:description",
+    content: description,
+  });
+  upsert('meta[property="og:url"]', { property: "og:url", content: url });
+  upsert('meta[property="og:type"]', { property: "og:type", content: type });
+  upsert('meta[name="twitter:title"]', { name: "twitter:title", content: title });
+  upsert('meta[name="twitter:description"]', {
+    name: "twitter:description",
+    content: description,
+  });
+}
+
+export const HOME_META: Meta = {
+  title: `${SITE} — a globe of places worth going outside for`,
+  description:
+    "Spin a globe of 1,288 peaks, national parks, landmarks and wild places across 157 countries. Real coordinates, real elevation, shaded terrain and named hiking trails.",
+  path: "/",
+};

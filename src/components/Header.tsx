@@ -1,4 +1,5 @@
 import { PLACES } from "../data/places";
+import Logo from "./Logo";
 import { navigate, useRoute } from "../lib/router";
 
 export default function Header({ tone }: { tone: "dark" | "light" }) {
@@ -7,7 +8,7 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
   return (
     <header className={`header header--${tone}`}>
       <button className="wordmark" onClick={() => navigate("/")} aria-label="Terrane home">
-        <i />
+        <Logo className="wordmark-mark" />
         Terrane
       </button>
 

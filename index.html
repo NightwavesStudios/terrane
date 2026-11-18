@@ -4,20 +4,68 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#05070c" />
+
+    <title>Terrane — a globe of places worth going outside for</title>
     <meta
       name="description"
-      content="Terrane — an interactive globe of mountains, national parks, cities and landmarks. The world, worth the detour."
+      content="Spin a globe of 1,288 peaks, national parks, landmarks and wild places across 157 countries. Real coordinates, real elevation, shaded terrain and named hiking trails."
     />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2305070c'/%3E%3Cpath d='M16 6l8 10-8 10-8-10z' fill='%2357f0b2'/%3E%3C/svg%3E"
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="__SITE_URL__/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Terrane" />
+    <meta property="og:title" content="Terrane — a globe of places worth going outside for" />
+    <meta
+      property="og:description"
+      content="1,288 peaks, parks, landmarks and wild places on one shaded globe. Click a summit, read what is around it."
     />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The Terrane globe over the Alps at sunset, with hiking trails drawn in gold." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Terrane — a globe of places worth going outside for" />
+    <meta
+      name="twitter:description"
+      content="1,288 peaks, parks, landmarks and wild places on one shaded globe."
+    />
+    <meta name="twitter:image" content="__SITE_URL__/og.jpg" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
     <link rel="stylesheet" href="/fonts.css" />
-    <!-- Vector tiles + glyphs, and the terrain DEM. Warming DNS and TLS here
-         means the first tile request does not queue behind a handshake. -->
+    <!-- The three faces the globe actually paints with, latin subset only. Sora
+         sets the wordmark and nav, Plus Jakarta the caption, JetBrains Mono the
+         small caps — preloading them removes the swap flash on first paint.
+         Fraunces (the place page's serif) is deliberately not preloaded. -->
+    <link rel="preload" href="/fonts/f5.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/f9.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/f15.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Vector tiles + glyphs, the terrain DEM, and the location lookup. Warming
+         DNS and TLS here means the first tile request does not queue behind a
+         handshake. -->
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin />
-    <title>Terrane — the world, worth the detour</title>
+    <link rel="dns-prefetch" href="https://ipwho.is" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Terrane",
+        "url": "__SITE_URL__/",
+        "description": "An interactive globe of 1,288 peaks, national parks, landmarks and wild places, with shaded terrain and named hiking trails.",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Any",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
