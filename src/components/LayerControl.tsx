@@ -81,7 +81,7 @@ const POINT_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   {
     key: "places",
     label: "The named places",
-    note: "Written-up and generated together, ranked by how major they are — two names per country first, the rest as you zoom",
+    note: "Named and mapped together, ranked by how major they are — two names per country first, the rest as you zoom",
   },
   {
     key: "reach",
@@ -98,7 +98,7 @@ const POINT_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
   },
   {
     key: "camp",
-    label: "Camps around written-up places",
+    label: "Camps around the named places",
     note: "The nearest first, the rest as you zoom — lowest priority, kept last",
   },
 ];
