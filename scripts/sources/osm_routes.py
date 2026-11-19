@@ -161,9 +161,6 @@ def run(pbfs) -> None:
         if len(coords) < 2:
             rejected["unassembled"] += 1
             continue
-        if len(coords) < 2:
-            rejected["short"] += 1
-            continue
         coords = simplify(coords, max_points=400)
         rows.append(
             {

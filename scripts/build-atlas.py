@@ -280,6 +280,15 @@ def main():
 
     result.sort(key=lambda p: (p["type"], p["name"]))
     json.dump(result, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
+    meta_path = "src/data/wikidata-meta.json"
+    try:
+        meta = json.load(open(meta_path))
+    except (OSError, ValueError):
+        meta = {}
+    meta["atlas"] = time.strftime("%Y-%m-%d", time.gmtime())
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+        f.write("\n")
     print(f"\nwrote {OUT}: {len(result)} places")
     counts = defaultdict(int)
     for item in result:

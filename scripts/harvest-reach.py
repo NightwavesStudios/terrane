@@ -329,6 +329,17 @@ def main():
         # A count the UI can show without importing 23,000 rows.
         with open("src/data/reach-meta.json", "w") as f:
             json.dump({"famous": len(famous), "more": len(rest)}, f)
+        meta_path = "src/data/wikidata-meta.json"
+        try:
+            meta = json.load(open(meta_path))
+        except (OSError, ValueError):
+            meta = {}
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        meta["reach"] = today
+        meta["reachMore"] = today
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
+            f.write("\n")
 
     by_tier = defaultdict(int)
     by_kind = defaultdict(int)

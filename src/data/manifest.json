@@ -1,6 +1,5 @@
 {
   "pipeline": 2,
-  "generatedAt": "2026-11-19T12:24:47.379Z",
   "days": {
     "osm": "2026-11-18",
     "wikidata": "2026-11-18"
@@ -71,7 +70,7 @@
       "name": "Hand-written field entries",
       "licence": "—",
       "records": 68,
-      "updated": "2026-11-19",
+      "updated": null,
       "note": "68 destinations with a page; facts only; frozen"
     },
     {
@@ -157,7 +156,6 @@
   },
   "validation": {
     "ok": true,
-    "checkedAt": "2026-11-19T12:24:47.554Z",
     "checks": [
       {
         "name": "category ids are unique",

@@ -1,0 +1,4 @@
+# The harvest scripts use the Python standard library plus pyosmium for the
+# streaming PBF reads. Install with:
+#   python3 -m pip install -r scripts/requirements.txt
+osmium>=4.0

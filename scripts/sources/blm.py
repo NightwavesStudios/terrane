@@ -113,7 +113,6 @@ def trails() -> None:
                 rejected["no_geometry"] += 1
                 continue
             name = clean(p.get("ROUTE_PRMRY_NM")) or clean(p.get("ROUTE_SCNDRY_SPCL_DSGNTN_NM"))
-            coords_all = []
             for index, raw_line in enumerate(lines):
                 coords = simplify(raw_line)
                 if len(coords) < 2:
@@ -140,7 +139,6 @@ def trails() -> None:
                         },
                     }
                 )
-                coords_all.append(coords)
         per_layer[label] = len(rows) - before
     emit(
         "blm_trails",

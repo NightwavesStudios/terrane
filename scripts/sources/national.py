@@ -25,11 +25,11 @@ def doc_nz() -> None:
     for f in arcgis_features(url):
         raw += 1
         p = f.get("properties") or {}
+        fetched += 1
         lat, lon = point_of(f)
         if lat is None or lon is None:
             rejected["no_coord"] += 1
             continue
-        fetched += 1
         powered = number(p.get("numberOfPoweredSites")) or 0
         unpowered = number(p.get("numberOfUnpoweredSites")) or 0
         rows.append(

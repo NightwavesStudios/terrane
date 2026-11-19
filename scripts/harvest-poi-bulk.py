@@ -12,9 +12,9 @@ the one-file-per-map-cell layout the map already reads.
     python3 scripts/harvest-poi-bulk.py --report          # reports/poi-coverage.{md,json}
     python3 scripts/harvest-poi-bulk.py --status          # what is done, what is not
 
-Why Geofabrik and pyosmium rather than Overpass: `harvest-poi.py` asks Overpass one
-query per cell, and the public endpoint queues each request for about forty seconds
-before answering 502/429 — fine for a province, impossible for 4,096 cells. Geofabrik
+Why Geofabrik and pyosmium rather than Overpass: an Overpass query per cell makes the
+public endpoint queue each request for about forty seconds before answering 502/429 —
+fine for a province, impossible for 4,096 cells. Geofabrik
 publishes the same OSM data as plain `.osm.pbf` downloads, one per country, no key and
 no queue. This script streams those through pyosmium, keeps the categories below, and
 writes the cells.
@@ -103,7 +103,7 @@ REPORTS = "reports"
 REPORT_MD = os.path.join(REPORTS, "poi-coverage.md")
 REPORT_JSON = os.path.join(REPORTS, "poi-coverage.json")
 
-# Wire format, shared with `src/map/poi.ts`. The first eight indices are frozen:
+# Wire format, shared with `src/map/mapped.ts`. The first eight indices are frozen:
 # cells written by the older radius/Overpass harvest and the client's icon table
 # both depend on them. New categories are appended, never inserted.
 KINDS = [

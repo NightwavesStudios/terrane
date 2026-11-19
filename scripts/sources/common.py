@@ -291,6 +291,12 @@ def emit(source: str, rows, *, registry: dict, raw: int, fetched: int, rejected:
         "bytes": os.path.getsize(path),
         **(extra or {}),
     }
+    if manifest["unaccounted"] != 0:
+        raise RuntimeError(
+            f"{source}: {manifest['unaccounted']} unaccounted records "
+            f"(fetched {fetched:,}, placed {placed:,}, rejected {sum(rejected.values()):,}); "
+            "refusing to publish an inconsistent manifest"
+        )
     with open(os.path.join(OUT_DIR, f"{source}.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, ensure_ascii=False)
     print(

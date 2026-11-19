@@ -45,7 +45,7 @@ jobs:
         run: npm run validate
 
       # Absolute canonical/og:url and sitemap when the repository variable is set;
-      # root-relative otherwise, which is valid but not submittable.
+      # no sitemap when it is not (an invalid one is worse than none).
       - name: build
         run: npm run build
         env:

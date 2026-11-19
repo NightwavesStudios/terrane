@@ -2,8 +2,8 @@
 /**
  * Upload only what changed.
  *
- * The bucket holds 382 MB of OSM cells plus the merged agency rows and trail
- * cells. Re-uploading everything on every weekly run is wasteful and makes a
+ * The bucket holds roughly 382 MB of POI cells and 288 MB of trail cells.
+ * Re-uploading everything on every weekly run is wasteful and makes a
  * partial upload hard to spot, so each file is hashed and compared with
  * `data/upload-manifest.json`.
  *

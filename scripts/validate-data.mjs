@@ -237,7 +237,6 @@ check("trail network has records", (trailStats.segments ?? 0) > 0, `${trailStats
 const failed = checks.filter((c) => !c.ok);
 const result = {
   ok: failed.length === 0,
-  checkedAt: new Date().toISOString(),
   checks,
 };
 manifest.validation = result;

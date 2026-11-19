@@ -6,7 +6,7 @@
  * what did we place, what did we reject and why, how old is it, and did it pass
  * its published gate? A source that returns zero is a failure, not an empty layer.
  *
- * `npm run coverage` writes `reports/coverage.{md,json}` and `public/coverage.json`.
+ * `npm run data:coverage` writes `reports/coverage.{md,json}` and `public/coverage.json`.
  * `--strict` exits non-zero; CI uses it, local runs can inspect first.
  */
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
