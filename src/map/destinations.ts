@@ -315,5 +315,3 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
 
 /* Search indexes the destinations that have actually loaded. */
 registerDestinationSearch(() => [...atlasRows, ...coreRows, ...moreRows]);
-
-export const REACH_META = () => ({ core: coreRows.length, more: moreRows.length });

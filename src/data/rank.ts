@@ -98,10 +98,3 @@ export function rankPlaces(places: Place[]): Place[] {
     return p.band === band ? p : { ...p, band };
   });
 }
-
-export function bandCounts(places: Place[]): number[] {
-  const flagged = rankPlaces(places);
-  const counts = BANDS.map(() => 0);
-  for (const p of flagged) counts[p.band ?? 3] += 1;
-  return counts;
-}

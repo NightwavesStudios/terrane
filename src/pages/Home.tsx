@@ -6,18 +6,16 @@ import { pickOfPlace, type Pick } from "../data/features";
 
 const Globe = lazy(() => import("../map/Globe"));
 import Header from "../components/Header";
-import FilterChips, {
-  homeScope,
-  matches,
-  type Filter,
-} from "../components/FilterChips";
+import FilterChips from "../components/FilterChips";
+import { homeScope, matches, type Filter } from "../lib/filters";
 import LayerControl, {
   DEFAULT_LAYERS,
   type LayerState,
 } from "../components/LayerControl";
 import MapSearch from "../components/MapSearch";
 import FeatureCard from "../components/FeatureCard";
-import { PLACES, bySlug, kmApart } from "../data/places";
+import { PLACES, bySlug } from "../data/places";
+import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
 import { useHome } from "../lib/locate";
 import { dataDate, useCoverage, useManifest } from "../lib/live";
@@ -51,12 +49,15 @@ export default function Home() {
      harvest recorded one, otherwise one pass over the atlas on the click. */
   const nearPlace = useMemo(() => {
     if (!pick) return undefined;
-    if (pick.near) return bySlug.get(pick.near);
+    if (pick.near) {
+      const named = bySlug.get(pick.near);
+      if (named) return named;
+    }
     if (pick.slug) return undefined;
     let best: (typeof PLACES)[number] | undefined;
     let bestKm = Infinity;
     for (const p of PLACES) {
-      const km = kmApart(pick.lat, pick.lon, p.lat, p.lon);
+      const km = kmBetween(pick.lat, pick.lon, p.lat, p.lon);
       if (km < bestKm) {
         bestKm = km;
         best = p;
@@ -67,7 +68,7 @@ export default function Home() {
 
   const nearKm =
     nearPlace && pick
-      ? kmApart(pick.lat, pick.lon, nearPlace.lat, nearPlace.lon)
+      ? kmBetween(pick.lat, pick.lon, nearPlace.lat, nearPlace.lon)
       : null;
 
   useEffect(() => {

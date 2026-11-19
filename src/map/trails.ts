@@ -1,6 +1,7 @@
 import type { ExpressionSpecification, Map as MlMap } from "maplibre-gl";
 import type { Feature, FeatureCollection, LineString } from "geojson";
 import type { LayerState } from "../components/LayerControl";
+import { cellUrl } from "../lib/cells";
 
 /**
  * Trail routes, from our own cells: OSM hiking relations plus the US agency trail
@@ -13,12 +14,8 @@ import type { LayerState } from "../components/LayerControl";
  */
 const CELL = 7;
 const SOURCE = "trail-routes";
-const BASE = import.meta.env.DEV
-  ? ""
-  : (
-      (import.meta.env.VITE_POI_BASE as string | undefined) ??
-      "https://terrane-poi-cells-mqa53q-preview.freebuff.site"
-    ).replace(/\/+$/, "");
+const MISS_RETRY_MS = 5 * 60_000;
+const ERROR_RETRY_MS = 20_000;
 
 export const TRAIL_LAYERS = ["trail-route-casing", "trail-route-line", "trail-route-label"];
 
@@ -28,10 +25,15 @@ type Cell = { z: number; sources: string[]; items: Row[] };
 const loaded = new Map<string, Feature<LineString>[]>();
 const pending = new Set<string>();
 const misses = new Map<string, number>();
-let total = 0;
-let bound = false;
+const bound = new WeakSet<MlMap>();
 
 const keyOf = (x: number, y: number) => `${CELL}/${x}/${y}`;
+
+/** A 404 is "not harvested yet"; anything else is a transient failure. */
+function retryAt(err: unknown): number {
+  const status = Number(String((err as Error)?.message ?? err));
+  return Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS);
+}
 
 function toFeature(row: Row, sources: string[]): Feature<LineString> | null {
   const [srcIndex, name, difficulty, distance, url, coords, where] = row;
@@ -72,8 +74,8 @@ function push(map: MlMap) {
 }
 
 export function addTrails(map: MlMap, layers: LayerState): void {
-  if (!bound) {
-    bound = true;
+  if (!bound.has(map)) {
+    bound.add(map);
     map.on("moveend", () => refreshTrails(map));
   }
   if (map.getSource(SOURCE)) {
@@ -192,7 +194,7 @@ export function refreshTrails(map: MlMap): void {
   for (const [x, y] of wanted.slice(0, 8)) {
     const key = keyOf(x, y);
     pending.add(key);
-    void fetch(`${BASE}/trails/${CELL}/${x}/${y}.json`)
+    void fetch(cellUrl(`trails/${CELL}/${x}/${y}.json`))
       .then((res) => {
         if (!res.ok) throw new Error(String(res.status));
         return res.json() as Promise<Cell>;
@@ -203,12 +205,10 @@ export function refreshTrails(map: MlMap): void {
           .filter((f): f is Feature<LineString> => Boolean(f));
         misses.delete(key);
         loaded.set(key, features);
-        total += features.length;
         push(map);
       })
       .catch((err: unknown) => {
-        const status = Number(String((err as Error)?.message ?? err));
-        misses.set(key, Date.now() + (status === 404 ? 5 * 60_000 : 20_000));
+        misses.set(key, retryAt(err));
       })
       .finally(() => pending.delete(key));
   }
@@ -218,7 +218,4 @@ export function resetTrails(): void {
   loaded.clear();
   pending.clear();
   misses.clear();
-  total = 0;
 }
-
-export const trailStats = () => ({ cells: loaded.size, features: total });

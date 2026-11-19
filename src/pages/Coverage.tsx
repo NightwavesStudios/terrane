@@ -1,6 +1,6 @@
 import Header from "../components/Header";
 import { navigate } from "../lib/router";
-import { useCoverage } from "../lib/live";
+import { useCoverage, useCoverageStatus } from "../lib/live";
 
 /**
  * The published gap register.
@@ -11,6 +11,7 @@ import { useCoverage } from "../lib/live";
  */
 export default function Coverage() {
   const coverage = useCoverage();
+  const status = useCoverageStatus();
   const unknown = coverage?.gaps?.unknown ?? [];
 
   return (
@@ -28,8 +29,18 @@ export default function Coverage() {
           land are not in any open dataset.
         </p>
 
-        {!coverage ? (
+        {!coverage && status === "loading" ? (
           <p className="mono coverage-loading">Reading coverage…</p>
+        ) : !coverage ? (
+          <div className="coverage-error">
+            <p className="mono">
+              The coverage feed could not be read. The globe still works; the data
+              store may be unavailable.
+            </p>
+            <button className="btn btn-dark" onClick={() => window.location.reload()}>
+              Try again
+            </button>
+          </div>
         ) : (
           <>
             <div className="coverage-summary mono">

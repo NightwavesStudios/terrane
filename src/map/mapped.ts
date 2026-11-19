@@ -8,6 +8,7 @@ import {
   type FeatureRow,
 } from "../data/features";
 import type { LayerState } from "../components/LayerControl";
+import { cellUrl } from "../lib/cells";
 
 /**
  * Mapped places: campsites, huts, shelters, water, parking and the rest of the
@@ -77,11 +78,6 @@ const MISS_RETRY_MS = 5 * 60_000;
 const ERROR_RETRY_MS = 20_000;
 export const MAPPED_CELL_ZOOM = 6;
 
-const POI_BASE = (
-  (import.meta.env.VITE_POI_BASE as string | undefined) ??
-  "https://terrane-poi-cells-mqa53q-preview.freebuff.site"
-).replace(/\/+$/, "");
-
 const loaded = new Map<string, Feature<Point>[]>();
 let total = 0;
 const pending = new Set<string>();
@@ -97,6 +93,12 @@ const namedRows: FeatureRow[] = [];
 const NAMED_SEARCH_CAP = 20_000;
 
 const cellKey = (z: number, x: number, y: number) => `${z}/${x}/${y}`;
+
+/** A 404 is "not harvested yet"; anything else is a transient failure. */
+function retryAt(err: unknown): number {
+  const status = Number(String((err as Error)?.message ?? err));
+  return Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS);
+}
 
 function summary(d: Record<string, string>): string {
   const out: string[] = [];
@@ -448,7 +450,7 @@ export function refreshMapped(map: MlMap) {
   for (const [x, y] of wanted.slice(0, pass)) {
     const key = cellKey(MAPPED_CELL_ZOOM, x, y);
     pending.add(key);
-    void fetch(`${POI_BASE}/poi/${MAPPED_CELL_ZOOM}/${x}/${y}.json`)
+    void fetch(cellUrl(`poi/${MAPPED_CELL_ZOOM}/${x}/${y}.json`))
       .then((res) => {
         if (!res.ok) throw new Error(String(res.status));
         return res.json() as Promise<Cell>;
@@ -465,8 +467,7 @@ export function refreshMapped(map: MlMap) {
         pushToMap(map);
       })
       .catch((err: unknown) => {
-        const status = Number(String((err as Error)?.message ?? err));
-        misses.set(key, Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS));
+        misses.set(key, retryAt(err));
       })
       .finally(() => pending.delete(key));
   }
@@ -482,7 +483,7 @@ export function refreshMapped(map: MlMap) {
     for (const [x, y] of parkWanted.slice(0, PARKING_MAX_CELLS)) {
       const key = cellKey(MAPPED_CELL_ZOOM, x, y);
       parkingPending.add(key);
-      void fetch(`${POI_BASE}/poi/${MAPPED_CELL_ZOOM}/${x}/${y}.parking.json`)
+      void fetch(cellUrl(`poi/${MAPPED_CELL_ZOOM}/${x}/${y}.parking.json`))
         .then((res) => {
           if (!res.ok) throw new Error(String(res.status));
           return res.json() as Promise<Cell>;
@@ -497,11 +498,7 @@ export function refreshMapped(map: MlMap) {
           pushToMap(map);
         })
         .catch((err: unknown) => {
-          const status = Number(String((err as Error)?.message ?? err));
-          parkingMisses.set(
-            key,
-            Date.now() + (status === 404 ? MISS_RETRY_MS : ERROR_RETRY_MS),
-          );
+          parkingMisses.set(key, retryAt(err));
         })
         .finally(() => parkingPending.delete(key));
     }
@@ -513,7 +510,7 @@ function indexNamed(cell: Cell, parking = false) {
   for (const row of cell.items) {
     if (!row[3]) continue;
     const cat = parking ? PARKING_CAT : (MAPPED_CATS[row[2]] ?? "camp");
-          namedRows.push({ cat, name: row[3], lat: row[0], lon: row[1], src: row[4] || "osm" });
+    namedRows.push({ cat, name: row[3], lat: row[0], lon: row[1], src: row[4] || "osm" });
     if (namedRows.length >= NAMED_SEARCH_CAP) return;
   }
 }
@@ -532,14 +529,3 @@ export function resetMapped() {
 }
 
 registerMappedSearch(() => namedRows);
-
-export const mappedCellKey = cellKey;
-
-/** Exposed for tests and the audit: what the budget currently holds. */
-export const mappedStats = () => ({
-  cells: loaded.size,
-  features: total,
-  parkingCells: parkingLoaded.size,
-  parkingFeatures: parkingTotal,
-  named: namedRows.length,
-});

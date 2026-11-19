@@ -5,7 +5,8 @@ import { DEM_ATTRIBUTION, DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem"
  * Terrane's basemap. A "deep water" palette rather than a flat black one:
  * ocean reads blue, land reads mossy, boundaries and roads sit a step above
  * both — so the globe has shape at world zoom and detail when you fly in.
- * Vector tiles: OpenFreeMap (no key, OSM data). Terrain: AWS Terrarium.
+ * Vector tiles: OpenFreeMap (no key, OSM data). Terrain: Mapterhorn, with the
+ * AWS Terrarium tiles as a fallback (see `demPipeline.ts`).
  */
 export const FIRST_SYMBOL_LAYER = "label-country";
 

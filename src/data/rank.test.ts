@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANDS, bandCounts, cellOf, importance, rankPlaces } from "./rank";
+import { BANDS, cellOf, importance, rankPlaces } from "./rank";
 import type { Place } from "./places";
 
 function place(over: Partial<Place> & Pick<Place, "slug" | "lat" | "lon">): Place {
@@ -69,7 +69,8 @@ describe("rankPlaces", () => {
   });
 
   it("caps a crowded cell at one band-0 row, two band-1 and six band-2", () => {
-    const counts = bandCounts(cluster(10));
+    const counts = BANDS.map(() => 0);
+    for (const p of rankPlaces(cluster(10))) counts[p.band ?? 3] += 1;
     expect(counts[0]).toBe(1);
     expect(counts[1]).toBe(2);
     expect(counts[2]).toBe(6);

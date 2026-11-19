@@ -10,7 +10,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol } from "./dem";
-import { worldZoom } from "./camera";
+import { pitchForZoom, worldZoom } from "./camera";
 import { createContours, type ContourHandle } from "./contours";
 import {
   DEST_LAYERS,
@@ -20,7 +20,7 @@ import {
   setAtlasPlaces,
   setDestinationCats,
 } from "./destinations";
-import { MAPPED_LAYERS, addMapped, refreshMapped, setMappedCats } from "./mapped";
+import { MAPPED_LAYERS, addMapped, refreshMapped, resetMapped, setMappedCats } from "./mapped";
 import {
   TRAIL_LAYERS,
   addTrails,
@@ -80,11 +80,6 @@ const LAYER_GROUPS: Record<string, string[]> = {
   borders: ["boundary-country", "boundary-state"],
   labels: ["label-country", "label-state", "label-city", "water-label"],
 };
-
-/** Camera tilt for a zoom: level at planet scale, oblique over ranges. */
-function pitchForZoom(zoom: number): number {
-  return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
-}
 
 /** Where a clicked destination lands: close enough to read the terrain. */
 const PLACE_FOCUS_ZOOM = 14.2;
@@ -345,6 +340,7 @@ export default function Globe({
       ro.disconnect();
       map_.off("styledata", ensureRuntimeLayers);
       resetTrails();
+      resetMapped();
       window.clearTimeout(t);
       window.clearTimeout(guard);
       contours.current?.destroy();
@@ -366,16 +362,11 @@ export default function Globe({
         if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visibility);
       }
     }
-    layerContours(map_, layers.contours);
+    contours.current?.setEnabled(layers.contours);
     setDestinationCats(map_, layers);
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
   }, [layers, ready]);
-
-  function layerContours(map_: MlMap, on: boolean) {
-    contours.current?.setEnabled(on);
-    void map_;
-  }
 
   /* ── data updates (ranked atlas rows) ──────────────── */
   useEffect(() => {

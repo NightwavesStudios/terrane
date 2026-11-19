@@ -21,3 +21,8 @@ export function worldZoom(width: number, height: number) {
   const fit = Math.log2(Math.min(width * 0.9, height * 0.82) / 161);
   return Math.max(0.6, Math.min(2.2, fit));
 }
+
+/** Camera tilt for a zoom: level at planet scale, oblique over ranges. */
+export function pitchForZoom(zoom: number): number {
+  return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
+}

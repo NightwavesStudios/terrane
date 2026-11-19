@@ -1,4 +1,5 @@
 import atlasRaw from "./atlas.json";
+import { kmBetween } from "../lib/geo";
 
 /** Every place is somewhere you go outside. No cities, no built monuments. */
 export type PlaceType = "peak" | "park" | "landmark" | "gem";
@@ -46,15 +47,6 @@ export const TYPE_LABEL_PLURAL: Record<PlaceType, string> = {
   landmark: "Landmarks",
   gem: "Hidden gems",
 };
-
-export const DIFFICULTY_LABEL = [
-  "",
-  "Gentle",
-  "Easy",
-  "Moderate",
-  "Hard",
-  "Severe",
-] as const;
 
 const CURATED: Place[] = [
   /* ── The greats ─────────────────────────────────────────── */
@@ -905,7 +897,7 @@ const CURATED: Place[] = [
 ];
 
 /* ── Atlas ──────────────────────────────────────────────────
-   1,220 national parks, peaks and natural landmarks pulled from Wikidata (CC0)
+   1,218 national parks, peaks and natural landmarks pulled from Wikidata (CC0)
    by scripts/build-atlas.py. Structured records only: real coordinates and
    facts, no invented prose. Peaks are ranked by topographic prominence, so the
    set is major summits rather than every high shoulder on the map. */
@@ -983,29 +975,6 @@ export const PLACES: Place[] = [
 
 export const bySlug = new Map(PLACES.map((p) => [p.slug, p]));
 
-export const COUNTRY_COUNT = new Set(PLACES.map((p) => p.country)).size;
-
-/** Great-circle distance in km between two atlas rows. */
-/** Great-circle distance in kilometres between two points. */
-export function kmApart(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  const rad = Math.PI / 180;
-  const dLat = (bLat - aLat) * rad;
-  const dLon = (bLon - aLon) * rad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLon / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-export function distanceKm(a: Place, b: Place): number {
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLon = (b.lon - a.lon) * rad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
-  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
-}
 
 /** How far it is to each activity, in plain words. */
 const ACTIVITY: Record<PlaceType, string> = {
@@ -1036,7 +1005,7 @@ export function aroundPlace(place: Place, radiusKm = 30): Around {
   const inside: { place: Place; km: number }[] = [];
   for (const other of PLACES) {
     if (other.slug === place.slug) continue;
-    const km = distanceKm(place, other);
+    const km = kmBetween(place.lat, place.lon, other.lat, other.lon);
     if (km <= radiusKm) inside.push({ place: other, km });
   }
   inside.sort((a, b) => a.km - b.km);

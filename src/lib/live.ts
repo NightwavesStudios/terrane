@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import BUNDLED from "../data/manifest.json";
+import { cellUrl } from "./cells";
 
 /**
  * The data behind the map moves independently of the app build.
@@ -8,11 +9,6 @@ import BUNDLED from "../data/manifest.json";
  * harvest changes the date and the counts on screen without a new Vite build. The
  * bundled manifest stays the first paint and the offline fallback.
  */
-const BASE = (
-  (import.meta.env.VITE_POI_BASE as string | undefined) ??
-  "https://terrane-poi-cells-mqa53q-preview.freebuff.site"
-).replace(/\/+$/, "");
-
 export type Manifest = typeof BUNDLED & {
   sources?: { id: string; name: string; records: number; updated?: string }[];
 };
@@ -36,8 +32,11 @@ export type Coverage = {
   }[];
 };
 
+export type CoverageStatus = "loading" | "ready" | "error";
+
 let manifest: Manifest = BUNDLED as Manifest;
 let coverage: Coverage | null = null;
+let coverageStatus: CoverageStatus = "loading";
 let started = false;
 const listeners = new Set<() => void>();
 
@@ -46,31 +45,48 @@ function emit() {
 }
 
 async function liveJson(key: string): Promise<unknown> {
-  for (const url of [`${BASE}/${key}?ts=${Date.now()}`, `/${key}?ts=${Date.now()}`]) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.ok) return await res.json();
-    } catch {
-      // Try the copy the build ships with before giving up.
-    }
+  try {
+    // `ts` busts the store's five-minute live-object cache after a harvest.
+    const res = await fetch(`${cellUrl(key)}?ts=${Date.now()}`, { cache: "no-store" });
+    if (res.ok) return await res.json();
+  } catch {
+    // The bundled manifest is the fallback; the coverage page shows an error.
   }
   return null;
+}
+
+function isManifest(value: unknown): value is Manifest {
+  const data = value as Manifest | null;
+  return Boolean(
+    data &&
+      data.totals &&
+      Number.isFinite(data.totals.all) &&
+      Array.isArray(data.sources),
+  );
+}
+
+function isCoverage(value: unknown): value is Coverage {
+  const data = value as Coverage | null;
+  return Boolean(data && data.totals && Array.isArray(data.sources));
 }
 
 function start() {
   if (started) return;
   started = true;
   void liveJson("manifest.json").then((data) => {
-    if (data && (data as Manifest).totals && Array.isArray((data as Manifest).sources)) {
-      manifest = data as Manifest;
+    if (isManifest(data)) {
+      manifest = data;
       emit();
     }
   });
   void liveJson("coverage.json").then((data) => {
-    if (data && (data as Coverage).totals && Array.isArray((data as Coverage).sources)) {
-      coverage = data as Coverage;
-      emit();
+    if (isCoverage(data)) {
+      coverage = data;
+      coverageStatus = "ready";
+    } else {
+      coverageStatus = "error";
     }
+    emit();
   });
 }
 
@@ -88,6 +104,10 @@ export function useCoverage(): Coverage | null {
   return useSyncExternalStore(subscribe, () => coverage, () => coverage);
 }
 
+export function useCoverageStatus(): CoverageStatus {
+  return useSyncExternalStore(subscribe, () => coverageStatus, () => coverageStatus);
+}
+
 export function dataDate(m: Manifest): string {
   const raw = m.days?.osm ?? m.sources?.find((s) => s.id === "osm")?.updated ?? "";
   if (!raw) return "";
@@ -97,11 +117,4 @@ export function dataDate(m: Manifest): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-export function fetchCoverage(): Promise<Coverage | null> {
-  start();
-  return liveJson("coverage.json").then((data) =>
-    data && (data as Coverage).totals ? (data as Coverage) : null,
-  );
 }
