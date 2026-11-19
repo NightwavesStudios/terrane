@@ -67,12 +67,20 @@ import math
 import os
 import queue
 import shutil
+import atexit
 import subprocess
+import zlib
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
+
+try:  # POSIX only; the harvest runs on Linux runners and macOS
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None
 
 INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 UA = "Terrane/0.1 (whole-world POI harvest; https://terrane.app)"
@@ -247,12 +255,52 @@ def load_state():
     }
 
 
-def save_state(state):
-    state["updated"] = now()
-    tmp = STATE_FILE + ".tmp"
+_STATE_LOCK = threading.Lock()
+_STATE_LOCK_PATH = os.path.join(STATE, ".state.lock")
+
+
+def export_state(state, path):
+    """Write this run's extract records where another job can import them."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=0, sort_keys=True)
-    os.replace(tmp, STATE_FILE)
+    os.replace(tmp, path)
+
+
+def _replace_state(tmp):
+    """Rename under an advisory file lock so separate processes cannot interleave."""
+    with open(_STATE_LOCK_PATH, "w") as lock_file:
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            os.replace(tmp, STATE_FILE)
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def save_state(state):
+    """Atomic per-writer temp file plus a lock, so no save is lost.
+
+    Every writer used to share `state.json.tmp`: one writer's replace removed
+    another writer's temp file and the loser raised FileNotFoundError on
+    os.replace, silently dropping that save (and the failure record with it).
+    """
+    state["updated"] = now()
+    os.makedirs(STATE, exist_ok=True)
+    body = json.dumps(state, indent=0, sort_keys=True)
+    with _STATE_LOCK:
+        fd, tmp = tempfile.mkstemp(prefix="state.", suffix=".tmp", dir=STATE)
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(body)
+                f.flush()
+                os.fsync(f.fileno())
+            _replace_state(tmp)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
 
 
 def record(state, extract_id):
@@ -1237,6 +1285,11 @@ def refresh(plan, state, workers=12):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("--only", help="comma-separated extract ids, e.g. europe/albania")
+    ap.add_argument(
+        "--shard",
+        metavar="I/N",
+        help="process only extracts where crc32(id) %% N == I (CI splits the world across jobs)",
+    )
     ap.add_argument("--region", help="comma-separated top-level regions, e.g. africa,asia")
     ap.add_argument("--limit", type=int, default=0, help="stop after N extracts")
     ap.add_argument("--workers", type=int, default=8, help="parallel downloads (default 8)")
@@ -1247,6 +1300,18 @@ def main():
     ap.add_argument("--refresh", action="store_true", help="re-queue extracts whose source changed")
     ap.add_argument("--merge", action="store_true", help="rebuild the cells from parsed rows")
     ap.add_argument("--allow-partial", action="store_true", help="merge even when extracts are missing")
+    ap.add_argument(
+        "--state-add",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="import another shard's exported state before working",
+    )
+    ap.add_argument(
+        "--state-export",
+        metavar="PATH",
+        help="write this run's state to PATH so another job can import it",
+    )
     ap.add_argument("--report", action="store_true", help="write reports/poi-coverage.{md,json}")
     ap.add_argument("--status", action="store_true", help="say what is parsed, failed and pending")
     ap.add_argument("--replan", action="store_true", help="rebuild the cached extract plan")
@@ -1272,6 +1337,24 @@ def main():
     print("  resolving extracts…", flush=True)
     plan = build_plan(force=args.replan)
     state = load_state()
+    state.setdefault("extracts", {})
+    for path in args.state_add:
+        try:
+            with open(path) as f:
+                other = json.load(f)
+        except (OSError, ValueError) as err:
+            print(f"  ! state import failed: {path}: {err}")
+            sys.exit(2)
+        imported = 0
+        for extract_id, imported_record in (other.get("extracts") or {}).items():
+            current = state["extracts"].get(extract_id) or {}
+            # A parsed shard record wins; a failed one only fills a gap.
+            if imported_record.get("status") == "parsed" or current.get("status") != "parsed":
+                state["extracts"][extract_id] = imported_record
+                imported += 1
+        print(f"  state: imported {imported} records from {path}")
+    if args.state_export:
+        atexit.register(export_state, state, args.state_export)
     state.setdefault("plan", {})
     state["plan"] = {
         "extracts": len(plan),
@@ -1303,6 +1386,22 @@ def main():
     if args.refresh:
         refresh(plan, state)
 
+    if args.shard:
+        # A stable partition of the whole plan: every extract lands in exactly one
+        # shard, so parallel CI jobs together cover the world with no overlap and
+        # no gap. Balanced by extract count, which is what the download budget
+        # tracks far better than continent boundaries do.
+        try:
+            index_s, count_s = args.shard.split("/")
+            index, count = int(index_s), int(count_s)
+        except ValueError:
+            print(f"  ! --shard expects I/N, got {args.shard!r}")
+            sys.exit(2)
+        if not (0 <= index < count):
+            print(f"  ! --shard {index}/{count}: I must be 0..{count - 1}")
+            sys.exit(2)
+        plan = [e for e in plan if zlib.crc32(e["id"].encode("utf-8")) % count == index]
+        print(f"  shard {index}/{count}: {len(plan)} of {state['plan'].get('extracts')} extracts")
     if args.only:
         wanted = {s.strip() for s in args.only.split(",") if s.strip()}
         plan = [e for e in plan if e["id"] in wanted]

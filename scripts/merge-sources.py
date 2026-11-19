@@ -459,7 +459,21 @@ def merge_trails():
 def main():
     points_only = "--points-only" in os.sys.argv
     points = merge_points()
-    trails = merge_trails() if not points_only else None
+    previous = read_json(os.path.join(REPORTS, "merge.json"), {}) or {}
+    # A points-only run does not touch the trail cells, so it must not erase the
+    # trail numbers the published coverage page is built from. Carry the last full
+    # merge forward; if there is none, fall back to the stats the cells came from.
+    trails = merge_trails() if not points_only else previous.get("trails")
+    if points_only and not trails:
+        stats = read_json(os.path.join(ROOT, "src", "data", "trail-stats.json"), {}) or {}
+        if stats.get("segments"):
+            trails = {
+                "input": stats.get("input"),
+                "segments": stats["segments"],
+                "cells": stats.get("cells"),
+                "max_cell_bytes": stats.get("max_cell_bytes"),
+                "carried_from": "src/data/trail-stats.json",
+            }
     os.makedirs(REPORTS, exist_ok=True)
     report = {"points": points, "trails": trails, "generatedAt": __import__("datetime").datetime.utcnow().isoformat() + "Z"}
     with open(os.path.join(REPORTS, "merge.json"), "w", encoding="utf-8") as f:
@@ -470,9 +484,11 @@ def main():
         f"{points['cells']:,} cells"
     )
     if trails:
+        carried = " (carried forward, trails not rebuilt)" if points_only else ""
         print(
-            f"trails: {trails['input']:,} lines · {trails['segments']:,} segments · "
-            f"{trails['cells']:,} cells"
+            f"trails: {int(trails.get('input') or 0):,} lines · "
+            f"{int(trails['segments']):,} segments · "
+            f"{int(trails.get('cells') or 0):,} cells{carried}"
         )
 
 

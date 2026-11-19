@@ -1,8 +1,21 @@
 name: data weekly
 
 # Sites cannot run Python or cron, so the open-data refresh lives here.
-# One run: OSM POIs (resumable), every agency adapter, the merge, the manifest,
-# the coverage gate and a hash-diff upload. A silent zero fails the job.
+#
+# The global harvest is ~437 Geofabrik extracts (~70 GB). Measured at ~2.3 MB/s a
+# single runner needs ~8.5 h, which no runner budget allows, so the world is split
+# across 12 parallel jobs with `--shard I/12` — a stable crc32 partition where
+# every extract lands in exactly one shard. Each shard parses its own extracts and
+# uploads its rows plus its state; the assemble job imports every shard's state
+# and merges, which refuses to write cells unless *every* extract in the plan has
+# rows. There is deliberately no --allow-partial here: a partial store must never
+# replace a whole one, and `coverage-report --strict` fails the run if the merged
+# totals drop below the last known-good report.
+#
+# Budget: 437/12 ≈ 36 extracts ≈ 6 GB per shard. At the measured ~2.3 MB/s that is
+# ~45 min, well inside the 220-minute job limit (deadline 10,800 s leaves 50 min
+# of slack to save state); the runner-parallel shards also multiply throughput.
+
 on:
   schedule:
     - cron: "17 3 * * 1"
@@ -15,13 +28,46 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  POI_BUCKET: ${{ secrets.POI_BUCKET }}
+  POI_UPLOAD_TOKEN: ${{ secrets.POI_UPLOAD_TOKEN }}
+
 jobs:
-  refresh:
+  harvest:
+    name: harvest shard ${{ matrix.shard }}/12
     runs-on: ubuntu-latest
-    timeout-minutes: 350
-    env:
-      POI_BUCKET: ${{ secrets.POI_BUCKET }}
-      POI_UPLOAD_TOKEN: ${{ secrets.POI_UPLOAD_TOKEN }}
+    timeout-minutes: 220
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check osmium
+      # 10,800 s of downloading inside a 220-minute job, so a shard always stops
+      # starting new work with time left to save state; the next run resumes.
+      - run: >-
+          python3 scripts/harvest-poi-bulk.py
+          --shard=${{ matrix.shard }}/12
+          --deadline=10800
+          --state-export=harvest-state-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: poi-${{ matrix.shard }}
+          path: |
+            .cache/poi-bulk/rows/
+            harvest-state-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 3
+
+  assemble:
+    needs: harvest
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,11 +79,27 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --disable-pip-version-check osmium
       - run: npm ci
-      - run: node scripts/fetch-source-state.mjs
 
-      # Resumable: a stopped run picks up at the first extract without rows.
-      - run: python3 scripts/harvest-poi-bulk.py --deadline=18000
-      - run: python3 scripts/harvest-poi-bulk.py --merge --allow-partial
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: poi-*
+          path: harvest
+          merge-multiple: true
+      - run: |
+          mkdir -p .cache/poi-bulk/rows
+          cp -R harvest/rows/. .cache/poi-bulk/rows/
+          ls harvest | head -20
+
+      # Import every shard's extract records, report what is missing, then merge.
+      # --merge exits 1 when any extract in the plan has no rows.
+      - name: merge shards (refuses a partial extract set)
+        run: |
+          args=""
+          for f in harvest/harvest-state-*.json; do args="$args --state-add $f"; done
+          python3 scripts/harvest-poi-bulk.py $args --status
+          python3 scripts/harvest-poi-bulk.py $args --merge
+
+      - run: node scripts/fetch-source-state.mjs
 
       - run: python3 scripts/sources/ridb.py
       - run: python3 scripts/sources/usfs.py sites

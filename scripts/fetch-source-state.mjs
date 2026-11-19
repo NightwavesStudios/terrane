@@ -8,28 +8,65 @@
  * counts instead of treating them as missing.
  *
  *   POI_BUCKET=https://... node scripts/fetch-source-state.mjs
+ *
+ * A 404 means "this source has not published yet" and is recorded as missing. A
+ * bucket that cannot be reached, answers 5xx, or returns unparseable JSON is a
+ * hard failure: a job that cannot read the other sources' state must not report
+ * success and then publish counts it could not verify.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
 const bucket = (process.env.POI_BUCKET ?? "").replace(/\/+$/, "");
-if (!bucket) process.exit(0);
+if (!bucket) {
+  console.log("source state: POI_BUCKET is not set — nothing to pull (local run)");
+  process.exit(0);
+}
 
 const registry = JSON.parse(readFileSync(join(root, "src/data/sources.json"), "utf8"));
 mkdirSync(join(root, "data/sources"), { recursive: true });
+
 let pulled = 0;
+const missing = [];
+const failures = [];
 for (const source of registry.sources ?? []) {
   if (source.id === "osm") continue;
+  const url = `${bucket}/sources/${source.id}.json`;
+  let res;
   try {
-    const res = await fetch(`${bucket}/sources/${source.id}.json`);
-    if (!res.ok) continue;
-    const body = await res.text();
-    JSON.parse(body);
-    writeFileSync(join(root, "data/sources", `${source.id}.json`), body);
-    pulled += 1;
-  } catch {
-    // A source that has never run has no remote manifest; its adapter will write one.
+    res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  } catch (err) {
+    failures.push(`${source.id}: ${err?.cause?.code ?? err?.name ?? "network error"}: ${err?.message ?? err}`);
+    continue;
   }
+  if (res.status === 404) {
+    // A source that has never run has no remote manifest; its adapter will write one.
+    missing.push(source.id);
+    continue;
+  }
+  if (!res.ok) {
+    failures.push(`${source.id}: HTTP ${res.status} ${res.statusText}`);
+    continue;
+  }
+  const body = await res.text();
+  try {
+    JSON.parse(body);
+  } catch (err) {
+    failures.push(`${source.id}: unparseable JSON (${err.message})`);
+    continue;
+  }
+  writeFileSync(join(root, "data/sources", `${source.id}.json`), body);
+  pulled += 1;
 }
-console.log(`source state: ${pulled} pulled from ${bucket}`);
+
+console.log(
+  `source state: ${pulled} pulled from ${bucket}` +
+    (missing.length ? ` · ${missing.length} not published yet (${missing.join(", ")})` : ""),
+);
+
+if (failures.length) {
+  console.error(`source state: ${failures.length} source(s) could not be read from ${bucket}`);
+  for (const failure of failures) console.error(`  FAILED ${failure}`);
+  process.exit(1);
+}

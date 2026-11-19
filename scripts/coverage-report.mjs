@@ -29,6 +29,10 @@ const poiStats = read("src/data/poi-stats.json", {});
 const merge = read("reports/merge.json", {});
 const manifest = read("src/data/manifest.json", { days: {} });
 const poiCoverage = read("reports/poi-coverage.json", null);
+const trailStats = read("src/data/trail-stats.json", null);
+// The last published report, read before this run overwrites it. The strict gate
+// compares against it so a truncated run can never look like a complete one.
+const previous = read("reports/coverage.json", null);
 
 const ageDays = (date) =>
   date ? Math.floor((Date.now() - new Date(`${date}T00:00:00Z`).getTime()) / 86_400_000) : null;
@@ -137,12 +141,20 @@ if (osm) {
   osm.parking = cars;
 }
 
+const placedTrails = rows.filter((r) => r.family === "trails").reduce((a, r) => a + r.placed, 0);
+const diskTrails = trailStats?.segments ?? 0;
+// A `--points-only` merge leaves `merge.trails` null while the trail cells are
+// still on disk, so reporting zero there would be a lie. Carry the last full
+// merge's count forward instead, and say in the report that it was carried.
+const trailSegments = merge.trails?.segments ?? (diskTrails || placedTrails);
+const trailsCarriedForward = merge.trails?.segments == null && trailSegments > 0;
+
 const totals = {
   sources: rows.length,
   ok: rows.filter((r) => r.status === "ok").length,
   attention: rows.filter((r) => r.status !== "ok").length,
   points: rows.filter((r) => r.family === "points").reduce((a, r) => a + r.placed, 0),
-  trails: merge.trails?.segments ?? rows.filter((r) => r.family === "trails").reduce((a, r) => a + r.placed, 0),
+  trails: trailSegments,
   rejected: rows.reduce((a, r) => a + (r.rejectedTotal ?? 0), 0),
   unaccounted: rows.reduce((a, r) => a + Math.max(0, r.unaccounted ?? 0), 0),
 };
@@ -162,6 +174,7 @@ const report = {
   totals,
   merge: merge.points ?? null,
   trailMerge: merge.trails ?? null,
+  trailSource: merge.trails ? "merge" : trailsCarriedForward ? "carried-forward" : "none",
   sources: rows,
   mapped: { pointsBySource, trailsBySource },
   gaps: {
@@ -229,7 +242,11 @@ const md = [
   "## Merge",
   "",
   `- Points: ${(merge.points?.input ?? 0).toLocaleString()} in, ${(merge.points?.kept ?? 0).toLocaleString()} kept, ${(merge.points?.merged ?? 0).toLocaleString()} merged, ${(merge.points?.replaced_osm ?? 0).toLocaleString()} OSM rows replaced by agency rows.`,
-  `- Trails: ${(merge.trails?.input ?? 0).toLocaleString()} lines, ${(merge.trails?.segments ?? 0).toLocaleString()} segments, ${(merge.trails?.cells ?? 0).toLocaleString()} cells.`,
+  merge.trails
+    ? `- Trails: ${(merge.trails.input ?? 0).toLocaleString()} lines, ${(merge.trails.segments ?? 0).toLocaleString()} segments, ${(merge.trails.cells ?? 0).toLocaleString()} cells.`
+    : trailsCarriedForward
+      ? `- Trails: ${trailSegments.toLocaleString()} segments and ${(trailStats?.cells ?? 0).toLocaleString()} cells carried forward unchanged from the last full merge — this run merged points only, so trails were not rebuilt (not zero).`
+      : "- Trails: no trail cells on disk and no full merge recorded — unknown, not zero.",
   "",
 ].join("\n");
 writeFileSync(join(root, "reports", "coverage.md"), md);
@@ -241,11 +258,37 @@ for (const r of rows.filter((x) => x.status !== "ok")) {
   console.log(`  ${r.status.toUpperCase()} ${r.id}: ${r.problems.join("; ")}`);
 }
 
-// A strict run fails on things that are never allowed: an unaccounted row, a
-// missing source, or a source that silently returned zero. A published gate miss
-// (for example a regional sample before the global route run) is reported as
-// attention, not hidden and not treated as a successful run.
-const silentZero = rows.some((r) => r.id !== "osm" && !r.fetched);
-if (strict && (totals.unaccounted > 0 || report.gaps.missing.length > 0 || silentZero)) {
+// A strict run fails on anything that would make the published numbers wrong:
+// an unaccounted row, a missing source, any source below its published gate or
+// returning zero — OSM included, since it is 99% of the points — or a total that
+// has collapsed to a fraction of the last known-good report. A truncated harvest
+// must never publish green; a partial store must never replace a whole one.
+const belowGate = rows.filter((r) => !r.gateOk).map((r) => r.id);
+const zeroSources = rows.filter((r) => !r.fetched).map((r) => r.id);
+const lastPoints = previous?.totals?.points ?? 0;
+const lastTrails = previous?.totals?.trails ?? 0;
+const regressions = [];
+if (lastPoints && totals.points < lastPoints * 0.9) {
+  regressions.push(
+    `points ${totals.points.toLocaleString()} < 90% of last known-good ${lastPoints.toLocaleString()}`,
+  );
+}
+if (lastTrails && totals.trails < lastTrails * 0.9) {
+  regressions.push(
+    `trails ${totals.trails.toLocaleString()} < 90% of last known-good ${lastTrails.toLocaleString()}`,
+  );
+}
+const failures = [
+  ...(totals.unaccounted > 0 ? [`${totals.unaccounted} unaccounted records`] : []),
+  ...report.gaps.missing.map((id) => `${id}: missing source`),
+  ...belowGate.map((id) => {
+    const row = rows.find((r) => r.id === id);
+    return `${id}: below its published gate (${(row?.problems ?? []).join("; ")})`;
+  }),
+  ...zeroSources.map((id) => `${id}: returned zero records`),
+  ...regressions,
+];
+if (strict && failures.length) {
+  for (const failure of failures) console.error(`  STRICT FAIL ${failure}`);
   process.exit(1);
 }

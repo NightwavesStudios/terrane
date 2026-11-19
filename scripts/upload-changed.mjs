@@ -17,6 +17,9 @@ import { join, relative } from "node:path";
 const root = process.cwd();
 const dry = process.argv.includes("--dry-run");
 const cellsOnly = process.argv.includes("--cells-only");
+// A job that does not rebuild the manifest must not publish one: its checkout's
+// copy is older than whatever the last data job uploaded.
+const skipManifest = process.argv.includes("--skip-manifest");
 const bucket = (process.env.POI_BUCKET ?? "").replace(/\/+$/, "");
 const token = process.env.POI_UPLOAD_TOKEN ?? "";
 const statePath = join(root, "data", "upload-manifest.json");
@@ -54,8 +57,10 @@ if (!cellsOnly) {
     ["public/coverage.json", "coverage.json"],
     ["src/data/sources.json", "sources.json"],
   ]) {
+    if (skipManifest && key === "manifest.json") continue;
     if (existsSync(join(root, path))) files.push(join(root, path));
   }
+  if (skipManifest) console.log("manifest.json: not uploaded (--skip-manifest)");
   const registry = JSON.parse(readFileSync(join(root, "src/data/sources.json"), "utf8"));
   for (const source of registry.sources ?? []) {
     if (source.id === "osm") continue;
