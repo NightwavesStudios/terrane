@@ -13,9 +13,16 @@ import { useManifest } from "../lib/live";
  */
 export interface LayerState {
   relief: boolean;
+  /** The 3D mesh; `relief` still owns the hillshade and the snow. */
+  terrain: boolean;
+  hillshade: boolean;
+  snow: boolean;
   contours: boolean;
+  contourLabels: boolean;
   trails: boolean;
   roads: boolean;
+  roadLabels: boolean;
+  parks: boolean;
   borders: boolean;
   labels: boolean;
   /** Master switch for every point on the map. */
@@ -25,9 +32,18 @@ export interface LayerState {
 
 export const DEFAULT_LAYERS: LayerState = {
   relief: true,
+  /* Off by default, measured: on a 1280×800 M4 viewport the mesh cuts the 0.4-zoom
+     gesture from 55.8 to 10.6 fps at z11 and from 60.2 to 20.4 fps at z14
+     (medians of nine runs; docs/performance.md). Worth a switch, not a default. */
+  terrain: false,
+  hillshade: true,
+  snow: true,
   contours: false,
+  contourLabels: true,
   trails: true,
   roads: true,
+  roadLabels: true,
+  parks: true,
   borders: true,
   labels: true,
   features: true,
@@ -36,9 +52,15 @@ export const DEFAULT_LAYERS: LayerState = {
 
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "relief", label: "Relief" },
+  { key: "terrain", label: "3D terrain" },
+  { key: "hillshade", label: "Hillshade" },
+  { key: "snow", label: "Elevation snow" },
   { key: "contours", label: "Contours" },
+  { key: "contourLabels", label: "Contour labels" },
   { key: "trails", label: "Paths" },
   { key: "roads", label: "Roads" },
+  { key: "roadLabels", label: "Road names" },
+  { key: "parks", label: "Park areas" },
   { key: "borders", label: "Borders" },
   { key: "labels", label: "Labels" },
 ];
@@ -57,8 +79,9 @@ export default function LayerControl({
 }) {
   const [open, setOpen] = useState(false);
   const manifest = useManifest();
-  const count = (id: string) =>
-    compact.format((manifest.byCategory as Record<string, number>)[id] ?? 0);
+  const rawCount = (id: string) =>
+    Number((manifest.byCategory as Record<string, number>)[id] ?? 0);
+  const count = (id: string) => compact.format(rawCount(id));
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,7 +162,14 @@ export default function LayerControl({
                 )}
                 {cat.label}
               </span>
-              <span className="layers-note mono">{count(cat.id)}</span>
+              <span className="layers-note mono">
+                {rawCount(cat.id) < 100 ? (
+                  <em className="layers-sparse" title="Few records: this category is a selection, not a census">
+                    sparse ·{" "}
+                  </em>
+                ) : null}
+                {count(cat.id)}
+              </span>
             </span>
           </label>
         ))}

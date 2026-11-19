@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Map as MlMap } from "maplibre-gl";
+import { Map as MlMap, NavigationControl, ScaleControl } from "maplibre-gl";
 import type {
   GeoJSONSource,
   HillshadeLayerSpecification,
@@ -7,10 +7,10 @@ import type {
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
+import { createStyle } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol } from "./dem";
-import { pitchForZoom, worldZoom } from "./camera";
+import { focusZoomFor, pitchForZoom, worldZoom } from "./camera";
 import { createContours, type ContourHandle } from "./contours";
 import {
   DEST_LAYERS,
@@ -20,13 +20,22 @@ import {
   setAtlasPlaces,
   setDestinationCats,
 } from "./destinations";
-import { MAPPED_LAYERS, addMapped, refreshMapped, resetMapped, setMappedCats } from "./mapped";
+import {
+  MAPPED_LAYERS,
+  addMapped,
+  mappedStats,
+  refreshMapped,
+  refreshDuplicates,
+  resetMapped,
+  setMappedCats,
+} from "./mapped";
 import {
   TRAIL_LAYERS,
   addTrails,
   refreshTrails,
   resetTrails,
   setTrailLayers,
+  trailStats,
 } from "./trails";
 import { pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
@@ -41,17 +50,28 @@ import type { Place } from "../data/places";
  * lights turn relief into grey noise. The light is anchored to the map, not the
  * viewport, so pitching does not swing shadows across the ridges.
  *
- * The DEM protocol answers every requested zoom with a real 512 px tile, so
- * MapLibre's slope maths has no overscale factor to fight and the shading keeps
- * its density all the way in.
+ * Four lights are also the most expensive thing on a moving map, so a gesture
+ * drops to the one key light (`HILLSHADE_BASIC`) and the full pass returns when
+ * the camera settles. A still frame keeps the shading; a zoom keeps the frames.
  */
-const HILLSHADE_PAINT: HillshadeLayerSpecification["paint"] = {
+type HillshadePaint = NonNullable<HillshadeLayerSpecification["paint"]>;
+
+const HILLSHADE_MULTI: HillshadePaint = {
   "hillshade-method": "multidirectional",
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": [315, 45, 225, 135],
   "hillshade-illumination-altitude": [45, 30, 45, 30],
   "hillshade-highlight-color": ["#6f8158", "#5d6e4b", "#5a6a49", "#5d6e4b"],
   "hillshade-shadow-color": ["#020806", "#07120c", "#050e09", "#07120c"],
+};
+
+const HILLSHADE_BASIC: HillshadePaint = {
+  "hillshade-method": "basic",
+  "hillshade-illumination-anchor": "map",
+  "hillshade-illumination-direction": 315,
+  "hillshade-illumination-altitude": 45,
+  "hillshade-highlight-color": "#6f8158",
+  "hillshade-shadow-color": "#020806",
 };
 
 export interface GlobeFocus {
@@ -69,24 +89,63 @@ interface Props {
   layers?: LayerState;
 }
 
-/* Which base layers answer to which switch. Features are handled by category in
-   `destinations.ts` and `mapped.ts`, not here: a place owns its labels, and the
-   base map owns its own. */
+/* Which base layers answer to which switch. Relief is handled separately: the
+   hillshade and the snow layer are two halves of one switch, so they cannot be
+   turned on by a later key after `relief` turned everything off. Features are
+   handled by category in `destinations.ts` and `mapped.ts`, not here. */
 const LAYER_GROUPS: Record<string, string[]> = {
-  relief: ["relief-hillshade", "relief-snow"],
   contours: ["contours-minor", "contours-major"],
+  contourLabels: ["contours-label"],
   trails: ["trails-casing", "trails-path", "trails-label", ...TRAIL_LAYERS],
   roads: ["road-casing", "road-minor", "road-major", "road-highway"],
-  borders: ["boundary-country", "boundary-state"],
-  labels: ["label-country", "label-state", "label-city", "water-label"],
+  parks: ["park-area", "park-outline"],
+  borders: ["boundary-country", "boundary-state", "boundary-disputed"],
+  labels: [
+    "label-country",
+    "label-state",
+    "label-city",
+    "label-village",
+    "label-detail",
+    "water-label",
+    "water-label-line",
+  ],
+  roadLabels: ["label-road"],
 };
 
-/** Where a clicked destination lands: close enough to read the terrain. */
-const PLACE_FOCUS_ZOOM = 14.2;
-/** A practical pin has no page, but z15 is where a tent becomes a clearing. */
-const MAPPED_FOCUS_ZOOM = 15;
+/** Layers that must exist after a style rebuild before the fast path is taken. */
+const RUNTIME_IDS = [
+  "relief-hillshade",
+  "features-dot-0",
+  "mapped-pin-0",
+  "trail-route-line",
+  "pick-ring",
+];
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
+
+/** A camera in the URL: `?at=lat,lon,zoom`, 3/3/2 decimals. */
+function readCamera(): { center: [number, number]; zoom: number | null } {
+  const raw = new URLSearchParams(window.location.search).get("at");
+  if (raw) {
+    const [lat, lon, zoom] = raw.split(",").map(Number);
+    if (
+      [lat, lon, zoom].every(Number.isFinite) &&
+      Math.abs(lat) <= 85 &&
+      Math.abs(lon) <= 180
+    ) {
+      return {
+        center: [lon, lat],
+        zoom: Math.max(0.4, Math.min(16, zoom)),
+      };
+    }
+  }
+  return { center: [12, 22], zoom: null };
+}
+
+/** Vertical exaggeration for the 3D mesh: flat at continent scale, alpine close in. */
+function exaggerationFor(zoom: number): number {
+  return Math.min(1.6, Math.max(1, 1 + (zoom - 6) * 0.075));
+}
 
 export default function Globe({
   places,
@@ -105,6 +164,10 @@ export default function Globe({
   const dataRef = useRef(places);
   const [ready, setReady] = useState(false);
   const [stalled, setStalled] = useState(false);
+  const [debugLines, setDebugLines] = useState<string[] | null>(null);
+  const debugOn = useRef(
+    new URLSearchParams(window.location.search).get("debug") === "1",
+  );
   pickRef.current = onPick;
   dataRef.current = places;
 
@@ -114,24 +177,47 @@ export default function Globe({
 
     installDemProtocol();
 
+    const camera = readCamera();
     const map_ = new MlMap({
       container: holder.current,
       style: createStyle(),
-      center: [12, 22],
-      zoom: worldZoom(holder.current.clientWidth, holder.current.clientHeight),
+      center: camera.center,
+      zoom:
+        camera.zoom ??
+        worldZoom(holder.current.clientWidth, holder.current.clientHeight),
       minZoom: 0.4,
       maxZoom: 16,
       attributionControl: false,
       dragRotate: true,
       pitchWithRotate: false,
-      maxPitch: 60,
+      maxPitch: 65,
       fadeDuration: 180,
       refreshExpiredTiles: false,
       maxTileCacheSize: 48,
       renderWorldCopies: false,
+      cooperativeGestures: false,
+      doubleClickZoom: true,
+      keyboard: true,
       pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     map.current = map_;
+
+    /* Wheel and touch rates: the default wheel step was a half screen at a flick.
+       Slower on the wheel, quicker on touch, so a trackpad and a phone feel like
+       the same camera. */
+    map_.scrollZoom.setWheelZoomRate(1 / 450);
+    map_.scrollZoom.setZoomRate(1 / 120);
+
+    map_.addControl(
+      new NavigationControl({ showCompass: true, showZoom: true, visualizePitch: false }),
+      "bottom-left",
+    );
+    map_.addControl(new ScaleControl({ maxWidth: 90, unit: "metric" }), "bottom-left");
+
+    /* Keyboard pan and zoom need a focusable canvas. */
+    const canvas = map_.getCanvas();
+    canvas.setAttribute("tabindex", "0");
+    canvas.setAttribute("aria-label", "Map — arrow keys pan, + and − zoom");
 
     if (import.meta.env.DEV) {
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
@@ -145,9 +231,9 @@ export default function Globe({
             id: "relief-hillshade",
             type: "hillshade",
             source: "relief",
-            paint: HILLSHADE_PAINT,
+            paint: HILLSHADE_MULTI,
           },
-          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
+          map_.getLayer("water") ? "water" : "label-country",
         );
         if (!map_.getLayer("relief-snow")) {
           map_.addLayer(
@@ -205,19 +291,66 @@ export default function Globe({
       }
     };
 
-    /** Re-adds everything the style does not declare. Idempotent. */
+    /** 3D mesh from the same DEM. Re-set on settle so the exaggeration can follow. */
+    let terrainState = { on: false, exaggeration: 0 };
+    const applyTerrain = () => {
+      /* Never insert the mesh during a style transition: MapLibre builds the
+         terrain depth program from the current style, and setting terrain while
+         that is still loading leaves it without one. */
+      if (!map_.isStyleLoaded() || !map_.getSource("relief")) return;
+      if (layersRef.current.terrain) {
+        const exaggeration = exaggerationFor(map_.getZoom());
+        /* `styledata` fires for every paint change; re-setting the mesh each time
+           rebuilds it for nothing. Only a real change is applied. */
+        if (!terrainState.on || Math.abs(exaggeration - terrainState.exaggeration) > 0.05) {
+          map_.setTerrain({ source: "relief", exaggeration });
+          terrainState = { on: true, exaggeration };
+        }
+      } else if (map_.getTerrain()) {
+        map_.setTerrain(null);
+        terrainState = { on: false, exaggeration: 0 };
+      }
+    };
+
+    const setReliefQuality = (moving: boolean) => {
+      if (!map_.getLayer("relief-hillshade")) return;
+      const paint = moving ? HILLSHADE_BASIC : HILLSHADE_MULTI;
+      /* The two tiers differ in colour *length*: one light has a single colour,
+         four lights have four. MapLibre's default paint transition tries to
+         interpolate the old array against the new one and throws mid-render
+         ("colorArray: Arrays have mismatched length"); zero-length transitions
+         switch the tier atomically, which is what a gesture needs anyway. */
+      for (const key of ["hillshade-highlight-color", "hillshade-shadow-color"]) {
+        map_.setPaintProperty("relief-hillshade", `${key}-transition`, { duration: 0, delay: 0 });
+      }
+      for (const [key, value] of Object.entries(paint)) {
+        map_.setPaintProperty("relief-hillshade", key, value);
+      }
+      const snow = layersRef.current.relief && layersRef.current.snow;
+      if (map_.getLayer("relief-snow")) {
+        map_.setLayoutProperty("relief-snow", "visibility", moving || !snow ? "none" : "visible");
+      }
+    };
+
+    /** Re-adds everything the style does not declare. Idempotent and cheap when whole. */
     const ensureRuntimeLayers = () => {
       if (!booted.current || !map_.getStyle()) return;
-      addHillshade();
-      addCampIcons(map_);
-      addDestinations(map_);
-      setAtlasPlaces(map_, dataRef.current);
-      addMapped(map_, layersRef.current);
-      addTrails(map_, layersRef.current);
+      if (!RUNTIME_IDS.every((id) => map_.getLayer(id))) {
+        addHillshade();
+        addCampIcons(map_);
+        addDestinations(map_);
+        setAtlasPlaces(map_, dataRef.current);
+        addMapped(map_, layersRef.current);
+        addTrails(map_, layersRef.current);
+        addPickRing();
+      }
       setDestinationCats(map_, layersRef.current);
       setMappedCats(map_, layersRef.current);
       setTrailLayers(map_, layersRef.current);
-      addPickRing();
+      if (layersRef.current.contours && !map_.getLayer("contours-minor")) {
+        contours.current?.reload();
+      }
+      applyTerrain();
     };
 
     const bootstrap = () => {
@@ -234,7 +367,7 @@ export default function Globe({
       try {
         map_.setSky({
           "sky-color": "#02040a",
-          "horizon-color": "#1d6f92",
+          "horizon-color": "#22779a",
           "fog-color": "#0a2434",
           "sky-horizon-blend": 0.72,
           "horizon-fog-blend": 0.42,
@@ -247,18 +380,26 @@ export default function Globe({
 
       contours.current = createContours(map_);
       contours.current.setEnabled(layersRef.current.contours);
+      contours.current.setLabels(layersRef.current.contourLabels);
 
       ensureRuntimeLayers();
+      applyTerrain();
 
       /* Two chunks, both after first paint: the famous half of the long tail and
          the practical cells. The atlas dots are already on screen. */
-      const idle = window.requestIdleCallback?.(() => void loadDestinations(map_), {
-        timeout: 3000,
-      });
-      if (!idle) window.setTimeout(() => void loadDestinations(map_), 1600);
+      const loadCore = () => void loadDestinations(map_).then(() => refreshDuplicates(map_));
+      const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
+      if (!idle) window.setTimeout(loadCore, 1600);
 
       refreshMapped(map_);
       refreshTrails(map_);
+      /* Time from navigation start to the first interactive frame, read by the
+         dev bench. `performance.now()` is measured from the navigation start. */
+      if (import.meta.env.DEV) {
+        (window as unknown as { __terraneReadyMs?: number }).__terraneReadyMs = Math.round(
+          performance.now(),
+        );
+      }
       setReady(true);
     };
 
@@ -296,14 +437,15 @@ export default function Globe({
       pickRef.current?.(pickOf(hit.properties as Record<string, unknown>, lon, lat));
     });
 
-    /* No hit-testing mid-gesture, and 16 Hz at rest: a spatial query on every
-       pointer event competed with tile loading for the whole zoom gesture. */
+    /* Hover is desktop-only and 8 Hz: a spatial query over 20+ layers on every
+       pointer move competed with tile loading. */
+    const finePointer = window.matchMedia("(pointer: fine)").matches;
     let lastPick = 0;
     let hovering = false;
     map_.on("mousemove", (e) => {
-      if (map_.isMoving()) return;
+      if (!finePointer || map_.isMoving()) return;
       const now = performance.now();
-      if (now - lastPick < 60) return;
+      if (now - lastPick < 125) return;
       lastPick = now;
       const on = Boolean(pickAt(e.point.x, e.point.y));
       if (on !== hovering) {
@@ -312,6 +454,17 @@ export default function Globe({
       }
     });
 
+    /* A shareable view, written on settle. No server, no route change. */
+    const writeCamera = () => {
+      if (window.location.pathname !== "/") return;
+      const c = map_.getCenter();
+      const at = `${c.lat.toFixed(3)},${c.lng.toFixed(3)},${map_.getZoom().toFixed(2)}`;
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("at") === at) return;
+      url.searchParams.set("at", at);
+      window.history.replaceState(null, "", url);
+    };
+
     map_.on("style.load", bootstrap);
     map_.on("load", bootstrap);
     const t = window.setTimeout(() => {
@@ -319,10 +472,14 @@ export default function Globe({
     }, 2500);
 
     map_.on("styledata", ensureRuntimeLayers);
-    map_.on("zoomend", () => {
-      // Band 4 starts at z7.2; fetch the tail before it is needed, not on it.
-      if (map_.getZoom() >= 6.6) void loadMoreDestinations(map_);
-      refreshTrails(map_);
+    map_.on("movestart", () => setReliefQuality(true));
+    map_.on("moveend", () => {
+      setReliefQuality(false);
+      applyTerrain();
+      writeCamera();
+      if (map_.getZoom() >= 6.6) {
+        void loadMoreDestinations(map_).then(() => refreshDuplicates(map_));
+      }
     });
 
     const guard = window.setTimeout(() => {
@@ -333,11 +490,17 @@ export default function Globe({
       if (import.meta.env.DEV) console.error("[terrane] map error", e?.error);
     });
 
-    const ro = new ResizeObserver(() => map_.resize());
+    /* A window drag fires resize on every frame; one rAF keeps one rebuild. */
+    let resizeFrame = 0;
+    const ro = new ResizeObserver(() => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => map_.resize());
+    });
     if (holder.current) ro.observe(holder.current);
 
     return () => {
       ro.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
       map_.off("styledata", ensureRuntimeLayers);
       resetTrails();
       resetMapped();
@@ -356,16 +519,32 @@ export default function Globe({
   useEffect(() => {
     const map_ = map.current;
     if (!map_ || !ready) return;
-    for (const key of Object.keys(LAYER_GROUPS)) {
-      const visibility = layers[key as keyof LayerState] ? "visible" : "none";
-      for (const id of LAYER_GROUPS[key]) {
-        if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", visibility);
-      }
+    const setVisible = (id: string, on: boolean) => {
+      if (map_.getLayer(id)) map_.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    };
+
+    setVisible("elevation-tint", layers.relief);
+    setVisible("relief-hillshade", layers.relief && layers.hillshade);
+    setVisible("relief-snow", layers.relief && layers.snow);
+    for (const [key, ids] of Object.entries(LAYER_GROUPS)) {
+      const on = Boolean(layers[key as keyof LayerState]);
+      for (const id of ids) setVisible(id, on);
     }
+
     contours.current?.setEnabled(layers.contours);
+    contours.current?.setLabels(layers.contourLabels && layers.contours);
     setDestinationCats(map_, layers);
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
+
+    if (layers.terrain && map_.isStyleLoaded()) {
+      map_.setTerrain({
+        source: "relief",
+        exaggeration: exaggerationFor(map_.getZoom()),
+      });
+    } else if (map_.getTerrain()) {
+      map_.setTerrain(null);
+    }
   }, [layers, ready]);
 
   /* ── data updates (ranked atlas rows) ──────────────── */
@@ -396,7 +575,9 @@ export default function Globe({
     );
 
     if (!pick) return;
-    const zoom = Math.max(map_.getZoom(), pick.slug ? PLACE_FOCUS_ZOOM : MAPPED_FOCUS_ZOOM - 2.4);
+    /* A park is a place you look at from 9.6, a tent from 14.6. If the reader is
+       already closer than the category's frame, keep their zoom. */
+    const zoom = Math.max(map_.getZoom(), focusZoomFor(pick.cat));
     map_.flyTo({
       center: [pick.lon, pick.lat],
       zoom,
@@ -428,61 +609,10 @@ export default function Globe({
       if (Math.abs(map_.getPitch() - target) > 1.2) map_.setPitch(target);
     };
 
-    /* Warm the HTTP cache for the next integer zoom. MapLibre 5 has no tile
-       prefetching, so every zoom step is a cold pyramid; eight tiles every 700 ms
-       is the cheap insurance, not a guarantee. */
-    let template: string | undefined;
-    let lastPrefetch = 0;
-    const prefetch = () => {
-      const now = performance.now();
-      if (now - lastPrefetch < 700) return;
-      lastPrefetch = now;
-
-      if (!template) {
-        const src = map_.getSource("openmaptiles") as unknown as { tiles?: string[] };
-        const first = src?.tiles?.[0];
-        if (!first?.includes("{z}")) return;
-        template = first;
-      }
-
-      const z = Math.min(13, Math.ceil(map_.getZoom() + 0.4));
-      const n = 2 ** z;
-      const b = map_.getBounds();
-      const x0 = Math.floor(((b.getWest() + 180) / 360) * n);
-      const x1 = Math.floor(((b.getEast() + 180) / 360) * n);
-      const lat2y = (lat: number) => {
-        const r = (lat * Math.PI) / 180;
-        return Math.floor(
-          ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n,
-        );
-      };
-      const y0 = lat2y(Math.min(85, b.getNorth()));
-      const y1 = lat2y(Math.max(-85, b.getSouth()));
-      const clamp = (v: number) => Math.max(0, Math.min(n - 1, v));
-
-      const tiles: [number, number][] = [];
-      for (let x = x0; x <= x1 && tiles.length < 32; x += 1) {
-        for (let y = y0; y <= y1 && tiles.length < 32; y += 1) {
-          tiles.push([clamp(x), clamp(y)]);
-        }
-      }
-      const step = Math.max(1, Math.ceil(tiles.length / 8));
-      for (let i = 0; i < tiles.length; i += step) {
-        const [x, y] = tiles[i];
-        const url = template
-          .replace("{z}", String(z))
-          .replace("{x}", String(x))
-          .replace("{y}", String(y));
-        void fetch(url, { mode: "cors", priority: "low" }).catch(() => undefined);
-      }
-    };
-
     map_.on("pitchstart", onPitchStart);
-    map_.on("zoom", prefetch);
     map_.on("moveend", applyPitch);
 
     return () => {
-      map_.off("zoom", prefetch);
       map_.off("moveend", applyPitch);
       map_.off("pitchstart", onPitchStart);
     };
@@ -502,10 +632,103 @@ export default function Globe({
     });
   }, [focus, ready]);
 
-  /* Keeps the map's own label/click behaviour independent of the route. */
+  /* ── debug readout: ?debug=1 ────────────────────────── */
+  useEffect(() => {
+    /* The counters are always published in development so a measurement can be
+       taken without a query string; only the overlay needs `?debug=1`. */
+    if (!ready || !import.meta.env.DEV) return;
+    const fps = { value: 0 };
+    let frames = 0;
+    let last = performance.now();
+    let alive = true;
+
+    const tick = () => {
+      if (!alive) return;
+      frames += 1;
+      const now = performance.now();
+      if (now - last >= 1000) {
+        fps.value = Math.round((frames * 1000) / (now - last));
+        frames = 0;
+        last = now;
+      }
+      window.requestAnimationFrame(tick);
+    };
+    window.requestAnimationFrame(tick);
+
+    const id = window.setInterval(() => {
+      const map_ = map.current;
+      if (!map_) return;
+      const pins = mappedStats();
+      const trails = trailStats();
+      const scope = window as unknown as { __demStats?: unknown[] };
+      const demTiles = scope.__demStats?.length ?? 0;
+      const lines = [
+        `z ${map_.getZoom().toFixed(2)} · pitch ${map_.getPitch().toFixed(0)}° · ${fps.value} fps`,
+        `pins ${pins.drawn.toLocaleString()} / ${pins.cached.toLocaleString()} cached · ${pins.duplicates} dup · setData ${pins.lastSetDataMs.toFixed(1)} ms`,
+        `trails ${trails.drawn.toLocaleString()} · ${trails.cells} cells · setData ${trails.lastSetDataMs.toFixed(1)} ms`,
+        `dem ${demTiles} · terrain ${map_.getTerrain() ? "on" : "off"} · ${pins.cells + pins.parkingCells} cells`,
+      ];
+      if (debugOn.current) setDebugLines(lines);
+      (window as unknown as { __terraneStats?: unknown }).__terraneStats = {
+        zoom: map_.getZoom(),
+        fps: fps.value,
+        ...pins,
+        trails,
+      };
+    }, 700);
+
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [ready]);
+
+  /* ── bench: three 0.4-zoom jumps, medians ───────────── */
+  useEffect(() => {
+    if (!import.meta.env.DEV || !ready) return;
+    const scope = window as unknown as {
+      __terraneBench?: (zoom?: number, lat?: number, lon?: number) => Promise<number[]>;
+    };
+
+    const run = (zoom: number) =>
+      new Promise<number>((resolve) => {
+        const map_ = map.current;
+        if (!map_) return resolve(0);
+        let frames = 0;
+        const started = performance.now();
+        const step = () => {
+          frames += 1;
+          if (performance.now() - started < 1200) {
+            window.requestAnimationFrame(step);
+          } else {
+            resolve((frames * 1000) / (performance.now() - started));
+          }
+        };
+        window.requestAnimationFrame(step);
+        map_.easeTo({ zoom, duration: 1200, essential: true });
+      });
+
+    scope.__terraneBench = async (zoom = 11, lat = 46.5, lon = 8) => {
+      const map_ = map.current;
+      if (!map_) return [];
+      const runs: number[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        map_.jumpTo({ center: [lon, lat], zoom });
+        await new Promise((r) => window.setTimeout(r, 900));
+        runs.push(Number((await run(zoom + 0.4)).toFixed(1)));
+        await new Promise((r) => window.setTimeout(r, 600));
+      }
+      return runs;
+    };
+
+    return () => {
+      delete scope.__terraneBench;
+    };
+  }, [ready]);
 
   return (
-    <div className="globe" ref={holder} aria-label="Interactive globe">
+    <>
+      <div className="globe" ref={holder} aria-label="Interactive globe" />
       {stalled && (
         <p className="globe-stalled mono" role="status">
           The globe couldn’t start. Opening this file straight from disk blocks the
@@ -513,6 +736,13 @@ export default function Globe({
           <code>npx serve .</code>
         </p>
       )}
-    </div>
+      {debugLines && (
+        <div className="map-debug mono" aria-label="Map diagnostics">
+          {debugLines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

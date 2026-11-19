@@ -312,6 +312,21 @@ export const MAP_STYLE: StyleSpecification = {
       },
     },
     {
+      id: "landcover-wetland",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "wetland"],
+      minzoom: 5,
+      // Marsh and bog: a darker, bluer green than grass, faint enough that the
+      // hillshade still reads through it. Without this class a wetland was the
+      // same moss as a meadow.
+      paint: {
+        "fill-color": "#1f4a46",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.12, 10, 0.2, 14, 0.24],
+      },
+    },
+    {
       id: "landuse-residential",
       type: "fill",
       source: "openmaptiles",
@@ -320,6 +335,92 @@ export const MAP_STYLE: StyleSpecification = {
       paint: {
         "fill-color": "#2b3a4e",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 9, 0.34, 12, 0.22],
+      },
+    },
+    {
+      id: "landuse-quarry",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landuse",
+      filter: ["==", ["get", "class"], "quarry"],
+      minzoom: 9,
+      // Pits and cuttings: bare, warm grey, a different species of mark from a
+      // forest or a field.
+      paint: {
+        "fill-color": "#4a453c",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.18, 14, 0.32],
+      },
+    },
+    /* ── elevation and park areas ──────────────────────────────────────────
+
+       Two layers that read as terrain rather than as points. The tint is a
+       hypsometric wash under the hillshade — a low, warm band from the foothills
+       to the snow line, which is what makes a range read as altitude at the
+       zooms where contour lines are still too dense to draw. The park fill comes
+       from the basemap's own `park` polygons: destinations already carry a park
+       dot, and the polygon is what shows its extent. */
+    {
+      id: "elevation-tint",
+      type: "color-relief",
+      source: "relief",
+      minzoom: 3,
+      maxzoom: 11.5,
+      paint: {
+        "color-relief-opacity": 0.5,
+        resampling: "linear",
+        "color-relief-color": [
+          "interpolate",
+          ["linear"],
+          ["elevation"],
+          0,
+          "rgba(120, 130, 80, 0)",
+          700,
+          "rgba(140, 135, 88, 0.05)",
+          1500,
+          "rgba(150, 130, 90, 0.12)",
+          2500,
+          "rgba(160, 140, 105, 0.2)",
+          3500,
+          "rgba(185, 170, 145, 0.28)",
+          4500,
+          "rgba(220, 220, 215, 0.36)",
+          5500,
+          "rgba(240, 246, 248, 0.46)",
+        ],
+      },
+    },
+    {
+      id: "park-area",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "park",
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["national_park", "nature_reserve"]],
+      ],
+      minzoom: 4,
+      paint: {
+        "fill-color": "#2f5a3c",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.06, 9, 0.11, 14, 0.15],
+      },
+    },
+    {
+      id: "park-outline",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "park",
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["national_park", "nature_reserve"]],
+      ],
+      minzoom: 5,
+      paint: {
+        "line-color": "#6aa87a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.4, 12, 1.1, 16, 1.8],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.1, 9, 0.26, 14, 0.34],
+        "line-dasharray": [3, 2],
       },
     },
     {
@@ -344,7 +445,7 @@ export const MAP_STYLE: StyleSpecification = {
           "#0a3a53",
           "#06293f",
         ],
-        "fill-outline-color": "#25607a",
+        "fill-outline-color": "#2d708c",
       },
     },
     {
@@ -373,6 +474,7 @@ export const MAP_STYLE: StyleSpecification = {
         "line-color": "#4a6d84",
         "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 6, 1.1, 12, 1.5],
         "line-opacity": 0.6,
+        "line-blur": 0.2,
         "line-dasharray": [3, 3],
       },
     },
@@ -391,7 +493,29 @@ export const MAP_STYLE: StyleSpecification = {
         "line-color": "#3a5a70",
         "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.3, 10, 1],
         "line-opacity": 0.55,
+        "line-blur": 0.2,
         "line-dasharray": [2, 3],
+      },
+    },
+    {
+      id: "boundary-disputed",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "boundary",
+      filter: [
+        "all",
+        ["==", ["get", "disputed"], 1],
+        ["<=", ["get", "admin_level"], 2],
+        ["!=", ["get", "maritime"], 1],
+      ],
+      minzoom: 2,
+      // Disputed lines are not the same claim as a settled border, so they are
+      // drawn as a different mark: warmer, tighter, and never the primary colour.
+      paint: {
+        "line-color": "#8c7a5a",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 8, 1.1, 12, 1.4],
+        "line-opacity": 0.5,
+        "line-dasharray": [1.5, 2.5],
       },
     },
     {
@@ -413,6 +537,32 @@ export const MAP_STYLE: StyleSpecification = {
         "text-halo-color": "#04121c",
         "text-halo-width": 1.2,
         "text-opacity": 0.8,
+      },
+    },
+    {
+      id: "water-label-line",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "water_name",
+      minzoom: 6,
+      // Lakes and long rivers carry their name along the geometry, not at a
+      // point; without this layer a reservoir was an unnamed blue shape.
+      filter: ["!=", ["geometry-type"], "Point"],
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Italic"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 14, 12],
+        "text-letter-spacing": 0.08,
+        "text-max-angle": 40,
+        "symbol-spacing": 320,
+        "text-padding": 4,
+      },
+      paint: {
+        "text-color": "#5d8ba3",
+        "text-halo-color": "#04121c",
+        "text-halo-width": 1.2,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 7, 0.75],
       },
     },
     {
@@ -622,7 +772,7 @@ export const MAP_STYLE: StyleSpecification = {
       minzoom: 2.2,
       // Overlaps the state handover on purpose: a country label vanishing on the
       // exact frame state labels appear reads as a flicker.
-      maxzoom: 6.8,
+      maxzoom: 7.4,
       layout: {
         "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
         "text-font": ["Noto Sans Regular"],
@@ -679,6 +829,89 @@ export const MAP_STYLE: StyleSpecification = {
         "text-halo-color": "#04060d",
         "text-halo-width": 1.5,
         "text-opacity": 0.62,
+      },
+    },
+    {
+      id: "label-village",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      minzoom: 9.6,
+      maxzoom: 14.5,
+      filter: ["==", ["get", "class"], "village"],
+      // Below the town handover, so a valley's villages name themselves as the
+      // camera closes in instead of the map going anonymous between z10 and the
+      // camp labels.
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 9.6, 10, 14, 11.5],
+        "text-max-width": 8,
+        "text-padding": 7,
+      },
+      paint: {
+        "text-color": "#a9c2d4",
+        "text-halo-color": "#04060d",
+        "text-halo-width": 1.3,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 9.6, 0, 10.3, 0.6],
+      },
+    },
+    {
+      id: "label-detail",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "place",
+      minzoom: 12,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["hamlet", "suburb", "quarter", "neighbourhood", "isolated_dwelling", "locality"]],
+      ],
+      // Hamlets and suburbs: the settlement names that make a 1:25k view read as a
+      // place rather than as a set of pins.
+      layout: {
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 9.5, 16, 11],
+        "text-max-width": 8,
+        "text-padding": 6,
+      },
+      paint: {
+        "text-color": "#9db4c6",
+        "text-halo-color": "#04060d",
+        "text-halo-width": 1.2,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0, 12.8, 0.5],
+      },
+    },
+    {
+      id: "label-road",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "transportation_name",
+      minzoom: 12.5,
+      filter: [
+        "in",
+        ["get", "class"],
+        ["literal", ["motorway", "trunk", "primary", "secondary", "tertiary"]],
+      ],
+      // Road names are the missing half of the deep view: the roads were drawn
+      // and unlabelled, so a street zoom looked like a network with no names.
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 12.5, 9, 16, 11.5],
+        "text-letter-spacing": 0.02,
+        "text-padding": 4,
+        "symbol-spacing": 260,
+        "text-max-angle": 40,
+        "text-keep-upright": true,
+      },
+      paint: {
+        "text-color": "#9fb3c4",
+        "text-halo-color": "#05090f",
+        "text-halo-width": 1.4,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.2, 0.75],
       },
     },
     /* Names for the camps and huts only. The dots say a place exists; the name is

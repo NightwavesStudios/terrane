@@ -26,3 +26,50 @@ export function worldZoom(width: number, height: number) {
 export function pitchForZoom(zoom: number): number {
   return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
 }
+
+/**
+ * How close a click should fly for a category.
+ *
+ * One zoom for every destination meant a national park, a mountain range and a
+ * single summit all landed at 14.2: a park filled the screen with one trailhead
+ * and a range was never visible. A park is a place you look at from 9.6, a lake
+ * from 11.5, a summit from 13.4; a tent from 14.6. The globe keeps whichever
+ * zoom the reader already chose if they are closer than this.
+ */
+export function focusZoomFor(cat: string): number {
+  switch (cat) {
+    case "park":
+    case "reserve":
+    case "range":
+    case "desert":
+    case "island":
+    case "beach":
+      return 9.6;
+    case "lake":
+    case "glacier":
+    case "valley":
+    case "canyon":
+      return 11.5;
+    case "peak":
+    case "volcano":
+    case "waterfall":
+    case "cave":
+    case "spring":
+      return 13.4;
+    case "camp":
+    case "hut":
+    case "caravan":
+      return 14.6;
+    case "shelter":
+    case "pass":
+    case "trailhead":
+    case "view":
+      return 14.2;
+    case "parking":
+      return 15.4;
+    case "trail":
+      return 12.5;
+    default:
+      return 13.2;
+  }
+}

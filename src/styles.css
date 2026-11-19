@@ -313,6 +313,58 @@ button {
 .maplibregl-ctrl-group button span {
   filter: invert(1) opacity(0.65);
 }
+.maplibregl-ctrl-group button {
+  width: 28px !important;
+  height: 28px !important;
+}
+.maplibregl-ctrl-bottom-left {
+  bottom: 26px;
+  left: 26px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+  margin: 0;
+}
+.maplibregl-ctrl-scale {
+  background: rgba(5, 9, 15, 0.72) !important;
+  border-color: rgba(237, 239, 245, 0.3) !important;
+  color: rgba(237, 239, 245, 0.6) !important;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 8px !important;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.maplibregl-canvas:focus-visible {
+  outline: 1px solid rgba(124, 224, 192, 0.6);
+  outline-offset: 2px;
+}
+
+/* ?debug=1 — map diagnostics, dev only */
+.map-debug {
+  position: absolute;
+  left: 26px;
+  bottom: 78px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: rgba(3, 6, 12, 0.8);
+  border: 1px solid rgba(237, 239, 245, 0.14);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: rgba(200, 230, 220, 0.82);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .maplibregl-ctrl-bottom-left {
+    bottom: 84px;
+  }
+}
 
 /* ── featured card ───────────────────────────────────────── */
 
@@ -961,6 +1013,10 @@ button {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(233, 239, 246, 0.38);
+}
+.layers-sparse {
+  font-style: normal;
+  color: rgba(240, 200, 120, 0.75);
 }
 
 .search-veil {

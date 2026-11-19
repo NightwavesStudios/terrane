@@ -15,7 +15,7 @@ import { DEM_HTTP_TILE_URL } from "./dem";
  * something, so the controller is a no-op below CONTOUR_MIN_ZOOM.
  */
 
-const CONTOUR_MIN_ZOOM = 10;
+const CONTOUR_MIN_ZOOM = 9;
 /* The first version of this allowed six tiles at a 100 m interval and emitted
    north of half a million segments; the structured clone plus MapLibre's line
    tessellation froze the tab. The caps below are the compromise: two tiles, at
@@ -178,14 +178,19 @@ self.onmessage = async (e) => {
 
 const LAYER_MINOR = "contours-minor";
 const LAYER_MAJOR = "contours-major";
+const LAYER_LABEL = "contours-label";
 
 export interface ContourHandle {
   setEnabled(on: boolean): void;
+  setLabels(on: boolean): void;
   reload(): void;
   destroy(): void;
 }
 
 function intervalForZoom(zoom: number) {
+  // A coarser interval at the new continent-scale entry: at z9 a 500 m line is
+  // already closer than the eye can resolve over a whole range.
+  if (zoom < 10) return 500;
   if (zoom < 11.5) return 250;
   if (zoom < 12.5) return 150;
   if (zoom < 13.5) return 100;
@@ -197,7 +202,7 @@ function intervalForZoom(zoom: number) {
    two tiles still cover the viewport. Capped at z12, the last level that exists
    worldwide, so contours never vanish over ranges outside national coverage. */
 function demZoomForZoom(zoom: number) {
-  return Math.max(10, Math.min(12, Math.floor(zoom) - 1));
+  return Math.max(9, Math.min(12, Math.floor(zoom) - 1));
 }
 
 /* 256 cells per tile is what this always ran at; past z12 a wider grid is
@@ -208,6 +213,7 @@ function gridForZoom(zoom: number) {
 
 export function createContours(map: MlMap): ContourHandle {
   let enabled = false;
+  let labels = false;
   let worker: Worker | null = null;
   let url: string | null = null;
   let timer: number | undefined;
@@ -256,13 +262,44 @@ export function createContours(map: MlMap): ContourHandle {
         "water",
       );
     }
+    if (!map.getLayer(LAYER_LABEL)) {
+      map.addLayer(
+        {
+          id: LAYER_LABEL,
+          type: "symbol",
+          source: "contours",
+          minzoom: 11.5,
+          filter: ["==", ["get", "major"], 1],
+          // Index contours only: a label on every 50 m line would be a wall of
+          // numbers. The value is already in the feature, so no extra work.
+          layout: {
+            "symbol-placement": "line",
+            "text-field": ["concat", ["to-string", ["get", "level"]], " m"],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 9,
+            "symbol-spacing": 420,
+            "text-padding": 4,
+            "text-max-angle": 30,
+            "text-keep-upright": true,
+            visibility: labels ? "visible" : "none",
+          },
+          paint: {
+            "text-color": "#dff3ea",
+            "text-halo-color": "#04100c",
+            "text-halo-width": 1.5,
+            "text-opacity": 0.68,
+          },
+        },
+        "water",
+      );
+    }
   }
 
   /* Relief is inserted below the labels on a 2.5 s timer, which can land it on
      top of these lines. Moving them to just under the labels after every change
      keeps contours over the hillshade, where they belong. */
   function raise() {
-    for (const id of [LAYER_MINOR, LAYER_MAJOR]) {
+    for (const id of [LAYER_MINOR, LAYER_MAJOR, LAYER_LABEL]) {
       const anchor = map.getLayer("water") ? "water" : "label-country";
       if (map.getLayer(id) && map.getLayer(anchor)) {
         map.moveLayer(id, anchor);
@@ -362,18 +399,37 @@ export function createContours(map: MlMap): ContourHandle {
       enabled = on;
       if (on) {
         boot();
+        ensureLayers();
         for (const id of [LAYER_MINOR, LAYER_MAJOR]) {
           if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible");
         }
+        if (map.getLayer(LAYER_LABEL)) {
+          map.setLayoutProperty(LAYER_LABEL, "visibility", labels ? "visible" : "none");
+        }
         schedule();
       } else if (map.getLayer(LAYER_MINOR)) {
-        for (const id of [LAYER_MINOR, LAYER_MAJOR]) {
+        for (const id of [LAYER_MINOR, LAYER_MAJOR, LAYER_LABEL]) {
           if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
         }
         clearLayers();
       }
     },
-    reload: schedule,
+    setLabels(on: boolean) {
+      labels = on;
+      if (map.getLayer(LAYER_LABEL)) {
+        map.setLayoutProperty(
+          LAYER_LABEL,
+          "visibility",
+          enabled && on ? "visible" : "none",
+        );
+      }
+    },
+    /* A style rebuild drops every runtime layer; `boot` returns early once the
+       worker exists, so re-adding has to be explicit. */
+    reload() {
+      ensureLayers();
+      schedule();
+    },
     destroy() {
       window.clearTimeout(timer);
       map.off("moveend", onMoveEnd);

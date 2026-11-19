@@ -19,10 +19,10 @@ to the globe. There is no router dependency.
 | File | Responsibility |
 | --- | --- |
 | `src/map/style.ts` | The full MapLibre style spec, generated world-latitude bands, sources and static layers. `createStyle()` returns a clone because MapLibre mutates the spec. |
-| `src/map/Globe.tsx` | Owns one `Map`, adds runtime layers idempotently, handles pick/hover, camera focus, pitch, prefetch and the stalled-state message. |
+| `src/map/Globe.tsx` | Owns one `Map`, adds runtime layers idempotently, handles pick/hover, camera focus, pitch, 3D terrain, shareable view, the gesture relief tier and the stalled-state message. |
 | `src/map/destinations.ts` | Atlas + Wikidata long tail in one GeoJSON source; seven dot bands and seven label bands from `bands.json`. |
-| `src/map/mapped.ts` | Practical pins from z6 cells, one layer per category, parking in its own source and file, bounded feature caches and search indexing. |
-| `src/map/trails.ts` | Trail routes from z7 cells, casing/line/label layers, retry and cache handling. |
+| `src/map/mapped.ts` | Practical pins from z6 cells, dealt into per-cell pin bands, one push per frame, viewport-bounded payloads, cross-source duplicate suppression, parking in its own source and file, bounded caches and search indexing. |
+| `src/map/trails.ts` | Trail routes from z7 cells, casing/line/label layers, coalesced pushes, retry and cache handling. |
 | `src/map/dem.ts` | `terranedem://` protocol: worker fetch, decode, resample, transfer an `ImageBitmap`; main-thread fallback. |
 | `src/map/demPipeline.ts` | The elevation pipeline and provider fallback. |
 | `src/map/contours.ts` | Client-side marching squares in a blob worker, capped by tiles, levels, segments and time. |
@@ -33,6 +33,11 @@ Runtime layers are added by `ensureRuntimeLayers` after `style.load`, and again
 after `styledata`, because a style rebuild drops them. Every `add*` function is
 idempotent. Map teardown resets the trail and practical caches and disposes the
 contour worker.
+
+The style also carries the non-point visual layers: park and reserve polygons
+from the basemap's own `park` tiles, a hypsometric tint under the hillshade, the
+full settlement label ladder (country → state → city → village → hamlet) and road
+names. The hillshade and the 3D mesh share the one `relief` DEM source.
 
 ## Data flow
 
@@ -87,3 +92,5 @@ prominence.
    must pass before a data job publishes.
 6. Generated files are not committed except the bundled manifest, atlas, reach
    data, stats and the `reports/coverage.json` baseline.
+7. A practical pin is pushed once per frame, in its band, and at z8+ only inside
+   the viewport; the cached cell is not the payload.

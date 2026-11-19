@@ -7,7 +7,7 @@
  * sizes and reveal steps can be checked without a browser. It is analysis only: it
  * writes `reports/dot-bands.{md,json}` and never touches the data files.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readCurated } from "./lib/curated.mjs";
 
 const bandsFile = JSON.parse(readFileSync("src/data/bands.json", "utf8"));
@@ -187,6 +187,159 @@ const viewports = [
   { name: "Himalaya", ...viewport(3, 28, 86) },
 ];
 
+/* ── practical pins ─────────────────────────────────────────────────────
+
+   The practical half is harvested, not committed: a fresh clone has no cells.
+   When a local mirror exists, this reproduces the client's band assignment
+   (`src/map/mapped.ts`) so the reveal steps can be checked without a browser.
+   It reads `public/poi/6`, the same files the upload script writes. */
+const MAPPED_CATS = [
+  "camp",
+  "hut",
+  "shelter",
+  "water",
+  "parking",
+  "view",
+  "picnic",
+  "pass",
+  "caravan",
+  "toilets",
+  "shower",
+  "info",
+  "trailhead",
+];
+const PIN_BANDS = [6.8, 7.8, 8.8, 10.2, 13.5];
+const PER_CELL = {
+  camp: 8,
+  hut: 6,
+  pass: 10,
+  caravan: 4,
+  trailhead: 10,
+  view: 12,
+  shelter: 14,
+  picnic: 14,
+  water: 16,
+  toilets: 16,
+  shower: 10,
+  info: 20,
+};
+const floors = Object.fromEntries(
+  JSON.parse(readFileSync("src/data/categories.json", "utf8")).categories.map((c) => [
+    c.id,
+    c.minzoom,
+  ]),
+);
+
+function pinBase(cat) {
+  const floor = floors[cat] ?? 10;
+  let best = 0;
+  let gap = Infinity;
+  for (let i = 0; i < PIN_BANDS.length - 1; i += 1) {
+    const d = Math.abs(PIN_BANDS[i] - floor);
+    if (d < gap) {
+      gap = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function pinScore(pin) {
+  let score = 0;
+  if (pin.name) score += 4;
+  if (pin.src && pin.src !== "osm") score += 2;
+  return score;
+}
+
+function readPractical() {
+  const root = "public/poi/6";
+  if (!existsSync(root)) return { cells: 0, pins: [], byCategory: {}, samples: [] };
+  const pins = [];
+  const centers = [];
+  let cells = 0;
+  for (const x of readdirSync(root)) {
+    let ys;
+    try {
+      ys = readdirSync(`${root}/${x}`);
+    } catch {
+      continue;
+    }
+    for (const file of ys) {
+      if (!file.endsWith(".json") || file.endsWith(".parking.json")) continue;
+      let cell;
+      try {
+        cell = JSON.parse(readFileSync(`${root}/${x}/${file}`, "utf8"));
+      } catch {
+        continue;
+      }
+      cells += 1;
+      const zc = 6;
+      const n = 2 ** zc;
+      const cx = Number(x);
+      const cy = Number(file.replace(/\.json$/, ""));
+      if (Number.isFinite(cx) && Number.isFinite(cy)) {
+        centers.push({
+          lon: ((cx + 0.5) / n) * 360 - 180,
+          lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * (cy + 0.5)) / n))) * 180) / Math.PI,
+        });
+      }
+      const groups = new Map();
+      for (const row of cell.items ?? []) {
+        const cat = MAPPED_CATS[row[2]] ?? "camp";
+        if (cat === "parking") continue;
+        const pin = { cat, lat: row[0], lon: row[1], name: row[3], src: row[4] };
+        const list = groups.get(cat);
+        if (list) list.push(pin);
+        else groups.set(cat, [pin]);
+      }
+      for (const [cat, list] of groups) {
+        const base = pinBase(cat);
+        const per = PER_CELL[cat] ?? 12;
+        list.sort((a, b) => pinScore(b) - pinScore(a));
+        list.forEach((pin, i) => {
+          const tier = Math.min(3, Math.floor(i / per));
+          pins.push({ ...pin, band: Math.min(3, base + tier) });
+        });
+      }
+    }
+  }
+  const byCategory = {};
+  for (const pin of pins) {
+    byCategory[pin.cat] ??= { rows: 0, bands: PIN_BANDS.map(() => 0) };
+    byCategory[pin.cat].rows += 1;
+    byCategory[pin.cat].bands[pin.band] += 1;
+  }
+  const samples = centers.length
+    ? [centers[0], centers[Math.floor(centers.length / 2)], centers[centers.length - 1]]
+    : [];
+  return { cells, pins, byCategory, samples };
+}
+
+function pinViewport(pins, z, lat, lon) {
+  const d = 360 / (256 * 2 ** z);
+  const lonHalf = 600 * d;
+  const latHalf = 400 * d;
+  return pins.filter(
+    (p) =>
+      PIN_BANDS[p.band] <= z &&
+      p.lat >= lat - latHalf &&
+      p.lat <= lat + latHalf &&
+      p.lon >= lon - lonHalf &&
+      p.lon <= lon + lonHalf,
+  ).length;
+}
+
+const practical = readPractical();
+const practicalViewports = practical.samples.flatMap((s, i) =>
+  [7.5, 9, 10.2].map((z) => ({
+    name: `sample cell ${i + 1}`,
+    z,
+    lat: s.lat,
+    lon: s.lon,
+    pins: pinViewport(practical.pins, z, s.lat, s.lon),
+  })),
+);
+
 const gaps = BANDS.slice(1).map((b, i) => Number((b.dot - BANDS[i].dot).toFixed(1)));
 const report = {
   generatedAt: new Date().toISOString(),
@@ -195,6 +348,11 @@ const report = {
   worldVisible,
   continents,
   viewports,
+  practical: {
+    cells: practical.cells,
+    byCategory: practical.byCategory,
+    viewports: practicalViewports,
+  },
   gaps,
 };
 writeFileSync("reports/dot-bands.json", `${JSON.stringify(report, null, 2)}\n`);
@@ -230,6 +388,22 @@ const lines = [
   ...viewports.map(
     (v) => `| ${v.name} | ${v.z} | ${v.dots} | ${v.labels} | ${v.bands.join(", ")} |`,
   ),
+  "",
+  "## Practical pins",
+  "",
+  practical.cells
+    ? `${practical.cells} local z6 cell(s) from \`public/poi\`; band assignment mirrors \`src/map/mapped.ts\`.`
+    : "No local cell mirror (`public/poi/6` is empty); run `npm run poi:merge` to check this locally.",
+  "",
+  "| category | rows | at 6.8 | 7.8 | 8.8 | 10.2 |",
+  "| --- | --- | --- | --- | --- | --- |",
+  ...Object.entries(practical.byCategory)
+    .sort((a, b) => b[1].rows - a[1].rows)
+    .map(([cat, v]) => `| ${cat} | ${v.rows.toLocaleString("en-US")} | ${v.bands.join(" | ")} |`),
+  "",
+  practical.cells
+    ? `1200×800 viewport pins in three sample cells: ${practicalViewports.map((v) => `${v.name} ${v.pins} at z${v.z}`).join(", ")}.`
+    : "",
   "",
 ];
 writeFileSync("reports/dot-bands.md", `${lines.join("\n")}\n`);

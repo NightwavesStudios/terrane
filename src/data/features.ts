@@ -240,6 +240,7 @@ export const PRACTICAL_ICON = [
 
 let destinationRows: () => FeatureRow[] = () => [];
 let mappedRows: () => FeatureRow[] = () => [];
+let destinationPoints: () => FeatureRow[] = () => [];
 
 export function registerDestinationSearch(fn: () => FeatureRow[]): void {
   destinationRows = fn;
@@ -247,6 +248,15 @@ export function registerDestinationSearch(fn: () => FeatureRow[]): void {
 
 export function registerMappedSearch(fn: () => FeatureRow[]): void {
   mappedRows = fn;
+}
+
+/** Every destination row loaded so far, for cross-source duplicate checks. */
+export function registerDestinationPoints(fn: () => FeatureRow[]): void {
+  destinationPoints = fn;
+}
+
+export function getDestinationRows(): FeatureRow[] {
+  return destinationPoints();
 }
 
 function score(name: string, term: string): number {

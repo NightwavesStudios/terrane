@@ -76,10 +76,12 @@ src/
 ```
 
 - **`src/map/style.ts`** is the hand-written basemap: OpenFreeMap vector tiles,
-  a latitude-banded land backdrop, landcover, water, roads, boundaries, labels.
+  a latitude-banded land backdrop, landcover, park areas, water, roads,
+  boundaries and the full label ladder.
 - **`src/map/Globe.tsx`** owns one `Map`, adds runtime layers, and turns clicks
   into one `Pick`. **`src/map/destinations.ts`**, **`mapped.ts`** and
-  **`trails.ts`** own their sources and zoom bands.
+  **`trails.ts`** own their sources and zoom bands. Practical pins are dealt into
+  per-cell bands, pushed once per frame and bounded to the viewport.
 - **`src/map/dem.ts`** exposes elevation as a MapLibre protocol; a worker fetches
   and resamples tiles. **`contours.ts`** generates contours from the same DEM.
 - **`src/data/features.ts`** is the one feature/pick model and style-expression
@@ -149,7 +151,7 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
   Europe is densest. Agency feeds cover the US, Canada and NZ only.
 - **The store origin is a preview environment.** It is public and published, but
   it is not the production environment.
-- **Contours are a capped client-side pass** and only draw above z10.
+- **Contours are a capped client-side pass** and only draw above z9.
 - **Deep-zoom relief depends on national DEM coverage.** Elsewhere the 30 m global
   model is resampled; large forms, not gullies.
 - **Zooming is engine-bound.** The globe projection and the hillshade are the

@@ -60,6 +60,21 @@ by the upload scripts. To read one in development, point `VITE_POI_BASE` at the
 dev origin (for example `http://localhost:3000`); `vite.config.ts` deliberately
 does not copy the mirrors into `dist`, so production reads the bucket.
 
+### Draw-time duplicate guard
+
+A campsite that is also an atlas park or landmark is one place in two harvests.
+The client marks named practical pins within 200 m of a compatible destination
+and holds them back to z13.5 (`src/map/mapped.ts`). That is a rendering guard, not
+a merge: the records still exist, the counts still include them, and the fix at
+source belongs in `merge-sources.py` when the atlas coordinates are available to
+it. The count the guard hides is on the `?debug=1` readout.
+
+The next payload lever is the other way round: **1,053,188 information boards**
+are the largest practical category and mostly unnamed, and they are a large share
+of the 382 MB POI store. Dropping unnamed boards from the cell files would shrink
+both the store and the cell payloads, but it rewrites published objects, so it is
+a separate, approved data job — not part of the map pass.
+
 ## Refresh
 
 Install the one non-stdlib Python dependency:

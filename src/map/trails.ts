@@ -26,6 +26,9 @@ const loaded = new Map<string, Feature<LineString>[]>();
 const pending = new Set<string>();
 const misses = new Map<string, number>();
 const bound = new WeakSet<MlMap>();
+let pushToken = 0;
+let drawn = 0;
+let lastSetDataMs = 0;
 
 const keyOf = (x: number, y: number) => `${CELL}/${x}/${y}`;
 
@@ -69,8 +72,23 @@ function collection(): FeatureCollection<LineString> {
 }
 
 function push(map: MlMap) {
+  const started = performance.now();
   const src = map.getSource(SOURCE) as { setData?: (d: unknown) => void } | undefined;
-  src?.setData?.(collection());
+  const data = collection();
+  src?.setData?.(data);
+  drawn = data.features.length;
+  lastSetDataMs = performance.now() - started;
+}
+
+/* Eight cells can land in one `moveend`; each used to rebuild and re-index every
+   loaded route. One push per frame, like the practical pins. */
+function schedulePush(map: MlMap) {
+  const token = pushToken;
+  window.requestAnimationFrame(() => {
+    if (token !== pushToken) return;
+    if (!map.getSource(SOURCE)) return;
+    push(map);
+  });
 }
 
 export function addTrails(map: MlMap, layers: LayerState): void {
@@ -99,7 +117,10 @@ export function addTrails(map: MlMap, layers: LayerState): void {
       paint: {
         "line-color": "#05090e",
         "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 1.2, 14, 4.2],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0.25, 10, 0.7],
+        // A whole range's route network at full strength is a gold web, not a
+        // map. The casing and the line both build from a hint at z8.5 to the
+        // real thing by z12, where individual routes are what you came for.
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0.12, 10, 0.32, 12, 0.62],
       },
     },
     before,
@@ -113,8 +134,8 @@ export function addTrails(map: MlMap, layers: LayerState): void {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": "#d8b477",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 0.6, 14, 2.2],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0.55, 10, 0.95],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 0.4, 14, 2],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0.3, 10, 0.5, 12, 0.85],
       },
     },
     before,
@@ -124,13 +145,13 @@ export function addTrails(map: MlMap, layers: LayerState): void {
       id: "trail-route-label",
       type: "symbol",
       source: SOURCE,
-      minzoom: 10.5,
+      minzoom: 11.5,
       filter: ["!=", ["get", "n"], ""] as unknown as ExpressionSpecification,
       layout: {
         "symbol-placement": "line",
         "text-field": ["get", "n"],
         "text-font": ["Noto Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 10.5, 9.5, 16, 12.5],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 11.5, 9.5, 16, 12.5],
         "text-letter-spacing": 0.04,
         "text-padding": 4,
         "symbol-spacing": 280,
@@ -142,14 +163,14 @@ export function addTrails(map: MlMap, layers: LayerState): void {
         "text-color": "#eddbb8",
         "text-halo-color": "#040906",
         "text-halo-width": 1.6,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 10.5, 0, 11.3, 1],
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 11.5, 0, 12.2, 1],
       },
     },
     before,
   );
 
   setTrailLayers(map, layers);
-  if (loaded.size) push(map);
+  if (loaded.size) schedulePush(map);
 }
 
 export function setTrailLayers(map: MlMap, layers: LayerState): void {
@@ -205,7 +226,7 @@ export function refreshTrails(map: MlMap): void {
           .filter((f): f is Feature<LineString> => Boolean(f));
         misses.delete(key);
         loaded.set(key, features);
-        push(map);
+        schedulePush(map);
       })
       .catch((err: unknown) => {
         misses.set(key, retryAt(err));
@@ -215,7 +236,16 @@ export function refreshTrails(map: MlMap): void {
 }
 
 export function resetTrails(): void {
+  pushToken += 1;
   loaded.clear();
   pending.clear();
   misses.clear();
+  drawn = 0;
+  lastSetDataMs = 0;
+}
+
+export type TrailStats = { cells: number; drawn: number; lastSetDataMs: number };
+
+export function trailStats(): TrailStats {
+  return { cells: loaded.size, drawn, lastSetDataMs };
 }

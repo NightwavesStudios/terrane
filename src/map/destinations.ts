@@ -3,6 +3,7 @@ import {
   DEST_COLOUR,
   DESTINATION_CATS,
   placesToRows,
+  registerDestinationPoints,
   registerDestinationSearch,
   type FeatureRow,
 } from "../data/features";
@@ -202,6 +203,9 @@ export function addDestinations(map: MlMap): void {
         "text-max-width": 9,
         "text-padding": 6,
         "text-optional": true,
+        // Earlier bands (smaller `lz`) win a collision, then the shorter name:
+        // "Everest" should beat a six-word ridge label for the same pixel.
+        "symbol-sort-key": ["+", ["get", "lz"], ["length", ["get", "n"]]],
       },
       paint: {
         "text-color": "#d7e7f5",
@@ -315,3 +319,4 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
 
 /* Search indexes the destinations that have actually loaded. */
 registerDestinationSearch(() => [...atlasRows, ...coreRows, ...moreRows]);
+registerDestinationPoints(() => [...atlasRows, ...coreRows, ...moreRows]);
