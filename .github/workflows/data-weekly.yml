@@ -54,7 +54,7 @@ jobs:
           --shard=${{ matrix.shard }}/12
           --deadline=10800
           --state-export=harvest-state-${{ matrix.shard }}.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: poi-${{ matrix.shard }}
@@ -117,7 +117,7 @@ jobs:
       - run: node scripts/coverage-report.mjs --strict
       - run: node scripts/validate-data.mjs
       - run: node scripts/upload-changed.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
