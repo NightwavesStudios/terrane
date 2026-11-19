@@ -23,8 +23,14 @@ export interface Place {
   featured?: boolean;
   /** Hand-written field guide, as opposed to a structured atlas record. */
   curated?: boolean;
+  /** True for the hand-written field guides, so provenance survives ranking. */
+  editorial?: boolean;
+  /** Reveal band (0 world … 5 tail), assigned by `rankPlaces`. */
+  band?: number;
   /** Wikidata item, for atlas records. */
   wd?: string;
+  /** Every other row that described this same place, so a merge keeps its sources. */
+  also?: { src?: "atlas" | "editorial" | "wikidata"; id?: string; name?: string }[];
 }
 
 export const TYPE_LABEL: Record<PlaceType, string> = {
@@ -78,6 +84,8 @@ const CURATED: Place[] = [
     tagline: "The most photographed rock face in South America.",
     difficulty: 4,
     hue: 205,
+    wd: "Q215138",
+    also: [{ src: "atlas", id: "Q215138", name: "Mount Fitz Roy" }],
   },
   {
     slug: "tre-cime",
@@ -911,6 +919,7 @@ interface AtlasRow {
   lat: number;
   lon: number;
   elevation: number | null;
+  also?: { src?: "atlas" | "editorial" | "wikidata"; id?: string; name?: string }[];
 }
 
 const COUNTRY_FIX: Record<string, string> = {
@@ -963,22 +972,16 @@ const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
     hue: (HUE_BY_TYPE[row.type] + (hash(row.slug) % 34) - 17 + 360) % 360,
     curated: false,
     wd: row.wd,
+    also: row.also,
   };
 });
 
 export const PLACES: Place[] = [
-  ...CURATED.map((p) => ({ ...p, curated: true })),
+  ...CURATED.map((p) => ({ ...p, curated: true, editorial: true })),
   ...ATLAS,
 ];
 
-export const CURATED_COUNT = CURATED.length;
-export const CURATED_PLACES = PLACES.filter((p) => p.curated);
-
 export const bySlug = new Map(PLACES.map((p) => [p.slug, p]));
-
-export const FEATURED = PLACES.filter((p) => p.featured);
-
-export const GEORGIA = PLACES.filter((p) => p.region?.includes("Georgia"));
 
 export const COUNTRY_COUNT = new Set(PLACES.map((p) => p.country)).size;
 
@@ -1022,7 +1025,7 @@ export type Around = {
 
 /**
  * What is around a place, computed from the atlas rather than from a trail or POI
- * dataset: one pass over the 1,288 rows, keep what falls inside the radius, group
+ * dataset: one pass over the destination rows, keep what falls inside the radius, group
  * by the activity its type implies, and take the closest few for the list.
  *
  * Deliberately a proxy. There is no route database behind this, so the honest

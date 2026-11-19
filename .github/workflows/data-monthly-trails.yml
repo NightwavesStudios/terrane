@@ -1,0 +1,39 @@
+name: data monthly trails
+
+on:
+  schedule:
+    - cron: "23 4 2 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: terrane-data
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  trails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      POI_BUCKET: ${{ secrets.POI_BUCKET }}
+      POI_UPLOAD_TOKEN: ${{ secrets.POI_UPLOAD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: npm ci
+      - run: node scripts/fetch-source-state.mjs
+      - run: python3 scripts/sources/nps.py
+      - run: python3 scripts/sources/usfs.py trails
+      - run: python3 scripts/sources/blm.py trails
+      - run: python3 scripts/merge-sources.py
+      - run: node scripts/build-manifest.mjs
+      - run: node scripts/coverage-report.mjs
+      - run: node scripts/upload-changed.mjs

@@ -2,15 +2,16 @@
 
 **The world, worth the detour.**
 
-An interactive globe for exploring mountains, national parks, natural landmarks and
-hidden gems — outdoors-first, no listicles. Peaks lead: over half the map is summits,
-and nothing on it is a city or a building. Spin the globe, click a light, land
+An interactive globe for exploring what is worth going outside for: peaks, ranges,
+parks, coastlines, campsites, water and parking. Spin the globe, click a point, land
 somewhere.
 
-Currently **1,288 places across 156 countries**: 68 hand-picked entries plus 1,220
-national parks, peaks and natural landmarks generated from Wikidata. Over half the
-map — 663 points — is peaks, and they are ranked by topographic prominence rather
-than raw height, so the set is major summits and not every high shoulder.
+**9,395,664 places in 29 categories**, one model: 24,540 destinations (1,218 atlas
+rows, 68 hand-written entries and a 23,254-row Wikidata long tail) and 9,371,124
+mapped places from OpenStreetMap. Peaks, parks and landmarks lead; the practical categories are what
+you need once you are there. Coverage is uneven, and
+[Sources, coverage and freshness](#sources-coverage-and-freshness) says exactly
+where.
 
 > **Status — facts only.** Written field guides are deliberately *not* in the product.
 > Place pages show type, high point, country and coordinates, and nothing invented.
@@ -25,7 +26,8 @@ than raw height, so the set is major summits and not every high shoulder.
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm run build      # tsc -b && vite build  → dist/
+npm run build      # seo + manifest + validate + tsc + vite → dist/
+npm run audit      # data density, duplicates and freshness → reports/
 npm run preview    # serve the production build
 npm run single     # bundle dist/ into one self-contained terrane.html (~2 MB)
 npm run atlas      # regenerate src/data/atlas.json (needs python3, ~35s)
@@ -134,8 +136,8 @@ bg → land-base → landcover-{wood,grass,farmland,ice,rock,sand}
 → contours-{minor,major}
 → water → waterway → boundary-{country,state} → water-label
 → road-{minor,major,highway} → trails-{casing,path} → label-{country,state,city}
-→ places-heat → places-halo → places-dot → places-curated
-→ places-selected → places-label-top → places-label
+→ features-dot-{0,1.8,3.4,5,6.8,8.4,10} → features-label-{0,2.8,4.4,6,7.8,9.4,11}
+→ mapped-<category> → mapped-label-{early,late} → pick-ring
 ```
 
 The hillshade sits **above every land polygon and below the snow**. That is the
@@ -194,8 +196,9 @@ state labels from 5.5, city labels from 5. Coastlines come from
 
 ### `src/map/Globe.tsx`
 
-Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus`
-(`{lon, lat, zoom, key}` — the chip bar uses this to fly home or to Georgia).
+Props: `places` (already filtered and ranked), one `pick`, `onPick`, optional
+`focus` (`{lon, lat, zoom, key}` — the chip bar uses this to fly home or to the
+visitor's country).
 
 - **Init** happens once: globe projection (`setProjection({type:"globe"})`),
   `center [12, 22]`, `maxZoom 16`, `attributionControl: false` (attribution is
@@ -209,9 +212,9 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   window fills the stage instead of floating a small globe in black.
 - **Bootstrap** runs on `style.load`, again on `load`, and once more on a 2.5 s timer
   if `isStyleLoaded()` — a `booted` ref makes it idempotent. Inside it: the
-  `hillshade` layer, `setSky` (atmosphere), the `places` and `selected` GeoJSON
-  sources, and the place layers. Each risky call is individually try/caught so a
-  browser without hillshade or sky support still gets a working globe.
+  `hillshade` layer, `setSky` (atmosphere), the `features`, `mapped` and `pick`
+  sources, and every category layer. Each risky call is individually try/caught so
+  a browser without hillshade or sky support still gets a working globe.
 - **Relief comes from one hillshade — no terrain mesh.** A `relief` DEM source
   (`encoding: "terrarium"`, `tileSize: 512`, `maxzoom: 14`) feeds
   `relief-hillshade`, added as soon as the style lands.
@@ -336,9 +339,8 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     zoom level via `line-opacity` ramps (`style.ts`).
   - Marker dots and both label tiers fade in over a zoom range rather than popping
     at a threshold.
-  - `places-heat` stops at z4.7 and `places-halo` at z9.5. Both are `circle-blur`
-    layers costing per-feature work on 1,288 points; once they are fully
-    transparent there is no reason to keep evaluating them.
+  - A layer past its band is at `minzoom`, not merely transparent, so there is no
+    per-feature cost for a category you have zoomed out of.
   - **No hit-testing mid-gesture.** `mousemove` used to run a 3-layer spatial query
     on every pointer event — ~60 a second, and during a wheel zoom the pointer is
     always moving, so it ran through the entire gesture. It now bails while
@@ -348,12 +350,10 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
     each `setPitch` re-renders the whole camera, so doing it every frame doubled
     the work of a gesture.
 
-- **Label layers must not overlap.** `places-label-top` draws tier 1 from z1.2 and
-  `places-label` draws the remaining curated set from z3.8. The second one's filter
-  is `curated == 1 AND tier != 1` — without the `tier != 1` exclusion every featured
-  place got two identical labels at the same offset, and the two layers fought for
-  symbol placement frame by frame (text flickering over the Alps). Verified at z4.5:
-  zero rendered names appear in both layers.
+- **A name is drawn by exactly one label layer.** Each band filters on `lz == band`
+  and carries its own `minzoom`, so a feature cannot be placed twice. The previous
+  pair needed a `tier != 1` exclusion to stop every featured place getting two
+  labels at the same offset; the band property makes that impossible by construction.
 - **Zooming is camera travel.** `pitchForZoom(z)` tilts the camera from level at
   planet scale to 55° over a range, so the same continuous zoom reveals relief
   instead of switching modes. The tilt is applied when the camera comes to rest
@@ -364,26 +364,39 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
   `setPitch` mid-flight cancels the flight, which is what once stopped selections
   at zoom 2 instead of 6.4. It also hands over permanently the moment the user
   pitches by hand (`pitchstart` with an `originalEvent`).
-- **Markers are GPU geometry, not DOM, and they reveal themselves.** 1,288 DOM
-  markers would crawl, so places are one GeoJSON source drawn by:
-  - `places-heat` — large blurred discs that pile up into a density wash where the
-    world is busy; fades out by zoom 3.6.
-  - `places-dot` — the points themselves, `minzoom 2`, fading in from zoom 2 to 2.9,
-    so world view stays quiet instead of becoming a database dump.
-  - `places-curated` — a fine white ring on the curated set at every zoom, so those
-    stay findable at planet scale.
-  - `places-label-top` — the eight featured places, from zoom 1.5;
-    `places-label` — the rest of the curated set, from 4.2. Labels arrive in stages.
-  Colours come from a `match` expression on `type`: peaks `#eaf7ff`, parks
-  `#57f0b2`, landmarks `#ffc766`, gems `#c99bff`.
-- **Clicking** queries `queryRenderedFeatures` over an 18×18 px box around the cursor
-  (a 9 px radius, generous for touch and for 1.3 px dots), then calls `onSelect` with
-  the feature's `slug`. `mousemove` sets a pointer cursor over the same hit test.
-- **Selection** writes one feature into the `selected` source and `flyTo`s it —
-  `zoom max(current, 4.6)`, with `padding` on the right at desktop widths so the place
-  card doesn't cover the marker, and bottom padding on narrow screens.
-- **Filtering** just calls `setData` on the `places` source when the `places` prop
-  changes; nothing is re-created.
+- **Markers are GPU geometry, not DOM.** 9.4 million DOM markers would not just
+  crawl, they would not fit. Destinations are one GeoJSON source (`features`) drawn
+  by seven dot bands and seven label bands; practical places are a second source
+  (`mapped`) with one icon layer per category and two label bands. A band is a zoom,
+  not a class of place.
+- **Reveal is by importance, then by zoom.** `src/data/bands.json` is the one band
+  table: eight-figure mountains get the largest circle at the planet view, each
+  later band draws smaller, and every band starts within 1.8 zoom levels of the
+  previous one, so the map fills steadily instead of showing nothing and then
+  10,000 dots. Band 0 is one row per z4 cell, so the world view is spread across
+  every continent instead of being the Himalaya. Atlas depth is capped per z5 and
+  z6 cell; the Wikidata tiers are capped per cell too (one Alpine cell holds 1,415
+  tier-3 rows) and overflow to one later band. Nothing waits behind a separate
+  switch because of where it was harvested.
+- **Size means rank.** The dot radius is the zoom's base radius multiplied by the
+  band's scale (1.0 at band 0 down to 0.3 at the tail), and label size follows the
+  same order. Two dots at the same zoom are no longer the same size just because
+  both are peaks.
+- **One click, one card.** Every layer carries the same `cat` property, so the hit
+  test is one query over the destination and practical layers and hands back the same
+  `Pick` shape. A summit with a page and a campsite without one open the same card;
+  only the action differs.
+- **Category switches are filters and visibility.** Destination dots share their
+  layers, so turning a destination category off updates the filter on ten layers.
+  Practical categories own a layer each, so switching one is a layout property.
+  Turning everything off is one master, not four.
+- **Filtering the chips** changes only the ranked atlas half: the chips answer "what
+  should I go and see", while the practical categories are chosen in the Layers
+  panel. Re-ranking calls `setAtlasPlaces`, which replaces the atlas rows without
+  touching the long tail or the loaded cells.
+- **Selection** writes one feature into the `pick` source — a ring on the spot — and
+  flies the camera: z14.2 for a destination with a page, z12.6 for a long-tail or
+  practical pin, with padding so the card does not cover the marker.
 - **Resizing** is handled by a `ResizeObserver` calling `map.resize()`.
 - In dev, the map is exposed as `window.__terraneMap` for console debugging.
 
@@ -391,96 +404,139 @@ Props: `places` (already filtered), `selected` slug, `onSelect`, optional `focus
 
 ## Data
 
+### One model, 29 categories
+
+Everything the map draws is a **feature**: a point with a category.
+
+| Field | Meaning |
+| --- | --- |
+| `cat` | one id from `src/data/categories.json` |
+| `name?` | display name; empty for plenty of mapped pins |
+| `lat`, `lon` | decimal degrees |
+| `dot`, `lz` | zoom its dot and its name appear at |
+| `slug?` | page to read, when there is one |
+| `near?` | slug of the nearest destination, when recorded |
+| `note?` | mapped facts (fee, capacity, facilities) for a pin card |
+| `elev?`, `hue?` | metres, and the seed for generated art |
+| `src` | `editorial`, `atlas`, `wikidata` or `osm` |
+
+`src` exists for provenance and confidence. It never decides which switch a pin
+belongs under, which card it opens, or what it is called on screen.
+
+`src/data/categories.json` is the whole taxonomy and the only list the map, the
+layer panel, the cards and the search read:
+
+- **Destinations (16):** peak, volcano, range, valley, park, reserve, landmark,
+  waterfall, lake, glacier, cave, canyon, beach, island, desert, hot spring.
+- **Places to stay & use (13):** campsite, caravan site, mountain hut, shelter,
+  water, toilets, shower, parking, viewpoint, picnic site, mountain pass,
+  trailhead, information board.
+
+The old interface had four point products — "Named places", "Famous places",
+"Everything mapped", "Camps nearby". They were four harvests of one class of thing.
+There is now one master switch, two group masters and one row per category.
+
 ### `src/data/places.ts`
 
-Defines the model and assembles the dataset. `Place`:
+The 68 hand-written entries plus the 1,218 atlas rows, as before. Both are now
+**destinations**, with no special ranking weight:
 
-| Field | Type | Present on | Meaning |
-| --- | --- | --- | --- |
-| `slug` | `string` | all | URL key, unique across both tiers |
-| `name` | `string` | all | display name |
-| `type` | `"peak" \| "park" \| "city" \| "landmark" \| "gem"` | all | drives colour, filters, copy |
-| `region` | `string?` | curated | state / province / range, shown under the name |
-| `country` | `string` | all | normalised display country |
-| `lat`, `lon` | `number` | all | decimal degrees |
-| `elevation` | `number?` | most | metres; the "high point" |
-| `tagline` | `string` | all | one line; still used by Explore search, no longer rendered as a field note |
-| `difficulty` | `1..5?` | curated | effort badge on cards only |
-| `hue` | `number` | all | 0–359, seeds the generated ridge art |
-| `featured` | `boolean?` | curated | leftover from the pre-globe layout |
-| `curated` | `boolean?` | all | `true` for the hand-written set, `false` for atlas rows |
-| `wd` | `string?` | atlas | Wikidata Q-id, useful for provenance |
+- `CURATED` is still 68 entries, 51 of them in the United States and 33 in Georgia.
+  They have pages; they no longer out-rank a 4,900 m summit just for being written
+  by hand.
+- `ATLAS` maps `atlas.json` into the same `Place` shape.
+- `bySlug`, `TYPE_LABEL`, `kmApart`, `aroundPlace` and `COUNTRY_COUNT` remain.
+- `FEATURED`, `GEORGIA` and `CURATED_PLACES` are gone; they were dead exports and
+  the Georgia one was the shape of the old problem.
 
-`CURATED` is the 68-entry array at the top of the file (35 international, 33 Georgia).
-Everything in it is an outdoor destination — the cities (Kyoto, Savannah, Atlanta,
-Athens, Tromsø, Santorini) and the archaeological sites (Petra, Machu Picchu, the
-Etowah and Ocmulgee mounds) were removed.
-`ATLAS` maps `atlas.json` rows into the same shape: it normalises a handful of country
-names (`COUNTRY_FIX`), derives `hue` from a stable string hash around a per-type base
-(`HUE_BY_TYPE`), and generates a factual `tagline` from type + elevation + country.
+### `src/data/atlas.json` (generated, 1,218 rows)
 
-`PLACES = [...CURATED (flagged curated: true), ...ATLAS]` — curated first, so the
-hand-written set wins ordering everywhere.
+`{ wd, slug, name, type, country, lat, lon, elevation }` — **650 peaks, 380 parks,
+190 natural landmarks** across 156 countries. (Earlier revisions of this file said
+420 peaks and 260 landmarks; the script has shipped 650/190 for some time, and the
+README was wrong.) **Do not hand-edit**; `npm run atlas` overwrites it.
 
-Other exports:
+`scripts/build-atlas.py` queries Wikidata (CC0), requires an English Wikipedia
+sitelink, converts elevations from feet where needed, dedupes against the curated
+set, and caps **42 peaks / 15 parks / 6 landmarks per country**. It is a selection,
+not a census: 41 countries have exactly one row, 64 have two or fewer, and the
+median is three.
 
-- `TYPE_LABEL` / `TYPE_LABEL_PLURAL` — "Peak"/"Peaks" etc.
-- `DIFFICULTY_LABEL` — `["", "Gentle", "Easy", "Moderate", "Hard", "Severe"]`
-- `MONTHS` — three-letter month names
-- `bySlug` — `Map<string, Place>`, used by routes
-- `FEATURED`, `GEORGIA`, `CURATED_PLACES` — prefiltered arrays left over from the
-  pre-globe layout; currently **unused by the UI**
-- `CURATED_COUNT` — 68
-- `COUNTRY_COUNT` — distinct countries across `PLACES` (144)
-- `distanceKm(a, b)` — great-circle distance
-- `aroundPlace(place, radiusKm = 30)` — one pass over `PLACES`, keep what falls
-  inside the radius, group by the activity its type implies, return the closest
-  six. Straight-line distance from the atlas, not a route or POI database; the
-  UI says so rather than implying trail names
+### `src/data/reach.json`, `reach-more.json` (23,254 rows)
 
-### `src/data/atlas.json` (generated, 1,220 rows)
+The long tail from `scripts/harvest-reach.py`: outdoor things in Wikidata with a
+coordinate, ranked by how many Wikipedia language editions cover them.
 
-`{ wd, slug, name, type, country, lat, lon, elevation }` — 420 peaks, 380 parks, 260
-landmarks, 143 countries. **Do not hand-edit**; it is overwritten by `npm run atlas`.
+| Tier | Sitelinks | Points | Dot | Name |
+| --- | --- | ---: | --- | --- |
+| 1 | ≥ 60 | 327 | z2.8 | z5.8 |
+| 2 | 25–59 | 2,337 | z4.4 | z5.8 |
+| 3 | 10–24 | 9,351 | z6.2 | z10.4 |
+| 4 | 4–9 | 11,239 | z7.6 | z10.4 |
 
-### `src/data/curated-index.json`
+The famous half (tiers 1–2, 128 kB) loads after first paint; the tail
+(`reach-more.json`, 867 kB) is fetched the first time the camera passes z6.6, before
+its first band at z6.8. Both feed the same `features` source and the same category
+switches as the atlas.
 
-`{ slug, name, country }` for the 68 curated entries, read by the atlas builder so a
-generated record can never duplicate a hand-written one. **If you add a curated place,
-add it here too** (or the next atlas build may generate a near-duplicate).
+### `src/map/destinations.ts`
 
-### `scripts/build-atlas.py`
+Owns the destination source and its **seven dot bands and seven label bands**, all
+generated from `src/data/bands.json`. A band is a zoom, not a class: Everest and a
+2,400 m shoulder are both peaks and arrive at different times, with the earlier band
+visibly larger. Category switches are filters on those fourteen layers, so turning
+`Beaches` off is one filter update rather than hiding a whole source. `npm run
+bands` writes `reports/dot-bands.{md,json}` — band sizes, world spread and a
+1200×800 clutter estimate for Europe, the Alps, Georgia and the Himalaya.
 
-```bash
-npm run atlas        # ~30–40 s, one SPARQL round trip per type
+### `src/map/mapped.ts`
+
+The practical half, one JSON file per z6 cell, fetched as you look at it.
+
+```
+public/poi/6/{x}/{y}.json           # [lat, lon, kindIndex, name?]
+public/poi/6/{x}/{y}.parking.json   # parking, fetched only past z14.4
 ```
 
-1. **Queries Wikidata** (`https://query.wikidata.org/sparql`, CC0) for three sets:
-   - **peaks** — `P31 = Q8502` (mountain) with an elevation `P2044` above 1,700 m,
-     ranked by **topographic prominence** `P2660` (its own SPARQL query — asking for
-     prominence alongside names and coordinates blows WDQS's budget and returns 504).
-     Elevation is read as a *quantity with its unit* and converted to metres
-     (`Q11573` = metre, `Q3710` = foot), because US summits are frequently stored in
-     feet — without this, Mount Blackburn reports 16,390 "m" instead of 4,996 m.
-   - **parks** — `P31 = Q46169` (national park), with inception `P571` if present.
-   - **landmarks** — natural features only: waterfalls `Q34038`, canyons `Q48214`,
-     volcanoes `Q8072`, glaciers `Q35666`, caves `Q35509`, deserts `Q8514`. This used
-     to be every UNESCO World Heritage site, which is how the map ended up full of
-     cathedrals, temples and cathedral treasuries.
-   - All three require an **English Wikipedia sitelink**, which filters out
-     near-empty items.
-2. **Cleans** — strips disambiguation parentheses, drops names under 3 or over 60
-   chars, keeps only rows with coordinates and a country.
-3. **Dedupes** against the curated set using a normalised key that ignores words like
-   "National Park" and "Reserve", and within each type by Wikidata Q-id.
-4. **Ranks and caps** — peaks most prominent first, parks with a known inception first,
-   then capped **per country** (`PER_COUNTRY`: 42 peaks / 15 parks / 6 landmarks)` so the
-   globe fills out worldwide rather than only in the Himalaya. Totals are
-   `TARGET`: 420 / 380 / 260.
-5. **Slugifies** to ASCII and appends the Q-id on collision, then writes
-   `src/data/atlas.json` compactly and prints counts.
+`scripts/harvest-poi-bulk.py` streams 437 Geofabrik country extracts through
+pyosmium. One row index maps to a category; the cell is fetched at most six at a
+time, only above z9.2, and never refetched. Parking has its own file, source and
+budget because it is often two thirds of a country's rows and only matters at
+street zoom.
 
-Raising `TARGET` and `PER_COUNTRY` is the one-line way to make the globe denser.
+The radius harvest (`scripts/harvest-kit.mjs`, `kit.json`, `kit-detail.json`) is
+**deleted**. It seeded camps in an 8 km circle around the atlas places of the time, which is why
+Georgia had 281 pins and Kazakhstan had almost none, and its rows had to be excluded
+from the world harvest within 60 m to avoid drawing each campsite twice.
+
+### Ranking — per cell, not per country
+
+`src/data/rank.ts` scores a place on what it is, never on which file it came from:
+height for a peak, a fixed weight for a park or landmark. `featured` and `curated`
+are output flags, assigned by that ranking.
+
+Names are capped at **two per z6 cell** for the first pass and **four more per cell**
+for the second. A country cap could not constrain a US state, which is why 33 Georgia
+entries used to win the US slots and the map named one corner of one country.
+
+### The manifest, the validator and the audit
+
+```bash
+npm run manifest   # src/data/manifest.json: counts, dates, sources, categories
+npm run validate   # schema, bounds, categories, duplicates, manifest agreement
+npm run audit      # reports/data-audit.{md,json}: density, duplicates, freshness
+npm run data:refresh
+```
+
+`npm run build` runs the manifest and the validator before `tsc`. The validator
+fails the build if a category has no records, a coordinate is out of range, a slug
+collides, the category registry and the POI kind table disagree, or the manifest
+counts drift from the files. The interface prints its counts from the manifest, so
+no number is typed into a component.
+
+`npm run audit` is read-only. It records the per-country distribution, the density
+of every z6 cell, duplicate pairs inside 50 m and 110 m, and the Georgia box, which
+is how the before/after below was measured.
 
 ---
 
@@ -516,14 +572,17 @@ target path.
 | File | Role |
 | --- | --- |
 | `Header.tsx` | Wordmark, a single `Globe` link and the place-count pill. `tone="dark"` over the globe, `"light"` on the place page. |
-| `FilterChips.tsx` | The filter bar: `All`, `Peaks`, `Parks`, then whatever `homeScope` resolved (region, country, or nothing). Landmarks and hidden gems are still on the globe and still counted in `All`; they are not chips, because four options plus home is the most that reads at a glance on a phone. Also exports `homeScope(home)` and `matches(place, filter, scope)`. |
+| `FilterChips.tsx` | `All destinations`, `Peaks`, `Parks`, plus whatever `homeScope` resolved (region, country, or nothing). The other destination categories are still on the globe and in All; a chip row is a short decision, not the full taxonomy. Also exports `homeScope(home)` and `matches(place, filter, scope)`. |
+| `MapSearch.tsx` | ⌘K search over every category: atlas and loaded Wikidata names, plus OSM pins as their cells arrive. |
+| `LayerControl.tsx` | Base switches, one master, two group masters and one row per category, with counts from the manifest. |
+| `FeatureCard.tsx` | The one card: category, name, elevation or mapped note, nearest destination and a page link when there is one. |
 | `RidgeArt.tsx` | Deterministic SVG landscape from a `hue`: gradient sky, sun glow, two ridge lines, snow caps. Uses `useId()` for unique gradient ids so many can coexist. No photography anywhere in the app. |
 
 ## Pages (`src/pages/`)
 
 | File | Role |
 | --- | --- |
-| `Home.tsx` | Owns filter + selection state, composes `Globe`, the header, the mono caption, the credits line, the filter bar and the selection card (`.pick`). Filter changes refocus the camera (the visitor's own country, or the world); selecting a place closes nothing else. |
+| `Home.tsx` | Owns filter state and the one `Pick`, composes `Globe`, the header, the manifest caption, the credits, the filter bar and `FeatureCard`. Filter changes refocus the camera (the visitor's own country, or the world). |
 | `Place.tsx` | Fact sheet. Hero art + eyebrow, optional elevation under the title, a four-cell stat grid (type / high point / country / coordinates), "Around it", and "See it on the globe" in the aside. Unknown slugs get a not-found block. |
 
 There are only two pages now. Explore was removed as a slower copy of the globe's
@@ -578,19 +637,24 @@ links `/fonts.css`, and no font is fetched from Google.
 ## Checks
 
 ```bash
-npm run build     # tsc -b (strict, noUnusedLocals) + vite build
+npm run build     # seo + manifest + validate + tsc -b + vite build
+npm run validate  # data schema, categories, duplicates, manifest agreement
+npm run audit     # reports/data-audit.{md,json}
 ```
 
-There is no test suite, no linter and no CI. Typechecking happens inside `build`.
+There is no test suite, no linter and no CI. Typechecking and the data validator
+run inside `build`.
 
-Expected build footprint: entry chunk ~434 kB JS (≈122 kB gzip, most of it the
-1,288-row atlas) plus a lazy `Globe` chunk ~1.06 MB (≈284 kB gzip) that carries
-MapLibre, and ~16.5 kB of app CSS. The globe route paints its header, filters and
-caption off the entry chunk and pulls the map in behind them; `/place/*` never
-downloads MapLibre at all.
+Expected build footprint: entry chunk ~449 kB JS (≈126 kB gzip, including the
+1,218-row atlas and the manifest) plus a lazy `Globe` chunk ~1.07 MB (≈287 kB
+gzip) that carries MapLibre, and ~18 kB of app CSS. The long tail is its own
+125 kB chunk (54 kB gzipped) and the rest of it 867 kB (376 kB gzipped). The globe
+route paints its header, filters and caption off the entry chunk and pulls the map
+in behind them; `/place/*` never downloads MapLibre at all.
 
-`npm run build` starts with `node scripts/gen-seo.mjs`, so a build always ships a
-sitemap matching the atlas. Set `SITE_URL` (e.g. `SITE_URL=https://terrane.example
+`npm run build` runs `gen-seo`, then the manifest and the data validator, so a build
+always ships a sitemap matching the atlas and cannot ship counts that disagree with
+the files. Set `SITE_URL` (e.g. `SITE_URL=https://terrane.example
 npm run build`) to make the canonical, `og:url`, `og:image` and the sitemap absolute;
 without it they stay root-relative, which is valid but not submittable to a search
 console. The placeholder `__SITE_URL__` in `index.html` is replaced by a small Vite
@@ -607,18 +671,19 @@ debugging loop (`__terraneMap.isStyleLoaded()`, `getStyle().layers`,
 
 Two controls sit on the globe, top right, below the credits line.
 
-**Search** (`⌘K` / `Ctrl-K` / `/`) — a map-first search over the 1,288 places. It
-matches name, region and country, ranks exact and prefix matches first, then curated
-places, and flies the camera to whatever you pick without leaving the globe: the
-selection ring follows and the card opens in place. Arrow keys move the cursor,
-`↵` selects, `esc` closes. It searches the 1,288 atlas places only; the camps, huts
-and water points below are drawn from map tiles and are not searchable.
+**Search** (`⌘K` / `Ctrl-K` / `/`) — a map-first search over every category. It
+matches names from the atlas and the loaded Wikidata tail, plus the OSM pins in cells
+the map has already fetched, and flies the camera to whatever you pick without
+leaving the globe: the ring follows and the one card opens in place. Arrow keys move
+the cursor, `↵` selects, `esc` closes. A cell the map has not fetched is not
+searchable, and the empty state says so rather than pretending otherwise.
 
-**Layers** — eight independent switches: `Relief` (hillshade), `Contours`,
-`Footpaths`, `Roads`, `Borders`, `Map labels`, `Places`, `Camps & huts`. They map to layer groups in
-`Globe.tsx` (`LAYER_GROUPS`); anything created at runtime (the hillshade, the contour
-layers) re-reads the current switches after it is added, so a toggle never gets lost
-to a race.
+**Layers** — six base switches (`Relief`, `Contours`, `Paths`, `Roads`, `Borders`,
+`Labels`), one `Places & pins` master, two group masters and one row per category —
+29 of them, grouped as **Destinations** and **Places to stay & use**. Destination
+rows update a filter on the shared dot/label bands; practical rows own a layer each.
+Anything created at runtime (the hillshade, the contour layers) re-reads the current
+switches after it is added, so a toggle never gets lost to a race.
 
 The grouping is by what a person sees, not by what the style calls things. The first
 version had a single `Roads & borders` switch that also owned landcover and water:
@@ -630,11 +695,11 @@ rather than as a hidden layer. Two rules came out of that:
 - **A place owns its labels.** Peak and park names used to live with the map labels,
   so turning the markers off left their names floating over empty terrain.
 
-**Clicking a place** flies all the way down to `PLACE_FOCUS_ZOOM` (z14.2) instead of
-stopping at a regional view: the point of the click is the place, and z13–14 is where
-the hillshade, the contours and the trails are worth looking at. Clicking again from
-a closer camera leaves the zoom alone, and the card opens in place with the
-selection ring on the summit.
+**Clicking any point** flies down to `PLACE_FOCUS_ZOOM` (z14.2) for a destination
+with a page and z12.6 for a long-tail or practical pin, instead of stopping at a
+regional view: z13–14 is where the hillshade, the contours and the trails are worth
+looking at. Clicking again from a closer camera leaves the zoom alone, and the one
+card opens in place with the ring on the spot.
 
 ### Contours
 
@@ -727,9 +792,21 @@ network on screen at the zoom where you are trying to read it.
 
 - **No field guides.** Deliberate. The 68 curated entries carry no prose in the data
   file, so a field-guide feature would start from a blank page, not a hidden one.
-- **Atlas coverage is a selection, not a census.** ~6,500 national parks exist; the
-  per-country caps mean 1,220 points deliberately, and a country with more than 42
-  qualifying peaks shows only its 42 most prominent.
+- **The destination set is a selection, not a census.** ~6,500 national parks exist;
+  the per-country caps mean 1,218 atlas rows deliberately. 41 countries have exactly
+  one row and the median is three. The 23,254-row long tail is ranked by Wikipedia
+  language count, which is fame, not completeness.
+- **Practical coverage is OSM coverage.** A blank cell means nobody mapped it. Europe
+  is mapped far more densely than most of Africa, South America and Central Asia, and
+  the credits line says so.
+- **The POI store is served from a preview environment.** Its production bucket has
+  no objects yet; switching the default before the 370 MB upload would blank every
+  practical pin.
+- **Two duplicate destination rows are merged, with both sources kept.** Tavan Bogd
+  is the massif whose highest point Wikidata names as Hüiten Peak, and Fitz Roy
+  existed in both the atlas and the guide; each is one row now, with the absorbed
+  row recorded in `also` (`src/data/atlas-merges.json` explains the evidence). The
+  audit reports no destination pair within 50 m, and `validate` fails if one appears.
 - **Approximate proximity.** `nearbyFor` uses planar degrees, not real geodesic
   distance — fine for a "what else is around here" teaser, wrong near the poles.
 - **Contours are capped.** They are a client-side first pass — sparse, viewport-bound
@@ -870,180 +947,74 @@ fill a chip nobody had looked at yet.
 
 ---
 
-## 23,254 more places — the long tail, ranked by how famous they are
+## Sources, coverage and freshness
 
-The 1,288 written-up places are a selection. This is the rest of the map:
-`scripts/harvest-reach.py` pulls every outdoor thing in Wikidata with a
-coordinate and an English label — 49,337 candidates — and keeps 23,254 of them.
+The map is one set assembled from three kinds of source. They do not have the same
+confidence, and the interface says so.
 
-| | |
-| --- | --- |
-| Kinds | peaks, volcanoes, ranges, lakes, waterfalls, national parks, nature reserves, beaches, glaciers, caves, canyons, islands, deserts, hot springs, valleys |
-| Source | Wikidata SPARQL, ranked by `wikibase:sitelinks` (how many Wikipedia language editions cover it) |
-| Kept | 23,254 · 2,664 famous + 20,590 tail |
-| Dropped | 1,454 that duplicate an atlas place within 1.2 km, 481 that duplicate each other within 350 m, 24,148 over the per-kind caps |
+### OpenStreetMap — systematic, not complete
 
-```bash
-python3 scripts/harvest-reach.py      # ~15 min against WDQS; responses cached in /tmp
-```
+9,371,124 practical rows from 437 Geofabrik extracts (385 countries), streamed on
+2026-11-18. The method is the strongest thing here: every extract parsed, every cell
+read back and validated, no failures, no seed list.
 
-**Fame is the tier.** Sitelink count is the cheapest free stand-in for "have I
-heard of this", and it is close to what a zoom level needs to know:
+It measures **mapping effort, not ground truth**:
 
-| Tier | Sitelinks | Points | Appears at |
-| --- | --- | --- | --- |
-| 1 | ≥ 60 | 327 | z4.4 |
-| 2 | 25–59 | 2,337 | z6.0 |
-| 3 | 10–24 | 9,351 | z7.8 |
-| 4 | 4–9 | 11,239 | z9.2 |
+- Europe has 3.2 M parking rows; Africa has 66 k.
+- 1,053,188 information boards against 17,024 trailheads.
+- 86,373 camping and hut features mapped as relations (multipolygons) are not
+  placed at all.
 
-Names arrive later than dots: tiers 1–2 are named from z5.8, tiers 3–4 from z10.4.
-That is the whole trick — at country scale you see Fuji, not the 2,400 m shoulder
-next to it, and the shoulder only has to compete for space when there is space.
+So a blank cell means "nobody mapped it", not "nothing is there". That is why the
+credits line says coverage varies by region.
 
-**Four colours, not fifteen.** A dot is four pixels across: it can say rock, water,
-green or sand and nothing more. Peaks, volcanoes, ranges, caves and canyons are
-rock; lakes, waterfalls, glaciers and springs are water; parks, reserves, islands
-and valleys are green; beaches and deserts are sand.
+### Wikidata — a selection, twice
 
-**Two files, one switch.** The famous half is `reach.json` (128 kB, 54 kB gzipped)
-and loads while the globe is idle; the tail is `reach-more.json` (867 kB, 376 kB
-gzipped) and is fetched the first time the camera passes z7.2 — the zoom its tiers
-start appearing at. Both live behind **More places** in the layers panel, so a
-reader who only wants the atlas can switch 23,000 dots off in one click.
+- The atlas is 1,218 rows, capped per country and filtered to items with an English
+  Wikipedia article. It is English-documentation-biased by construction.
+- The long tail is ranked by Wikipedia language count. It has no country field and
+  no per-country balance: 3,800 lakes, 2,600 islands and 965 beaches, heavily
+  Europe and Japan.
 
-Clicking one rings it, flies to z12.6 and opens a card with the kind, the name and
-the nearest written-up place, which is the only page there is to offer: these
-entries have no field guide behind them. That is the honest difference between
-this set and the atlas — one is written, the other is mapped.
+Coordinates are Wikidata's, not surveyed. Deduplication is a grid hash at ~55 m plus
+the harvest's own 1.2 km exclusion against the atlas; the audit reports zero
+remaining pairs within 50 m.
 
-**Measured**: 2.05 fps with the tail visible at z8.5 against 2.15 hidden, which is
-the run-to-run spread on this software renderer; the hillshade is still the frame.
+### Editorial — 68 pages, no privilege
 
-## The whole world's POIs — one file per cell, fetched as you pan
+The hand-written entries exist for the places worth a page. After the ranking change
+they carry no bonus: 33 Georgia entries now compete in their own cell like everyone
+else, and the always-on white ring on the curated set is gone. World view shows the
+best row in each z4 cell, wherever the cell is, so the planet is not one mountain
+range with a handful of dots.
 
-The campsites added earlier were harvested in a radius: 8 km around each written-up
-place. That is why Georgia had far more than Kazakhstan — coverage followed the
-atlas, not the ground. Nothing was ever added by hand; the shape of the seed list
-made it look that way.
+### Updated when someone runs it
 
-`scripts/harvest-poi.py` has no seed list. It asks OpenStreetMap (Overpass) for
-every campsite, mountain hut, wilderness hut, shelter, drinking water, spring,
-viewpoint, picnic site and pass inside a grid cell, and writes the answer to its
-own small file:
+There is no CI, no cron and no nightly job. Every dataset is a manual script run, and
+the old claim that the harvest writes cells every night was never true in this repo.
 
-```
-public/poi/6/{x}/{y}.json    # [lat, lon, kind, name?] — a z6 cell is ~600 km across
-```
+- `npm run data:refresh` chains the atlas, the reach harvest, the bulk harvest, the
+  merge, the report, `poi:stats` and the validator.
+- `src/data/manifest.json` records `generatedAt`, the OSM day and both source dates.
+  The globe hint prints the OSM date, so staleness is visible rather than implied.
+- The practical cells are served from the published **preview** environment of the
+  POI bucket (`VITE_POI_BASE` can point elsewhere). Its production environment has
+  no objects yet: switching the default to production before uploading 370 MB would
+  blank every practical pin. That upload is the outstanding deployment step.
 
-The browser fetches a cell the first time the camera looks at it (`src/map/poi.ts`,
-on `moveend`, only above z9.2, at most six cells per pass) and never refetches it.
-Coverage is global without a global download: at full coverage the set is roughly
-1.5 M rows in ~40 MB of cells, of which a visit touches a handful.
+### What the change removed, measured
 
-Kinds gate the zoom, because a water tap is worthless at regional scale:
+`npm run audit` before and after:
 
-| camp · hut | pass | shelter | viewpoint | picnic | water |
-| --- | --- | --- | --- | --- | --- |
-| z10.6 | z11.4 | z12.4 | z13.0 | z13.4 | z13.8 |
+| | Before | After |
+| --- | ---: | ---: |
+| Point systems in the UI | 4 | 1 model, 29 categories |
+| Georgia box: radius pins | 281 | 0 |
+| Georgia box: atlas / Wikidata | 3 / 71 | 3 / 71 |
+| Name caps | 2 + 6 per country | 2 + 4 per z6 cell |
+| Duplicate pairs ≤ 50 m | 1 | 1 |
+| Categories with no records | 0 | 0 |
 
-Camps and huts keep `icon-allow-overlap` — hiding one to make room for another is a
-loss. Water, viewpoints and picnic tables collide, because a city has hundreds and
-the pins would become a wall of droplets.
-
-Rows within ~60 m of the radius harvest are dropped at harvest time, so a campsite
-beside a written-up summit is drawn once and not twice. The world set also fills
-the **World POIs** switch in the layer panel, separate from the radius set, so
-either can be turned off.
-
-### Status, plainly
-
-The pipeline is finished and proven: the Georgia box returned **19,078 rows** in 58
-seconds, against 97 from the radius harvest of the same ground — a 197× difference
-on the exact area that looked wrong. Those two cells ship in `public/poi/`.
-
-The whole planet is not done, and the reason is the source rather than the code: a
-z6 cell is one Overpass query, the public endpoint queues ~40 s per query and then
-starts answering `502`/`429`, so 4,096 cells is an hours-long unattended job, not
-something a single session finishes. It is resumable at any point — every answer is
-cached in `/tmp/terrane-poi-cache`, finished cells are skipped, and the browser
-picks up new cells with no code change:
-
-```bash
-python3 scripts/harvest-poi.py --workers=2                 # continue: whole planet
-python3 scripts/harvest-poi.py --bbox=5.5,44,15.5,48       # or one region
-```
-
-For a one-shot global fill, Geofabrik's country `.osm.pbf` extracts plus
-`pyosmium` avoid the queue entirely (no request limits, ~40 GB to stream through
-country by country). That is the path to run if this needs to be finished quickly,
-and it is a different script, not a change to this one.
-
-## Camps, huts, water and parking — 6,013 places to sleep, drink and park
-
-The atlas answers "where should I go". It does not answer "where do I sleep, where
-do I fill water, where do I leave the car" — so `scripts/harvest-kit.mjs` harvests
-those from the `poi` layer of the OpenFreeMap vector tiles around every place in the
-atlas, and writes them to `src/data/kit.json` + `src/data/kit-detail.json`.
-
-```bash
-npm run kit                     # harvest (tiles cached in /tmp/terrane-kit-tiles)
-npm run kit -- --radius=3       # wider net: 7×7 z14 tiles per place, ~11 km
-npm run kit -- --refresh        # ignore the tile cache
-```
-
-**Why bake instead of styling the tile layer.** The schema only carries POIs in its
-z14 tiles (measured against the live tiles: 0 features at z11.2, 29 railways at z13,
-1,600+ at z14.3), so a style-driven `poi` layer can never show a camp at country
-scale and can never rank one camp above another. Baking the features lets us harvest
-a wider area — a 5×5 grid of z14 tiles per place, ~8 km — and give every one a tier.
-
-**Priority is the whole point.** A tier is a zoom band, not a category:
-
-| Tier | What is in it | Features | Appears at |
-| --- | --- | --- | --- |
-| 0 | Named camps, huts and shelters within 1.5 km of a written-up place | 36 | z9.6 |
-| 1 | Every named camp and hut within 6 km of a place | 1,765 | z11.4 |
-| 2 | Remaining named camps, all shelters, named water and parking | 1,431 | z12.9 |
-| 3 | Unnamed water, parking, picnic tables | 2,781 | z14.2 |
-
-So the map is nearly empty of kit at country scale and only becomes dense where
-someone has zoomed in to look at a valley. Within a tier, pins never disappear to
-collision (`icon-allow-overlap`): a camp that exists but was not drawn is worse than
-two camps overlapping — the tiers are what keep the screen readable, not placement.
-
-Names follow the same rule: anchors are named from z10.3, everything else from z13.4.
-
-**Caps.** A 5×5 tile grid around a town landmark catches every car park within 8 km —
-9,655 parking spots worldwide, 71% of the raw harvest. Nobody needs the fifth-nearest
-tap either, so the nearest 4 water points, 3 car parks and 2 picnic sites per place are
-kept and the rest dropped. Camps, huts and shelters are never capped: there are never
-too many of them.
-
-**Two files, two decisions.** Tiers 0–2 ship as `kit.json` (165 kB, 72 kB gzipped) and
-load while the globe is idle; tier 3 is `kit-detail.json` (81 kB, 33 kB gzipped) and is
-fetched the first time the camera goes past z13.8. Together they were one 107 kB
-chunk; apart, neither the first frame nor the first zoom pays for the other.
-
-Cost, measured at z12.6 / pitch 0 with a continuous bearing spin and alternating
-samples: **3.83 fps with the whole kit visible, 3.63 with it hidden** — within the
-run-to-run spread, because the frame is still hillshade fill. (This VM renders in
-software; only the comparison transfers.)
-
-**Focusing a pin.** Every one of the 6,013 is clickable, at every tier, whether or
-not it has a name. A click puts a mint ring on the spot, flies the camera to z15
-(the zoom where a tent icon becomes a clearing with a track to it), raises the
-pointer cursor while you hover, and opens a card with the kind, the OSM name, how
-far the nearest written-up place is, and a button through to that place's page.
-Escape or the × closes it; clicking an atlas dot swaps the pin card for the place
-card. The payload travels with the click (kind, name, coords, nearest place), so
-there is no lookup table and no second request — the ring is a one-feature source
-next to the pins rather than a rewrite of the 3,232-feature one.
-
-**Where it can be wrong, plainly.** Coverage is a radius around our 1,288 places, not
-the whole planet: pan somewhere with no atlas place within 8 km and the kit is empty
-there. Trails are *not* duplicated into it — the basemap already draws every path from
-`transportation` at z11.4 and names them from `transportation_name` at z12.4, and a
-second copy would double the lines and the labels. Names come through as OSM has them
-(so a Hebrew or Japanese camp name stays in its own script); the map's glyph stack
-covers those ranges.
+The destination density is honest, not even: the fullest z6 cell (the Alps) holds
+2,267 destinations against a median of 5. Capping names per cell keeps that from
+becoming a wall of labels; it does not pretend the underlying mapping is uniform.

@@ -16,3 +16,11 @@ public/.poi-previous
 # Python bytecode from the harvest script
 __pycache__/
 *.pyc
+
+# Normalized source rows are reproduced by the adapters, not committed.
+data/sources/*.ndjson
+data/sources/*.ndjson.gz
+data/upload-manifest.json
+
+# Trail cells work like the POI cells: generated, uploaded to object storage.
+public/trails/

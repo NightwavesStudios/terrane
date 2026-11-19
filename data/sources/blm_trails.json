@@ -1,0 +1,31 @@
+{
+ "id": "blm_trails",
+ "name": "Bureau of Land Management GTLF public trails",
+ "licence": "Public domain (US Government)",
+ "family": "trails",
+ "coverage": "United States BLM land",
+ "endpoint": "https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer",
+ "cadence": "monthly",
+ "expected": 19000,
+ "gate": {
+  "min": 15000,
+  "field": "raw"
+ },
+ "note": "Layers 2–7: motorized, non-motorized, non-mechanized and unassessed trails",
+ "fetchedAt": "2026-11-19T02:00:00+00:00",
+ "updated": "2026-11-19",
+ "raw": 37138,
+ "fetched": 42671,
+ "placed": 42671,
+ "rejected": {},
+ "unaccounted": 0,
+ "bytes": 35580070,
+ "layers": {
+  "motorized": 2320,
+  "limited motorized": 5807,
+  "non-motorized": 3567,
+  "non-mechanized": 2664,
+  "not assessed": 6689,
+  "managed public": 21624
+ }
+}

@@ -66,12 +66,11 @@ export default function FilterChips({
   tone: "dark" | "light";
   scope?: HomeScope | null;
 }) {
-  /* Peaks and parks only. Landmarks and hidden gems are still on the globe and
-     still counted in "All", but they are not what anyone opens this to find, and
-     a chip row is a decision — four options plus one for home is already the
-     most that reads at a glance on a phone. */
+  /* Destination categories only: the practical pins are switched in the Layers
+     panel, not narrowed here. Peaks and parks lead because they are what people
+     open this for; the rest are one chip away in the layer list. */
   const filters: { id: Filter; label: string }[] = [
-    { id: "all", label: `All ${PLACES.length.toLocaleString()}` },
+    { id: "all", label: "All destinations" },
     { id: "peak", label: TYPE_LABEL_PLURAL.peak },
     { id: "park", label: TYPE_LABEL_PLURAL.park },
   ];

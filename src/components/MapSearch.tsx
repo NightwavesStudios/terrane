@@ -1,28 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PLACES, TYPE_LABEL, type Place } from "../data/places";
+import { categoryLabel, searchAll, type Pick } from "../data/features";
 
 /**
- * Map-first search. Opens from the globe (or with ⌘K / "/"), fuzzy-ish matches on
- * name, region and country, and flies the camera to whatever you pick — the card
- * opens without leaving the globe.
+ * Map-first search over every category.
  *
- * It searches the places we actually hold. Mountain ranges and trails are their
- * own records in the planned geographic database and are not searchable yet.
+ * The atlas and the loaded Wikidata tail are searched by name; OSM pins join the
+ * index as their cells arrive, so a camp you can see is a camp you can find. A
+ * cell the map has not fetched cannot be searched, and the empty state says so
+ * rather than pretending the world is only what is already in memory.
  */
-function rank(p: Place, term: string) {
-  const name = p.name.toLowerCase();
-  if (name === term) return 0;
-  if (name.startsWith(term)) return 1;
-  if (p.curated) return 2;
-  if (name.includes(term)) return 3;
-  return 4;
-}
-
-export default function MapSearch({
-  onPick,
-}: {
-  onPick: (place: Place) => void;
-}) {
+export default function MapSearch({ onPick }: { onPick: (pick: Pick) => void }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -56,21 +43,10 @@ export default function MapSearch({
     }
   }, [open]);
 
-  const results = useMemo(() => {
-    const q = term.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return PLACES.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.region ?? "").toLowerCase().includes(q) ||
-        p.country.toLowerCase().includes(q),
-    )
-      .sort((a, b) => rank(a, q) - rank(b, q) || a.name.localeCompare(b.name))
-      .slice(0, 8);
-  }, [term]);
+  const results = useMemo(() => searchAll(term), [term]);
 
-  function choose(place: Place) {
-    onPick(place);
+  function choose(pick: Pick) {
+    onPick(pick);
     setOpen(false);
   }
 
@@ -112,13 +88,13 @@ export default function MapSearch({
                   choose(results[cursor]);
                 }
               }}
-              placeholder="Peak, park, range or country…"
+              placeholder="Peak, park, camp, car park…"
               aria-label="Search places"
               spellCheck={false}
             />
             <ul className="search-results">
               {results.map((p, i) => (
-                <li key={p.slug}>
+                <li key={`${p.slug ?? p.cat}-${p.lat}-${p.lon}-${i}`}>
                   <button
                     className={i === cursor ? "is-active" : ""}
                     onMouseEnter={() => setCursor(i)}
@@ -126,17 +102,20 @@ export default function MapSearch({
                   >
                     <span className="search-name">{p.name}</span>
                     <span className="search-meta mono">
-                      {TYPE_LABEL[p.type]} · {p.region ?? p.country}
+                      {categoryLabel(p.cat)}
+                      {p.where ? ` · ${p.where}` : ""}
                     </span>
                   </button>
                 </li>
               ))}
               {term.trim().length >= 2 && !results.length && (
-                <li className="search-empty mono">Nothing matches “{term.trim()}”</li>
+                <li className="search-empty mono">
+                  Nothing matches “{term.trim()}” in the loaded set
+                </li>
               )}
               {term.trim().length < 2 && (
                 <li className="search-empty mono">
-                  Type two letters — peaks, parks, landmarks
+                  Every category: destinations, camps, water, parking
                 </li>
               )}
             </ul>

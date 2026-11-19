@@ -1,0 +1,25 @@
+{
+ "id": "nps_trails",
+ "name": "National Park Service public trails",
+ "licence": "Public domain (US Government)",
+ "family": "trails",
+ "coverage": "United States national parks",
+ "endpoint": "https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails/FeatureServer/0",
+ "cadence": "monthly",
+ "expected": 31377,
+ "gate": {
+  "min": 25000,
+  "field": "raw"
+ },
+ "note": "Publicly displayable trail segments with name, class, surface and use",
+ "fetchedAt": "2026-11-19T01:30:26+00:00",
+ "updated": "2026-11-19",
+ "raw": 31377,
+ "fetched": 33909,
+ "placed": 33906,
+ "rejected": {
+  "no_geometry": 3
+ },
+ "unaccounted": 0,
+ "bytes": 30859807
+}

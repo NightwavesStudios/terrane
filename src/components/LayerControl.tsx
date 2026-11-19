@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
-import POI_STATS from "../data/poi-stats.json";
+import { CATEGORIES, FAMILIES, type Family } from "../data/features";
+import { useManifest } from "../lib/live";
 
+/**
+ * Every switch on the map, grouped by what a person is looking for rather than by
+ * which harvest a pin came from. There is no "named", "famous", "mapped" or
+ * "nearby" row: those were four names for one thing.
+ *
+ * The base map is not a category, and a destination owns its own labels. A group
+ * master turns a whole family on or off; a row turns one category on or off.
+ */
 export interface LayerState {
   relief: boolean;
   contours: boolean;
@@ -9,10 +18,9 @@ export interface LayerState {
   roads: boolean;
   borders: boolean;
   labels: boolean;
-  places: boolean;
-  reach: boolean;
-  poi: boolean;
-  camp: boolean;
+  /** Master switch for every point on the map. */
+  features: boolean;
+  cats: Record<string, boolean>;
 }
 
 export const DEFAULT_LAYERS: LayerState = {
@@ -22,41 +30,10 @@ export const DEFAULT_LAYERS: LayerState = {
   roads: true,
   borders: true,
   labels: true,
-  places: true,
-  reach: true,
-  poi: true,
-  camp: true,
+  features: true,
+  cats: Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
 };
 
-const KIT_LABEL: Record<KitIcon, string> = {
-  "camp-tent": "Camp",
-  "camp-hut": "Hut",
-  "camp-shelter": "Shelter",
-  "water-drop": "Water",
-  parking: "Parking",
-  "picnic-table": "Picnic",
-  viewpoint: "View",
-  caravan: "Caravan",
-  toilets: "Toilets",
-  shower: "Shower",
-  info: "Boards",
-  trailhead: "Trailhead",
-};
-
-/* The key lists only what you go out there for: a night, water, somewhere to park,
-   a view. The colour families and the rest of the pictograms are explained by the
-   map itself, and a legend that explains everything is read by nobody. */
-const PRACTICAL: KitIcon[] = [
-  "camp-tent",
-  "camp-hut",
-  "camp-shelter",
-  "water-drop",
-  "parking",
-  "viewpoint",
-];
-
-/* The map's own furniture. Short labels, no explanations: every one of these is a
-   thing you can see, and a sentence under it does not make it easier to find. */
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "relief", label: "Relief" },
   { key: "contours", label: "Contours" },
@@ -66,15 +43,10 @@ const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "labels", label: "Labels" },
 ];
 
-/* Every pin on the map, highest priority first. One note, one line. */
-const POINT_ROWS: { key: keyof LayerState; label: string; note: string }[] = [
-  { key: "places", label: "Named places", note: "ranked" },
-  { key: "reach", label: "Famous places", note: "as you zoom" },
-  { key: "poi", label: "Everything mapped", note: POI_STATS.extracts + " extracts" },
-  { key: "camp", label: "Camps nearby", note: "nearest first" },
-];
-
-const POINT_KEYS = POINT_ROWS.map((r) => r.key);
+const compact = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 0,
+});
 
 export default function LayerControl({
   value,
@@ -84,6 +56,9 @@ export default function LayerControl({
   onChange: (next: LayerState) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const manifest = useManifest();
+  const count = (id: string) =>
+    compact.format((manifest.byCategory as Record<string, number>)[id] ?? 0);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,31 +77,75 @@ export default function LayerControl({
     };
   }, [open]);
 
-  const pointsOn = POINT_KEYS.filter((k) => value[k]).length;
-  const allPoints = pointsOn === POINT_KEYS.length;
-  const total = BASE_ROWS.length + 1 + POINT_ROWS.length;
-  const active =
-    BASE_ROWS.filter((r) => value[r.key]).length + (allPoints ? 1 : 0) + pointsOn;
-
-  function setPoints(on: boolean) {
-    const next = { ...value };
-    for (const key of POINT_KEYS) next[key] = on;
-    onChange(next);
-  }
-
-  /* Drawn the first time the panel opens, and not again: canvases per render would
-     be work with nothing to show for it, and a closed panel should not pay to paint
-     a key nobody is looking at. */
-  const kitSrc = useMemo(
+  /* Pictograms are drawn once, when the panel first opens. */
+  const icons = useMemo(
     () =>
       (open
-        ? (Object.fromEntries(PRACTICAL.map((n) => [n, iconDataUrl(n, 40)])) as Record<
-            KitIcon,
-            string
-          >)
-        : ({} as Record<KitIcon, string>)),
+        ? Object.fromEntries(
+            CATEGORIES.filter((c) => c.icon).map((c) => [
+              c.id,
+              iconDataUrl(c.icon as KitIcon, 32),
+            ]),
+          )
+        : {}) as Record<string, string>,
     [open],
   );
+
+  const activeCats = CATEGORIES.filter((c) => value.features && value.cats[c.id]).length;
+  const baseOn = BASE_ROWS.filter((r) => value[r.key]).length;
+  const active = baseOn + activeCats;
+  const total = BASE_ROWS.length + CATEGORIES.length;
+
+  function setCats(ids: string[], on: boolean) {
+    const cats = { ...value.cats };
+    for (const id of ids) cats[id] = on;
+    onChange({ ...value, cats });
+  }
+
+  function group(id: Family) {
+    const cats = CATEGORIES.filter((c) => c.family === id);
+    const on = cats.filter((c) => value.cats[c.id]).length;
+    const all = on === cats.length;
+    return (
+      <div className="layers-group" key={id}>
+        <label className="layers-row layers-row--group">
+          <input
+            type="checkbox"
+            checked={value.features && all}
+            onChange={() => setCats(cats.map((c) => c.id), !all)}
+          />
+          <span className="layers-text">
+            <span className="layers-label">
+              {FAMILIES.find((f) => f.id === id)?.label}
+            </span>
+            <span className="layers-note mono">
+              {on}/{cats.length}
+            </span>
+          </span>
+        </label>
+        {cats.map((cat) => (
+          <label className="layers-row layers-row--cat" key={cat.id}>
+            <input
+              type="checkbox"
+              checked={value.features && value.cats[cat.id]}
+              onChange={() => setCats([cat.id], !value.cats[cat.id])}
+            />
+            <span className="layers-text">
+              <span className="layers-label layers-label--cat">
+                {cat.icon ? (
+                  <img src={icons[cat.id]} alt="" width={13} height={13} />
+                ) : (
+                  <i className="cat-dot" style={{ background: cat.colour }} />
+                )}
+                {cat.label}
+              </span>
+              <span className="layers-note mono">{count(cat.id)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="layers" ref={box}>
@@ -148,7 +167,7 @@ export default function LayerControl({
             <label className="layers-row" key={row.key}>
               <input
                 type="checkbox"
-                checked={value[row.key]}
+                checked={Boolean(value[row.key])}
                 onChange={() => onChange({ ...value, [row.key]: !value[row.key] })}
               />
               <span className="layers-text">
@@ -157,46 +176,21 @@ export default function LayerControl({
             </label>
           ))}
 
-          <label className="layers-row">
+          <label className="layers-row layers-row--group">
             <input
               type="checkbox"
-              checked={allPoints}
-              onChange={() => setPoints(!allPoints)}
-              aria-controls="layers-points"
+              checked={value.features}
+              onChange={() => onChange({ ...value, features: !value.features })}
             />
             <span className="layers-text">
               <span className="layers-label">Places &amp; pins</span>
               <span className="layers-note mono">
-                {allPoints ? "all" : `${pointsOn}/${POINT_ROWS.length}`}
+                {value.features ? `${activeCats} on` : "off"}
               </span>
             </span>
           </label>
 
-          <div id="layers-points" style={{ paddingLeft: 20 }}>
-            {POINT_ROWS.map((row) => (
-              <label className="layers-row" key={row.key}>
-                <input
-                  type="checkbox"
-                  checked={value[row.key]}
-                  onChange={() => onChange({ ...value, [row.key]: !value[row.key] })}
-                />
-                <span className="layers-text">
-                  <span className="layers-label">{row.label}</span>
-                  <span className="layers-note mono">{row.note}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-
-          <div className="layers-key">
-            <span className="layers-key-title mono">On the ground</span>
-            {PRACTICAL.map((n) => (
-              <span className="layers-key-item" key={n}>
-                <img src={kitSrc[n]} alt="" width={14} height={14} />
-                {KIT_LABEL[n]}
-              </span>
-            ))}
-          </div>
+          {FAMILIES.map((f) => group(f.id))}
         </div>
       )}
     </div>

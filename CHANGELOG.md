@@ -1,5 +1,80 @@
 # Changelog
 
+## 2026-11-19 — Size means importance, and the planet is not the Himalaya
+
+Every destination dot was the same size. The five bands shared one radius
+(`1.2 px @ z0 → 4.6 px @ z14`), so a 7,000 m summit and an obscure atlas row drew
+identically, and "major" existed only in the label layer. World view was worse: the
+top 24 rows by height were all in seven z4 cells between the Andes and the
+Himalaya, so Europe, Africa, North America and Oceania had no world dots at all.
+Then nothing new appeared between z2.8 and z4.4, and z6.2/z7.6 added 20,000 rows at
+once.
+
+- `src/data/bands.json` is the one seven-band table: dot zoom, label zoom, radius
+  scale, opacity, label size and cell quota. `src/data/rank.ts` assigns an explicit
+  `band: 0–3` (atlas) with quotas of one per z4 cell, two per z5 cell and six per z6
+  cell, so band 0 covers every continent (North America 24, Asia 20, South America
+  15, Europe 14, Africa 12, Oceania 5) instead of seven cells in two ranges.
+- The reveal is every 1.6–1.8 zoom levels (0, 1.8, 3.4, 5, 6.8, 8.4, 10) with
+  cumulative counts 90 / 388 / 1,024 / 2,651 / 9,614 / 19,786 / 24,540. Labels now
+  follow their dot by 0.8–1.0 zoom instead of lagging by up to three.
+- Radius is the zoom base multiplied by the band scale (1.0 → 0.3), and label size
+  follows the same order, so the early bands are visibly the larger points at any
+  zoom.
+- Reach tiers are capped per cell (`3` per z6 for tiers 1–2, `16` per z7 for tier
+  3, `10` per z9 for tier 4) with overflow one band later. A single Alpine z6 cell
+  holds 1,415 tier-3 rows; without the cap its band would draw a wall of dots. A
+  1200×800 view over the Alps is now 373 dots at z5.5 and 363 at z7.5.
+- `rankPlaces` no longer overloads `featured`/`curated` as band flags, so `src`
+  provenance stays true; curated rows carry `editorial: true`.
+- `npm run bands` writes `reports/dot-bands.{md,json}` (band counts, worst z6 cell,
+  world spread, sample viewports) from the same table the map reads.
+
+## 2026-11-18 — One kind of place, in categories
+
+The map had four pin systems: 1,288 "named" atlas places, 23,254 "famous" Wikidata
+places, 9,371,124 "mapped" OSM places and 6,013 "camps nearby" harvested in a radius
+around the atlas. They were one class of place harvested four times, and the layers
+panel and the globe hint presented provenance as taxonomy.
+
+- `src/data/categories.json` is the one taxonomy: 16 destination and 13 practical
+  categories with label, icon, colour, family and minzoom. `src/data/features.ts` is
+  the one row and pick shape and the one style-expression builder.
+- Destinations are one `features` source in five dot bands and five label bands;
+  practical places are one `mapped` source with a layer per category. One click path,
+  one `FeatureCard`, one ring source. The layer panel is one master, two group
+  masters and a row per category with counts from the manifest; "Named places",
+  "Famous places", "Everything mapped" and "Camps nearby" are gone, and search
+  covers every category.
+- The 8 km radius harvest is deleted (`kit.json`, `kit-detail.json`,
+  `harvest-kit.mjs`, `src/map/kit.ts`, `src/map/reach.ts`, `src/map/poi.ts`). The
+  world OSM cells cover that ground once.
+- `importance()` no longer rewards curated rows, and the cap is per z6 cell (2 top +
+  4 second, 24/360 globally), so 51 US entries can no longer crowd out one state.
+- `src/data/manifest.json` carries totals, per-category counts, `generatedAt`, the
+  validation result and failed extracts; every visible count reads from it.
+  `scripts/validate-data.mjs` fails the build on schema, bounds, unknown categories,
+  a category with no layer, duplicate rate or a manifest mismatch, and
+  `scripts/audit-data.mjs` writes `reports/data-audit.{md,json}`.
+- Fixed five destination label bands that MapLibre silently dropped: their
+  `text-size` zoom stops descended for bands above 8, which fails style validation.
+- `npm run data:refresh` runs atlas, reach, bulk merge, audit, manifest and validate
+  in order; there is still no scheduler.
+
+The audit now counts the 68 hand-written entries, which the manifest had been
+missing: **24,540 destinations** (1,218 atlas + 68 hand-written + 23,254 long tail)
+and 9,371,124 mapped places. The Georgia box went from 3 atlas / 71 long tail / 147
+radius pins to 3 atlas / 34 hand-written / 71 long tail / 0 radius pins.
+
+The two destination pairs that still sat within 50 m are resolved in the data, not
+hidden: Tavan Bogd (Q143008) is the massif whose Wikidata `P610` highest point is
+Hüiten Peak (Q1091113), both rows carried the same coordinate, and the massif's
+4,082 m cannot describe a second summit there, so it is one row with Tavan Bogd as
+an alias; Fitz Roy existed as both an atlas row (Q215138) and a guide entry, so the
+guide row keeps its description and gains the Wikidata id. Each merge records the
+absorbed row in `also` and the evidence in `src/data/atlas-merges.json`. The audit
+now reports **0** pairs within 50 m, and `validate` fails the build on any new pair.
+
 ## 2026-11-18 — The cells move out of the repo, and the page says how much there is
 
 The world harvest is 370 MB across 1,869 files. In git that made every clone pay for

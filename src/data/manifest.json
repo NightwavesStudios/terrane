@@ -1,0 +1,299 @@
+{
+  "pipeline": 2,
+  "generatedAt": "2026-11-19T12:24:47.379Z",
+  "days": {
+    "osm": "2026-11-18",
+    "wikidata": "2026-11-18"
+  },
+  "totals": {
+    "all": 9440586,
+    "destinations": 24540,
+    "mapped": 9416046,
+    "trails": 449576
+  },
+  "categories": 30,
+  "countries": {
+    "atlas": 156,
+    "mapped": 385
+  },
+  "byCategory": {
+    "landmark": 218,
+    "park": 2007,
+    "peak": 7661,
+    "desert": 134,
+    "range": 550,
+    "lake": 3800,
+    "island": 2600,
+    "waterfall": 1305,
+    "volcano": 327,
+    "valley": 900,
+    "reserve": 2200,
+    "cave": 817,
+    "spring": 55,
+    "beach": 965,
+    "glacier": 1000,
+    "canyon": 1,
+    "camp": 239120,
+    "hut": 28913,
+    "shelter": 585409,
+    "water": 678605,
+    "parking": 5840666,
+    "view": 239844,
+    "picnic": 141322,
+    "pass": 39267,
+    "caravan": 29776,
+    "toilets": 445756,
+    "shower": 32234,
+    "info": 1053188,
+    "trailhead": 17024,
+    "trail": 449576
+  },
+  "files": 1869,
+  "sources": [
+    {
+      "id": "osm",
+      "name": "OpenStreetMap, via Geofabrik extracts",
+      "licence": "ODbL 1.0",
+      "records": 9371124,
+      "updated": "2026-11-18",
+      "note": "437 extracts · 385 countries"
+    },
+    {
+      "id": "wikidata",
+      "name": "Wikidata",
+      "licence": "CC0",
+      "records": 24472,
+      "updated": "2026-11-18",
+      "note": "1218 atlas destinations · 23254 long-tail records"
+    },
+    {
+      "id": "editorial",
+      "name": "Hand-written field entries",
+      "licence": "—",
+      "records": 68,
+      "updated": "2026-11-19",
+      "note": "68 destinations with a page; facts only; frozen"
+    },
+    {
+      "id": "osm_routes",
+      "name": "OpenStreetMap hiking routes",
+      "licence": "ODbL 1.0",
+      "records": 269889,
+      "updated": "2026-11-19",
+      "note": "route=hiking relations, harvested by cached Geofabrik leaf boxes through Overpass and simplified per cell"
+    },
+    {
+      "id": "ridb",
+      "name": "Recreation.gov RIDB full export",
+      "licence": "Public domain (US Government)",
+      "records": 7790,
+      "updated": "2026-11-19",
+      "note": "Campground facilities, individual campsite counts, booking links and agency"
+    },
+    {
+      "id": "usfs_sites",
+      "name": "US Forest Service recreation sites",
+      "licence": "Public domain (US Government)",
+      "records": 26534,
+      "updated": "2026-11-19",
+      "note": "Campgrounds, dispersed sites, trailheads, viewpoints and picnic sites"
+    },
+    {
+      "id": "blm_sites",
+      "name": "Bureau of Land Management recreation sites",
+      "licence": "Public domain (US Government)",
+      "records": 694,
+      "updated": "2026-11-19",
+      "note": "Campgrounds, trailheads and other BLM recreation facilities"
+    },
+    {
+      "id": "nps_trails",
+      "name": "National Park Service public trails",
+      "licence": "Public domain (US Government)",
+      "records": 33906,
+      "updated": "2026-11-19",
+      "note": "Publicly displayable trail segments with name, class, surface and use"
+    },
+    {
+      "id": "usfs_trails",
+      "name": "US Forest Service National Forest System trails",
+      "licence": "Public domain (US Government)",
+      "records": 84564,
+      "updated": "2026-11-19",
+      "note": "164,360 miles of NFS trail, one segment per row"
+    },
+    {
+      "id": "blm_trails",
+      "name": "Bureau of Land Management GTLF public trails",
+      "licence": "Public domain (US Government)",
+      "records": 42671,
+      "updated": "2026-11-19",
+      "note": "Layers 2–7: motorized, non-motorized, non-mechanized and unassessed trails"
+    },
+    {
+      "id": "parks_canada",
+      "name": "Parks Canada accommodation",
+      "licence": "Open Government Licence – Canada",
+      "records": 9592,
+      "updated": "2026-11-19",
+      "note": "Campsites, backcountry camping, oTENTik, yurts, tipis and cabins"
+    },
+    {
+      "id": "doc_nz",
+      "name": "New Zealand Department of Conservation campsites",
+      "licence": "CC BY 4.0",
+      "records": 312,
+      "updated": "2026-11-19",
+      "note": "DOC campsites, categories and facilities"
+    }
+  ],
+  "coverage": "OpenStreetMap completeness follows mapping effort. Europe is mapped far more densely than most of Africa, South America and Central Asia; Wikidata is a selection, not a census.",
+  "trailStats": {
+    "input": 431030,
+    "cells": 1029,
+    "segments": 449576,
+    "max_cell_bytes": 11712426,
+    "updated": "2026-11-19"
+  },
+  "validation": {
+    "ok": true,
+    "checkedAt": "2026-11-19T12:24:47.554Z",
+    "checks": [
+      {
+        "name": "category ids are unique",
+        "ok": true,
+        "detail": "30/30"
+      },
+      {
+        "name": "every category has a known family",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "destination categories carry a colour",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "practical categories carry an icon and a zoom floor",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "atlas is a non-empty array",
+        "ok": true,
+        "detail": "1218"
+      },
+      {
+        "name": "atlas rows have the required fields",
+        "ok": true,
+        "detail": "slug, name, country, known type, coordinates"
+      },
+      {
+        "name": "atlas slugs are unique",
+        "ok": true,
+        "detail": "1218"
+      },
+      {
+        "name": "reach rows are valid",
+        "ok": true,
+        "detail": "2664 rows"
+      },
+      {
+        "name": "reach kinds are categories",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "reach carries only its own tiers",
+        "ok": true,
+        "detail": "1,2"
+      },
+      {
+        "name": "reach-more rows are valid",
+        "ok": true,
+        "detail": "20590 rows"
+      },
+      {
+        "name": "reach-more kinds are categories",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "reach-more carries only its own tiers",
+        "ok": true,
+        "detail": "3,4"
+      },
+      {
+        "name": "POI totals add up",
+        "ok": true,
+        "detail": "9371124"
+      },
+      {
+        "name": "POI categories add up",
+        "ok": true,
+        "detail": "9371124/9371124"
+      },
+      {
+        "name": "POI kinds are categories",
+        "ok": true,
+        "detail": "ok"
+      },
+      {
+        "name": "every category has records",
+        "ok": true,
+        "detail": "all present"
+      },
+      {
+        "name": "cross-source duplicate rate under 1%",
+        "ok": true,
+        "detail": "0 pairs"
+      },
+      {
+        "name": "no two destination rows within 50 m",
+        "ok": true,
+        "detail": "0 pairs"
+      },
+      {
+        "name": "editorial entries are frozen",
+        "ok": true,
+        "detail": "68 rows (ceiling 68)"
+      },
+      {
+        "name": "every hand-written row has provenance",
+        "ok": true,
+        "detail": "src + srcId"
+      },
+      {
+        "name": "documented merges are applied",
+        "ok": true,
+        "detail": "2 merges"
+      },
+      {
+        "name": "manifest totals match",
+        "ok": true,
+        "detail": "9440586"
+      },
+      {
+        "name": "manifest destination count matches",
+        "ok": true,
+        "detail": "24540"
+      },
+      {
+        "name": "manifest mapped count matches",
+        "ok": true,
+        "detail": "9416046"
+      },
+      {
+        "name": "manifest categories match",
+        "ok": true,
+        "detail": "30"
+      },
+      {
+        "name": "trail network has records",
+        "ok": true,
+        "detail": "449576 segments"
+      }
+    ]
+  }
+}

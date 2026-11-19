@@ -1,0 +1,44 @@
+{
+ "id": "ridb",
+ "name": "Recreation.gov RIDB full export",
+ "licence": "Public domain (US Government)",
+ "family": "points",
+ "coverage": "United States federal",
+ "endpoint": "https://ridb.recreation.gov/downloads/RIDBFullExport_V1_CSV.zip",
+ "cadence": "daily",
+ "expected": 5808,
+ "gate": {
+  "min": 5400,
+  "field": "fetched"
+ },
+ "note": "Campground facilities, individual campsite counts, booking links and agency",
+ "fetchedAt": "2026-11-19T01:26:33+00:00",
+ "updated": "2026-11-19",
+ "raw": 15439,
+ "fetched": 7790,
+ "placed": 7790,
+ "rejected": {},
+ "unaccounted": 0,
+ "bytes": 2950293,
+ "campsites": 131046,
+ "facility_types": {
+  "Facility": 8206,
+  "Campground": 5808,
+  "Activity Pass": 673,
+  "Visitor Center": 262,
+  "Permit": 152,
+  "Ticket Facility": 138,
+  "Tree Permit": 83,
+  "Timed Entry": 36,
+  "Venue Reservations": 36,
+  "Cemetery and Memorial": 24,
+  "Library": 9,
+  "Archives": 3
+ },
+ "categories": {
+  "camp": 5998,
+  "trailhead": 1406,
+  "view": 83,
+  "picnic": 303
+ }
+}

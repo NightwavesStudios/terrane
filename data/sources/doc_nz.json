@@ -1,0 +1,23 @@
+{
+ "id": "doc_nz",
+ "name": "New Zealand Department of Conservation campsites",
+ "licence": "CC BY 4.0",
+ "family": "points",
+ "coverage": "New Zealand public conservation land",
+ "endpoint": "https://services1.arcgis.com/3JjYDyG3oajxU6HO/arcgis/rest/services/DOC_Campsites/FeatureServer/0",
+ "cadence": "monthly",
+ "expected": 300,
+ "gate": {
+  "min": 200,
+  "field": "raw"
+ },
+ "note": "DOC campsites, categories and facilities",
+ "fetchedAt": "2026-11-19T01:27:37+00:00",
+ "updated": "2026-11-19",
+ "raw": 312,
+ "fetched": 312,
+ "placed": 312,
+ "rejected": {},
+ "unaccounted": 0,
+ "bytes": 199004
+}

@@ -1,9 +1,10 @@
-import { PLACES } from "../data/places";
 import Logo from "./Logo";
 import { navigate, useRoute } from "../lib/router";
+import { useManifest } from "../lib/live";
 
 export default function Header({ tone }: { tone: "dark" | "light" }) {
   const route = useRoute();
+  const manifest = useManifest();
 
   return (
     <header className={`header header--${tone}`}>
@@ -19,10 +20,18 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
         >
           Globe
         </button>
+        <button
+          className={route.name === "coverage" ? "on" : ""}
+          onClick={() => navigate("/coverage")}
+        >
+          Data
+        </button>
       </nav>
 
       <div className="header-right">
-        <span className="pill pill--ghost">{PLACES.length.toLocaleString()} places</span>
+        <span className="pill pill--ghost">
+          {manifest.totals.all.toLocaleString("en-US")} places
+        </span>
       </div>
     </header>
   );

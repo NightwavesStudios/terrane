@@ -1,0 +1,84 @@
+{
+  "radiusBase": [
+    [
+      0,
+      3.4
+    ],
+    [
+      4,
+      3.8
+    ],
+    [
+      8,
+      4.8
+    ],
+    [
+      14,
+      6.2
+    ]
+  ],
+  "bands": [
+    {
+      "band": 0,
+      "dot": 0,
+      "label": 0,
+      "scale": 1,
+      "opacity": 0.95,
+      "labelSize": 10.5,
+      "cell": 4,
+      "perCell": 1
+    },
+    {
+      "band": 1,
+      "dot": 1.8,
+      "label": 2.8,
+      "scale": 0.62,
+      "opacity": 0.9,
+      "labelSize": 10,
+      "cell": 5,
+      "perCell": 2
+    },
+    {
+      "band": 2,
+      "dot": 3.4,
+      "label": 4.4,
+      "scale": 0.48,
+      "opacity": 0.85,
+      "labelSize": 9.5,
+      "cell": 6,
+      "perCell": 6
+    },
+    {
+      "band": 3,
+      "dot": 5,
+      "label": 6,
+      "scale": 0.38,
+      "opacity": 0.8,
+      "labelSize": 9
+    },
+    {
+      "band": 4,
+      "dot": 6.8,
+      "label": 7.8,
+      "scale": 0.3,
+      "opacity": 0.72,
+      "labelSize": 8.5
+    },
+    {
+      "band": 5,
+      "dot": 8.4,
+      "label": 9.4,
+      "scale": 0.24,
+      "opacity": 0.65,
+      "labelSize": 8.5
+    },
+    {
+      "band": 6,
+      "dot": 10,
+      "label": 11,
+      "scale": 0.2,
+      "opacity": 0.6,
+      "labelSize": 8
+    }
+  ]
+}

@@ -192,11 +192,6 @@ DETAIL_TAGS = (
 )
 DETAIL_VALUE_MAX = 90
 
-# Ground already covered by the radius harvest (`src/data/kit.json`): dropped here
-# rather than drawn twice, so a campsite beside a written-up summit is one pin.
-KIT_FILES = ("src/data/kit.json", "src/data/kit-detail.json")
-KIT_ROUND = 3  # ~60 m at the equator
-
 # Extracts that are a second copy of ground covered by other extracts. The plan
 # already drops every directory that has sub-extracts (so `us` loses to its fifty
 # states); these are the ones Geofabrik also publishes as a plain file next to the
@@ -594,18 +589,6 @@ def spool_budget():
 PARKING = KINDS.index("parking")
 
 
-def load_kit():
-    known = set()
-    for path in KIT_FILES:
-        if not os.path.exists(path):
-            continue
-        with open(path) as f:
-            data = json.load(f)
-        for row in data["items"]:
-            known.add((round(row[0], KIT_ROUND), round(row[1], KIT_ROUND)))
-    return known
-
-
 def cell_of(lat, lon):
     n = 2 ** OUT_Z
     x = int((lon + 180) / 360 * n)
@@ -688,7 +671,6 @@ def merge(plan, state, allow_partial=False):
         print("  nothing to merge — the row store is empty")
         return False
 
-    known = load_kit()
     if os.path.isdir(STAGING):
         shutil.rmtree(STAGING)
     os.makedirs(STAGING, exist_ok=True)
@@ -703,7 +685,6 @@ def merge(plan, state, allow_partial=False):
         "parking_rows": 0,
         "parking_bytes": 0,
         "dropped": {
-            "kit_radius": 0,
             "same_element": 0,
             "same_ground": 0,
             "unreadable": 0,
@@ -732,9 +713,6 @@ def merge(plan, state, allow_partial=False):
                     -90 <= lat <= 90 and -180 <= lon <= 180
                 ):
                     stats["dropped"]["unreadable"] += 1
-                    continue
-                if (round(lat, KIT_ROUND), round(lon, KIT_ROUND)) in known:
-                    stats["dropped"]["kit_radius"] += 1
                     continue
                 element = (otype, oid)
                 if element in seen_elements:
@@ -826,7 +804,7 @@ def merge(plan, state, allow_partial=False):
         f"  parking: {stats['parking_cells']} files · {stats['parking_rows']} rows · "
         f"{stats['parking_bytes'] / 1e6:.1f} MB (fetched only at street zoom)\n"
         f"  dropped: {dropped['same_element']} same element · "
-        f"{dropped['same_ground']} same ground · {dropped['kit_radius']} kit radius · "
+        f"{dropped['same_ground']} same ground · "
         f"{dropped['unreadable']} unreadable",
         flush=True,
     )
@@ -1081,8 +1059,6 @@ def write_report(plan, state):
         f"{merged_dropped.get('same_element', 0):,} |",
         f"| Same ground, same kind, within 25 m | "
         f"{merged_dropped.get('same_ground', 0):,} |",
-        f"| Within ~60 m of the radius harvest | "
-        f"{merged_dropped.get('kit_radius', 0):,} |",
         f"| Unreadable rows | {merged_dropped.get('unreadable', 0):,} |",
         "",
         "Two rows closer than 25 m with different names are kept as two places.",

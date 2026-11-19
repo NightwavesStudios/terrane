@@ -1,0 +1,25 @@
+{
+ "id": "parks_canada",
+ "name": "Parks Canada accommodation",
+ "licence": "Open Government Licence – Canada",
+ "family": "points",
+ "coverage": "Canada national parks and historic sites",
+ "endpoint": "https://services2.arcgis.com/wCOMu5IS7YdSyPNx/arcgis/rest/services/Accommodation_Hebergement_APCA_OpenOuvert/FeatureServer/0",
+ "cadence": "monthly",
+ "expected": 11740,
+ "gate": {
+  "min": 10000,
+  "field": "fetched"
+ },
+ "note": "Campsites, backcountry camping, oTENTik, yurts, tipis and cabins",
+ "fetchedAt": "2026-11-19T01:51:06+00:00",
+ "updated": "2026-11-19",
+ "raw": 11740,
+ "fetched": 11740,
+ "placed": 9592,
+ "rejected": {
+  "not_relevant": 2148
+ },
+ "unaccounted": 0,
+ "bytes": 2993501
+}

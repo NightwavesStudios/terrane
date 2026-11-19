@@ -605,15 +605,13 @@ export const MAP_STYLE: StyleSpecification = {
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.4, 0, 13, 1],
       },
     },
-    /* ── camping kit ───────────────────────────────────────────────────────
+    /* ── practical places ──────────────────────────────────────────────────
 
-       Not here any more. Camps, huts, shelters, water, parking and picnic tables
-       are harvested from these same tiles by scripts/harvest-kit.mjs into
-       src/data/kit.json, because the tile `poi` layer only exists at z14 and a
-       style-driven layer therefore could not show a camp at country scale or
-       rank one above another. The layers — four tier pins and two name layers —
-       are added at runtime by src/map/kit.ts once the JSON has arrived, with a
-       minzoom per tier. */
+       Camps, huts, shelters, water, parking and the rest are not in this style.
+       They come from the world OSM cell store (scripts/harvest-poi-bulk.py →
+       R2) because the basemap `poi` layer only exists at z14, so a style-driven
+       layer could not show a camp at country scale. src/map/mapped.ts adds the
+       category layers and label bands at runtime, once a cell has arrived. */
     {
       id: "label-country",
       type: "symbol",

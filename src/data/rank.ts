@@ -1,101 +1,107 @@
 import type { Place } from "./places";
+import bandsFile from "./bands.json";
 
-/* One ranking, two sources.
+/**
+ * One ranking, one band per place. Importance sets the order; a regional quota
+ * sets the band, so the world view is a world view and not a Himalaya view.
+ *
+ * The old score gave a hand-written entry 0.6 of the weight and height the rest,
+ * so 33 Georgia (US) pages out-voted real summits and the map named one corner of
+ * one country. Provenance still does not decide prominence: a peak earns its
+ * place with height, a park or landmark is notable by existing, and an editorial
+ * pick gets exactly the same treatment as any other row.
+ *
+ * The cap is a cell quota at each band's own cell size, not a per-country cap and
+ * not one global top list. A global list of the highest summits was 24 rows in
+ * seven z4 cells — every continent but Asia and South America empty. One row per
+ * z4 cell gives each region its best, and the next bands add depth in the same
+ * cells instead of opening a new hemisphere of nothing.
+ */
 
-   The map has two provenances — 68 hand-written entries and the generated atlas
-   rows — and drawing them as two classes was wrong in both directions. The
-   written-up set is 51 United States entries out of 68, 33 of them in Georgia, so
-   at world zoom the labels were half in one corner of one country, while a 4,900 m
-   peak in Colorado with a Wikidata record never got a name at all.
+export interface BandDef {
+  band: number;
+  dot: number;
+  label: number;
+  scale: number;
+  opacity: number;
+  labelSize: number;
+  cell?: number;
+  perCell?: number;
+}
 
-   So provenance stops deciding what is prominent. Every place is scored on what it
-   is and how high it is, the ranking is capped per country so no single country can
-   fill the screen, and the flags the map already understands (`featured` = named
-   first, `curated` = named later, neither = a dot until you zoom) are assigned from
-   that ranking instead of from the file the place came from. */
+export const BANDS = (bandsFile as unknown as { bands: BandDef[] }).bands;
 
-/* Parks and landmarks come from Wikidata's national-park and natural-feature
-   queries, so their presence already means "notable"; a peak has to earn it with
-   height. Gems are the local set and start lower on purpose. */
 function heightShare(p: Place): number {
-  if (p.type === "peak") return Math.min(1, Math.max(0, p.elevation ?? 0) / 5000);
+  if (p.type === "peak") return Math.min(1, Math.max(0, (p.elevation ?? 0) / 5000));
   if (p.type === "park") return 0.62;
   if (p.type === "landmark") return 0.55;
   return 0.4;
 }
 
-/**
- * How prominent a place is, 0…1. Deterministic: same input, same order.
- *
- * The first version scored height almost alone, and the names it produced at world
- * zoom were Acamarachi, Antofalla and Cerro Cañapa — six-thousand-metre Andean
- * summits that almost nobody has heard of, ahead of Torres del Paine. Height is
- * where a peak earns its place *within* the written-up set, not a substitute for
- * being worth a detour, so the editorial pick carries most of the weight and
- * height breaks the ties. Provenance still never decides on its own: a country's
- * written-up entries are capped exactly like everyone else's, and a generated row
- * with height behind it takes the slots they cannot hold.
- */
+/** Deterministic: same input, same order. No editorial bonus. */
 export function importance(p: Place): number {
-  const editorial = p.featured ? 1 : p.curated ? 0.8 : 0;
-  return editorial * 0.6 + heightShare(p) * 0.4;
+  return heightShare(p);
 }
 
-/* Per country, so the world view is a world view. Two names per country in the
-   first pass is roughly what fits without collisions at z2, and six in the second
-   pass is what a country-sized viewport can hold. */
-const TOP_PER_COUNTRY = 2;
-const SECOND_PER_COUNTRY = 6;
-const TOP_TOTAL = 16;
-const SECOND_TOTAL = 260;
+export function cellOf(lat: number, lon: number, zoom: number): string {
+  const cells = 2 ** zoom;
+  const x = Math.floor(((lon + 180) / 360) * cells);
+  const rad = (Math.max(-85, Math.min(85, lat)) * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * cells,
+  );
+  return `${x}/${y}`;
+}
 
 /**
- * The same places, in the same order, with `featured` / `curated` reassigned from
- * the global ranking. Pass it whatever is about to be drawn: ranking the filtered
- * set means "Peaks" or the visitor's own country gets its own best names, which
- * is the behaviour a filter is asking for.
+ * Assign every place to a band.
+ *
+ * Walk the ranked list once: the first row in a z4 cell is band 0 (the world
+ * dots), the next two in a z5 cell are band 1, the next six in a z6 cell are
+ * band 2. Anything left over joins the long-tail bands rather than stacking a
+ * whole mountain range at one zoom.
  */
 export function rankPlaces(places: Place[]): Place[] {
   const ranked = [...places].sort(
     (a, b) => importance(b) - importance(a) || a.name.localeCompare(b.name),
   );
 
-  const topPerCountry = new Map<string, number>();
-  const secondPerCountry = new Map<string, number>();
-  let topUsed = 0;
-  let secondUsed = 0;
-  const flags = new Map<string, { featured: boolean; curated: boolean }>();
+  const cells4 = new Map<string, number>();
+  const cells5 = new Map<string, number>();
+  const cells6 = new Map<string, number>();
+  const assigned = new Map<string, number>();
 
   for (const p of ranked) {
-    const inTop = topPerCountry.get(p.country) ?? 0;
-    const inSecond = secondPerCountry.get(p.country) ?? 0;
-    if (inTop < TOP_PER_COUNTRY && topUsed < TOP_TOTAL) {
-      topPerCountry.set(p.country, inTop + 1);
-      topUsed += 1;
-      flags.set(p.slug, { featured: true, curated: true });
-    } else if (inSecond < SECOND_PER_COUNTRY && secondUsed < SECOND_TOTAL) {
-      secondPerCountry.set(p.country, inSecond + 1);
-      secondUsed += 1;
-      flags.set(p.slug, { featured: false, curated: true });
-    } else {
-      flags.set(p.slug, { featured: false, curated: false });
+    const c4 = cellOf(p.lat, p.lon, 4);
+    const c5 = cellOf(p.lat, p.lon, 5);
+    const c6 = cellOf(p.lat, p.lon, 6);
+    const used4 = cells4.get(c4) ?? 0;
+    const used5 = cells5.get(c5) ?? 0;
+    const used6 = cells6.get(c6) ?? 0;
+
+    let band = 3;
+    if (used4 < 1) {
+      cells4.set(c4, used4 + 1);
+      band = 0;
+    } else if (used5 < 2) {
+      cells5.set(c5, used5 + 1);
+      band = 1;
+    } else if (used6 < 6) {
+      cells6.set(c6, used6 + 1);
+      band = 2;
     }
+    assigned.set(p.slug, band);
   }
 
   return places.map((p) => {
-    const rank = flags.get(p.slug);
-    if (!rank) return p;
-    if (rank.featured === !!p.featured && rank.curated === !!p.curated) return p;
-    return { ...p, featured: rank.featured, curated: rank.curated };
+    const band = assigned.get(p.slug) ?? 3;
+    return p.band === band ? p : { ...p, band };
   });
 }
 
-/** How many places the ranking will name, for the layer note. */
-export function rankedCounts(places: Place[]) {
+export function bandCounts(places: Place[]): number[] {
   const flagged = rankPlaces(places);
-  return {
-    first: flagged.filter((p) => p.featured).length,
-    second: flagged.filter((p) => p.curated && !p.featured).length,
-    dots: flagged.filter((p) => !p.curated).length,
-  };
+  const counts = BANDS.map(() => 0);
+  for (const p of flagged) counts[p.band ?? 3] += 1;
+  return counts;
 }

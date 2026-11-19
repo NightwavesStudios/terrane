@@ -1,0 +1,23 @@
+{
+ "points": {
+  "input": 44922,
+  "kept": 44409,
+  "dropped": {
+   "same_place_usfs_sites_into_ridb": 510,
+   "same_place_blm_sites_into_ridb": 2,
+   "same_place_parks_canada_into_parks_canada": 1
+  },
+  "merged": 513,
+  "replaced_osm": 0,
+  "cells": 98,
+  "max_cell_bytes": 2142765,
+  "bucket_cells": 0
+ },
+ "trails": {
+  "input": 431030,
+  "cells": 1029,
+  "segments": 449576,
+  "max_cell_bytes": 11712426
+ },
+ "generatedAt": "2026-11-19T04:39:15.619553Z"
+}

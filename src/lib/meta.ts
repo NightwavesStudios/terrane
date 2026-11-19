@@ -1,3 +1,5 @@
+import MANIFEST from "../data/manifest.json";
+
 /**
  * Per-route head tags.
  *
@@ -47,7 +49,6 @@ export function setMeta({ title, description, path, type = "website" }: Meta) {
 
 export const HOME_META: Meta = {
   title: `${SITE} — a globe of places worth going outside for`,
-  description:
-    "Spin a globe of 1,288 peaks, national parks, landmarks and wild places across 157 countries. Real coordinates, real elevation, shaded terrain and named hiking trails.",
+  description: `Spin a globe of ${MANIFEST.totals.all.toLocaleString("en-US")} places in ${MANIFEST.categories} categories: peaks, parks, landmarks, campsites, water and parking. Real coordinates, shaded terrain and hiking trails.`,
   path: "/",
 };

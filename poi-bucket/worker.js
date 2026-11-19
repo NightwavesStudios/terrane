@@ -1,21 +1,10 @@
 /**
- * The POI cell store.
+ * The Terrane data store.
  *
- * The harvested cells are 370 MB across 1,869 files, which is more than a static
- * build wants to carry and more than a git push wants to move, so they live here:
- * an R2 bucket behind this Worker, served over HTTPS with a long cache and an open
- * CORS header, and read by the map as `{base}/poi/6/{x}/{y}.json`.
- *
- * Uploads are the one write path. `PUT /upload/poi/6/33/22.json` with the
- * `x-upload-token` header writes the object; without the token (a site secret, set
- * only on the deployment) every write is refused, so the bucket cannot be poisoned
- * from outside.
+ * Points (poi/), trail routes (trails/), the live manifest and the coverage report
+ * live in one R2 bucket behind this Worker. Reads are public and CORS-open; writes
+ * are the one upload path, gated by the UPLOAD_TOKEN site secret.
  */
-
-const JSON_HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-  "cache-control": "public, max-age=86400",
-};
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -24,12 +13,31 @@ const CORS = {
   "access-control-max-age": "86400",
 };
 
-const allowed = (key) => key.startsWith("poi/") || key === "stats.json";
+const LIVE = new Set(["manifest.json", "coverage.json", "sources.json"]);
+const STATE = "upload-manifest.json";
+const allowed = (key) =>
+  key.startsWith("poi/") ||
+  key.startsWith("trails/") ||
+  key.startsWith("sources/") ||
+  LIVE.has(key) ||
+  key === STATE ||
+  key === "stats.json";
+
+function headersFor(key) {
+  return {
+    ...CORS,
+    "content-type": "application/json; charset=utf-8",
+    // Cells change weekly, metadata changes with every harvest. A day of cache on
+    // a cell hid a whole update; an hour is the compromise, and the client appends
+    // a version query when it needs a fresh copy.
+    "cache-control": LIVE.has(key) ? "public, max-age=300" : "public, max-age=3600",
+  };
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, ...JSON_HEADERS },
+    headers: { ...CORS, ...headersFor("") },
   });
 }
 
@@ -61,17 +69,18 @@ export default {
     }
 
     const key = decodeURIComponent(url.pathname.replace(/^\//, ""));
-    if (!key) return json({ store: "terrane poi cells", keys: "poi/6/{x}/{y}.json" });
+    if (!key) {
+      return json({
+        store: "terrane data",
+        keys: ["poi/6/{x}/{y}.json", "trails/6/{x}/{y}.json", "manifest.json", "coverage.json"],
+      });
+    }
     if (!allowed(key)) return json({ error: "not found" }, 404);
 
     const object = await env.FILES.get(key);
     if (!object) return json({ error: "not found" }, 404);
 
-    const headers = {
-      ...CORS,
-      ...JSON_HEADERS,
-      etag: object.httpEtag,
-    };
+    const headers = { ...headersFor(key), etag: object.httpEtag };
     if (request.method === "HEAD") return new Response(null, { headers });
     return new Response(object.body, { headers });
   },

@@ -9,6 +9,7 @@ per country so the globe fills out worldwide instead of only in the Himalaya.
 """
 
 import json
+import math
 import re
 import time
 import unicodedata
@@ -140,10 +141,38 @@ def clean_name(name):
     return name
 
 
+CURATED_TYPE = {"peak": "peak", "park": "park", "landmark": "landmark", "gem": "landmark"}
+
+
+def km_between(lat1, lon1, lat2, lon2):
+    """Great-circle distance. Used only as a 50 m same-place test."""
+    rad = math.pi / 180
+    dlat = (lat2 - lat1) * rad
+    dlon = (lon2 - lon1) * rad
+    h = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1 * rad) * math.cos(lat2 * rad) * math.sin(dlon / 2) ** 2
+    )
+    return 2 * 6371 * math.asin(min(1, math.sqrt(h)))
+
+
 def main():
     curated = json.load(open("src/data/curated-index.json"))
     curated_keys = {(norm_key(c["name"]), c["country"]) for c in curated}
     curated_names = {norm_key(c["name"]) for c in curated}
+
+    # The hand-written entries win the ground they stand on: a generated row within
+    # 50 m of one is the same place, whatever its name says ("Monte" vs "Mount").
+    curated_points = [
+        (c["lat"], c["lon"], CURATED_TYPE.get(c.get("type", ""), c.get("type")))
+        for c in curated
+        if "lat" in c and "lon" in c
+    ]
+
+    # Documented merges: a massif and its highest summit are one destination.
+    merges = json.load(open("src/data/atlas-merges.json"))
+    dropped_ids = {d for m in merges for d in m["drop"]}
+    merge_by_keep = {m["keep"]: m for m in merges}
 
     result = []
     seen_slugs = set(c["slug"] for c in curated)
@@ -198,6 +227,14 @@ def main():
                 continue
             if not item["country"]:
                 continue
+            if item["wd"] in dropped_ids:
+                continue
+            if any(
+                CURATED_TYPE.get(item["type"], item["type"]) == ctype
+                and km_between(item["lat"], item["lon"], lat, lon) < 0.05
+                for lat, lon, ctype in curated_points
+            ):
+                continue
             candidates.append(item)
 
         # peaks: most prominent first, height as tie-break. parks: prefer dated,
@@ -223,6 +260,12 @@ def main():
             per_country[item["country"]] += 1
             seen_slugs.add(slug)
             item["slug"] = slug
+            merge = merge_by_keep.get(item["wd"])
+            if merge:
+                item["also"] = [
+                    {"src": "atlas", "id": d, "name": n}
+                    for d, n in zip(merge["drop"], merge.get("dropNames", merge["drop"]))
+                ]
             item.pop("inception", None) if kind != "park" else None
             picked.append(item)
             if len(picked) >= TARGET[kind]:
