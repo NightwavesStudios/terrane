@@ -105,12 +105,11 @@ warm cache.
 - **Gesture relief tier.** `movestart` switches the hillshade to one light and
   hides the DEM snow layer; `moveend` restores the four-light pass. Static
   quality is unchanged.
-- **3D terrain** from the existing `relief` source, behind a switch and **off by
-  default** — the measured reason is below. `setTerrain` is applied only on a
-  settled style and only when the exaggeration changes (0.05 tolerance), not on
-  every `styledata`. Setting the mesh during a style transition left MapLibre
-  without its terrain depth program and threw in `maybeDrawDepth`; the
-  settled-style guard is the fix.
+- **3D terrain was built, measured and then removed.** MapLibre 5.24 renders the
+  mesh only while the camera is moving: at rest it is flat from about z10 up, and
+  the gesture cost is 66–81% of the frame budget. Both findings are below; the
+  switch and every `setTerrain` call are gone. The hillshade, the snow layer,
+  pitch and the gesture relief tier stay.
 - **Style churn removed:** the runtime-layer pass takes a fast path when every
   runtime layer exists, and no longer re-pushes the atlas on every style event.
 
@@ -169,8 +168,9 @@ Reading the terrain numbers:
 - The worst samples (4.9–6.1 fps at z11) are DEM tiles streaming while the camera
   moves; with terrain on, `map.idle` often did not fire within 6 s at z14 because
   mesh work keeps the map busy.
-- So **3D terrain stays opt-in**. The switch's comment in `LayerControl.tsx`
-  records the numbers.
+- So the mesh was **removed** rather than shipped opt-in: at 66–81% of the
+  gesture budget it is not a switch worth keeping, and the rest-state defect
+  below makes the result wrong even when it is on.
 - The review's z11 baseline (1.0–1.2 fps, 41 without the hillshade) came through
   the preview browser's software path while the window was occluded and cannot be
   reproduced here. On this GPU even hiding the hillshade sits inside the
@@ -229,12 +229,33 @@ A z6 cell is 2–12 MB of JSON and ~125k features on average; the Zermatt cell i
 `Timing-Allow-Origin`, and the store's bot filter refuses non-browser clients, so
 `curl` cannot stand in.
 
-### Style rebuild with terrain on
+### Why 3D terrain was removed
 
-`map.setStyle(createStyle(), { diff: false })` with terrain active: 66 layers
-restored, `mapped-pin-3` present, terrain still set, **zero exceptions** — no
-`terrainDepth` or `shaderPreludeCode` failure. The settled-style guard is what
-makes that hold.
+With `setTerrain` active and the camera still, the map draws **flat** above about
+z10; the displacement appears only while the camera is in motion and disappears
+again on `moveend`. What was checked, on MapLibre 5.24.1 with the app's own style:
+
+| Check | Result |
+| --- | --- |
+| z6, pitched 55°, at rest | displaced correctly (Alps relief visible) |
+| z8, at rest | displaced |
+| z10, z11, z12.6, at rest | flat, no displacement, no error |
+| same views mid-gesture | displaced |
+| 30 `triggerRepaint()` calls at rest | still flat |
+| 0.5 px pan, 1e-6° jump at rest | flat, then a **corrupt** spiked mesh |
+| stock terrarium `raster-dem` source | same behaviour |
+| `terrain` declared in the style spec instead of `setTerrain` | same behaviour |
+
+A stock source and a style-level declaration behave identically, so this is the
+pinned renderer, not the app's DEM protocol. Nothing throws; there is no console
+error to catch. Until MapLibre's terrain rendering is fixed at rest (5.x terrain
+and globe are not in good shape upstream), a 3D switch would ship a map that
+looks broken the moment you stop moving it, so the feature was removed rather
+than hidden behind a warning.
+
+A style rebuild while terrain was active had restored 66 layers with zero
+`terrainDepth` exceptions, so the earlier shader crash was genuinely fixed; the
+rest-state defect is separate and upstream.
 
 ### Fixed during verification
 
@@ -248,9 +269,9 @@ the fix: **zero**, across the whole run.
 
 ### Still unmeasured
 
-- **Mobile / phone GPU.** No device was available. The band index is per-cell
-  arrays of references, so its memory cost is small but additive; a phone's
-  gesture fps will be well below these figures and terrain cost will be worse.
+- **Mobile / phone GPU.** No device was emulated except in Chromium; the band
+  index is per-cell arrays of references, so its memory cost is small but
+  additive, and a phone's gesture fps will be below these figures.
 - **Compressed bytes per cell**, for the reason above.
 - **The original review baselines** (1.0–1.2 fps at z11, ~53 ms hillshade at z14)
   belong to a different environment; only the off/on ratios in this section

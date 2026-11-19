@@ -142,11 +142,6 @@ function readCamera(): { center: [number, number]; zoom: number | null } {
   return { center: [12, 22], zoom: null };
 }
 
-/** Vertical exaggeration for the 3D mesh: flat at continent scale, alpine close in. */
-function exaggerationFor(zoom: number): number {
-  return Math.min(1.6, Math.max(1, 1 + (zoom - 6) * 0.075));
-}
-
 export default function Globe({
   places,
   pick,
@@ -291,27 +286,6 @@ export default function Globe({
       }
     };
 
-    /** 3D mesh from the same DEM. Re-set on settle so the exaggeration can follow. */
-    let terrainState = { on: false, exaggeration: 0 };
-    const applyTerrain = () => {
-      /* Never insert the mesh during a style transition: MapLibre builds the
-         terrain depth program from the current style, and setting terrain while
-         that is still loading leaves it without one. */
-      if (!map_.isStyleLoaded() || !map_.getSource("relief")) return;
-      if (layersRef.current.terrain) {
-        const exaggeration = exaggerationFor(map_.getZoom());
-        /* `styledata` fires for every paint change; re-setting the mesh each time
-           rebuilds it for nothing. Only a real change is applied. */
-        if (!terrainState.on || Math.abs(exaggeration - terrainState.exaggeration) > 0.05) {
-          map_.setTerrain({ source: "relief", exaggeration });
-          terrainState = { on: true, exaggeration };
-        }
-      } else if (map_.getTerrain()) {
-        map_.setTerrain(null);
-        terrainState = { on: false, exaggeration: 0 };
-      }
-    };
-
     const setReliefQuality = (moving: boolean) => {
       if (!map_.getLayer("relief-hillshade")) return;
       const paint = moving ? HILLSHADE_BASIC : HILLSHADE_MULTI;
@@ -350,7 +324,6 @@ export default function Globe({
       if (layersRef.current.contours && !map_.getLayer("contours-minor")) {
         contours.current?.reload();
       }
-      applyTerrain();
     };
 
     const bootstrap = () => {
@@ -383,7 +356,6 @@ export default function Globe({
       contours.current.setLabels(layersRef.current.contourLabels);
 
       ensureRuntimeLayers();
-      applyTerrain();
 
       /* Two chunks, both after first paint: the famous half of the long tail and
          the practical cells. The atlas dots are already on screen. */
@@ -475,7 +447,6 @@ export default function Globe({
     map_.on("movestart", () => setReliefQuality(true));
     map_.on("moveend", () => {
       setReliefQuality(false);
-      applyTerrain();
       writeCamera();
       if (map_.getZoom() >= 6.6) {
         void loadMoreDestinations(map_).then(() => refreshDuplicates(map_));
@@ -537,14 +508,6 @@ export default function Globe({
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
 
-    if (layers.terrain && map_.isStyleLoaded()) {
-      map_.setTerrain({
-        source: "relief",
-        exaggeration: exaggerationFor(map_.getZoom()),
-      });
-    } else if (map_.getTerrain()) {
-      map_.setTerrain(null);
-    }
   }, [layers, ready]);
 
   /* ── data updates (ranked atlas rows) ──────────────── */
@@ -666,7 +629,7 @@ export default function Globe({
         `z ${map_.getZoom().toFixed(2)} · pitch ${map_.getPitch().toFixed(0)}° · ${fps.value} fps`,
         `pins ${pins.drawn.toLocaleString()} / ${pins.cached.toLocaleString()} cached · ${pins.duplicates} dup · setData ${pins.lastSetDataMs.toFixed(1)} ms`,
         `trails ${trails.drawn.toLocaleString()} · ${trails.cells} cells · setData ${trails.lastSetDataMs.toFixed(1)} ms`,
-        `dem ${demTiles} · terrain ${map_.getTerrain() ? "on" : "off"} · ${pins.cells + pins.parkingCells} cells`,
+        `dem ${demTiles} · ${pins.cells + pins.parkingCells} cells`, 
       ];
       if (debugOn.current) setDebugLines(lines);
       (window as unknown as { __terraneStats?: unknown }).__terraneStats = {

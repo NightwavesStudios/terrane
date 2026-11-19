@@ -14,7 +14,6 @@ import { useManifest } from "../lib/live";
 export interface LayerState {
   relief: boolean;
   /** The 3D mesh; `relief` still owns the hillshade and the snow. */
-  terrain: boolean;
   hillshade: boolean;
   snow: boolean;
   contours: boolean;
@@ -32,10 +31,6 @@ export interface LayerState {
 
 export const DEFAULT_LAYERS: LayerState = {
   relief: true,
-  /* Off by default, measured: on a 1280×800 M4 viewport the mesh cuts the 0.4-zoom
-     gesture from 55.8 to 10.6 fps at z11 and from 60.2 to 20.4 fps at z14
-     (medians of nine runs; docs/performance.md). Worth a switch, not a default. */
-  terrain: false,
   hillshade: true,
   snow: true,
   contours: false,
@@ -52,7 +47,6 @@ export const DEFAULT_LAYERS: LayerState = {
 
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "relief", label: "Relief" },
-  { key: "terrain", label: "3D terrain" },
   { key: "hillshade", label: "Hillshade" },
   { key: "snow", label: "Elevation snow" },
   { key: "contours", label: "Contours" },

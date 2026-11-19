@@ -205,7 +205,9 @@ button {
 .home {
   position: relative;
   height: 100dvh;
-  min-height: 620px;
+  /* A 620px floor is right on a desktop and wrong on a phone in landscape:
+     it pushed the map's bottom bar past the viewport. */
+  min-height: min(620px, 100dvh);
   overflow: hidden;
   background: var(--night);
 }
@@ -317,9 +319,15 @@ button {
   width: 28px !important;
   height: 28px !important;
 }
-.maplibregl-ctrl-bottom-left {
+.globe .maplibregl-ctrl-bottom-left {
+  /* MapLibre's own stylesheet is loaded with the lazy Globe chunk, i.e. after
+     this file, and lays the container out with flex — hence the `.globe` prefix
+     and an explicit position, or `bottom`/`left` are simply ignored. */
+  position: absolute;
   bottom: 26px;
   left: 26px;
+  right: auto;
+  top: auto;
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -361,8 +369,30 @@ button {
 }
 
 @media (max-width: 900px) {
-  .maplibregl-ctrl-bottom-left {
-    bottom: 84px;
+  /* Finger-sized targets, and the controls sit above the filter bar instead of
+     behind it — the bar is full-width on a phone and covered half the group. */
+  .maplibregl-ctrl-group button {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .globe .maplibregl-ctrl-bottom-left {
+    position: absolute;
+    left: 12px;
+    right: auto;
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .maplibregl-ctrl-scale {
+    display: none;
+  }
+  .map-debug {
+    left: 12px;
+    bottom: calc(148px + env(safe-area-inset-bottom));
+    font-size: 7px;
+    padding: 6px 8px;
   }
 }
 
@@ -875,7 +905,7 @@ button {
   .globe-filters {
     left: 12px;
     right: 12px;
-    bottom: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
     transform: none;
     max-width: none;
   }
@@ -950,7 +980,9 @@ button {
 .layers-panel {
   margin-top: 8px;
   width: 258px;
-  max-height: 74vh;
+  /* Never taller than the space under the toggle: the old 74vh ran past the
+     bottom of the window on a 800px-high desktop and on every phone. */
+  max-height: min(74vh, calc(100dvh - 300px));
   overflow-y: auto;
   padding: 6px;
   background: rgba(5, 9, 15, 0.94);
@@ -1102,15 +1134,62 @@ button {
 
 @media (max-width: 620px) {
   .map-tools {
-    top: 148px;
-    right: 14px;
+    /* Under the hint, and clear of the top-right corner a thumb cannot reach. */
+    top: 132px;
+    right: 12px;
   }
-.search-open, .layers-toggle {
-    padding: 7px 10px;
+  .search-open, .layers-toggle {
+    padding: 8px 11px;
     font-size: 9px;
   }
   .layers-panel {
-    width: 232px;
+    /* The list is longer than a phone screen; cap it to the space above the
+       filter bar and let it scroll, rather than running off the bottom. */
+    width: min(340px, calc(100vw - 24px));
+    max-height: calc(100dvh - 300px - env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .layers-row {
+    padding: 10px 12px;
+  }
+  .layers-row--cat {
+    padding: 9px 12px 9px 34px;
+  }
+  /* The scope chip carries a place name; wrap the row rather than letting the
+     last chip slide off the end of a scroll strip, and ellipsize the name. */
+  .globe-filters .chips {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 4px;
+  }
+  .globe-filters .chip:last-child {
+    max-width: 56vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Two rows of chips are taller than one: lift the controls and the panel. */
+  .globe .maplibregl-ctrl-bottom-left {
+    bottom: calc(116px + env(safe-area-inset-bottom));
+  }
+  .layers-panel {
+    max-height: calc(100dvh - 344px - env(safe-area-inset-bottom));
+  }
+}
+
+/* A phone on its side has room for the map, not for a popover under the
+   toggle; the list becomes a sheet over the map, still above the filter bar. */
+@media (max-height: 620px) {
+  .layers-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 88px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: none;
+    margin-top: 0;
   }
 }
 
