@@ -8,11 +8,14 @@
 
 - [ ] `npm run typecheck`
 - [ ] `npm test`
-- [ ] `npm run validate` if anything under `src/data/` changed
+- [ ] `npm run validate` if anything under `src/data/` or `scripts/` changed
 - [ ] `npm run build` passes
 - [ ] Looked at the changed page with `npm run dev` if the UI changed
+- [ ] Regenerated data is committed (`src/data/`); generated reports, SEO files
+      and local cells are **not** staged
 
 ## Deploy
 
 - [ ] No new environment variable, or `docs/deploy.md` documents it
 - [ ] No new GitHub secret, or `docs/deploy.md` documents it and it is set on the repo
+- [ ] No change to the cell-store origin without a quota plan (see `docs/deploy.md`)
