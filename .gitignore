@@ -24,3 +24,7 @@ data/upload-manifest.json
 
 # Trail cells work like the POI cells: generated, uploaded to object storage.
 public/trails/
+
+# The dev server's own log, and the local Vercel link (`vercel link`).
+reports/dev.log
+.vercel

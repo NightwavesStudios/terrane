@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-19 — A deploy anyone can reproduce
+
+The repository could build, but nothing enforced it: no CI, no tests, and the
+Vercel project existed only as remembered clicks. Every check lived in one
+person's head, which is the wrong place for the thing that ships.
+
+- `.github/workflows/ci.yml` runs typecheck, the tests, the data validator and the
+  full build on every push to `main` and every pull request, and uploads `dist`.
+- `npm test` is Vitest over the pure modules — `parseRoute` and the ranking and
+  cell maths, 14 cases. `npm run typecheck` and `npm run check` are the same gates
+  locally. Still no linter, and nothing pretends to test the WebGL globe.
+- `vercel.json` pins the deploy: Vite, `npm ci`, `npm run build`, `dist`, an SPA
+  rewrite so `/place/*` and `/coverage` resolve, and immutable caching for the
+  hashed `/assets`.
+- `SITE_URL` falls back to `https://$VERCEL_PROJECT_PRODUCTION_URL`, so a deploy
+  without it still gets absolute canonicals, `og:url` and a submittable sitemap.
+- `docs/deploy.md` is the runbook: the Vercel project, the two build-time
+  variables, the two GitHub secrets and one variable, the five cron workflows,
+  rollback, and the order the data pipeline runs in.
+- `.nvmrc` (Node 22), `.editorconfig`, Dependabot for npm and Actions, and a PR
+  checklist. The loose screenshots moved into the gitignored `shots/`.
+
 ## 2026-11-19 — Size means importance, and the planet is not the Himalaya
 
 Every destination dot was the same size. The five bands shared one radius

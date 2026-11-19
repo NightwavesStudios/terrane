@@ -1,0 +1,58 @@
+name: ci
+
+# The gate a deploy has to pass. It runs exactly what `npm run build` runs, plus
+# the unit tests, so a green check means Vercel is building something that
+# typechecks, validates its data and still produces a sitemap matching the atlas.
+#
+# The data workflows are separate on purpose: they write to the cell bucket on a
+# cron and never deploy the site. This workflow never touches the bucket, so it
+# needs no secrets and runs on forks too.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: unit tests
+        run: npm test
+
+      # Manifest + schema + duplicate checks, without the full build.
+      - name: validate data
+        run: npm run validate
+
+      # Absolute canonical/og:url and sitemap when the repository variable is set;
+      # root-relative otherwise, which is valid but not submittable.
+      - name: build
+        run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist
+          retention-days: 7

@@ -27,6 +27,7 @@ where.
 npm install
 npm run dev        # http://localhost:3000
 npm run build      # seo + manifest + validate + tsc + vite → dist/
+npm test           # unit tests: routing, cell maths, ranking
 npm run audit      # data density, duplicates and freshness → reports/
 npm run preview    # serve the production build
 npm run single     # bundle dist/ into one self-contained terrane.html (~2 MB)
@@ -631,19 +632,33 @@ links `/fonts.css`, and no font is fetched from Google.
 | `scripts/build-atlas.py` | Regenerates `src/data/atlas.json` from Wikidata + Natural Earth. Reads `src/data/curated-index.json` for the protected slug list. |
 | `scripts/build-standalone.mjs` | Packs `dist/` into the single-file `terrane.html`. |
 | `terrane.html` | Build output (gitignored): the whole app in one file. |
+| `vercel.json` | The deploy: `dist`, an SPA rewrite to `index.html`, immutable caching for `/assets`. |
+| `.github/workflows/` | `ci.yml` (typecheck, tests, validate, build on every push and PR) plus the four scheduled data refreshes and the coverage report. |
+| `docs/deploy.md` | Everything a deploy touches: the Vercel project, environment variables, GitHub secrets and variables, the cron map, rollback. |
+| `.nvmrc`, `.editorconfig` | Node 22 for local, CI and Vercel; two-space TS, four-space Python. |
+| `.github/dependabot.yml`, `.github/pull_request_template.md` | Weekly npm and monthly Actions updates; the PR checklist. |
 
 ---
 
 ## Checks
 
 ```bash
-npm run build     # seo + manifest + validate + tsc -b + vite build
-npm run validate  # data schema, categories, duplicates, manifest agreement
-npm run audit     # reports/data-audit.{md,json}
+npm run build      # seo + manifest + validate + tsc -b + vite build
+npm run typecheck  # tsc -b, no emit
+npm test           # vitest: routing, cell maths, ranking
+npm run check      # typecheck + tests + data validate
+npm run validate   # data schema, categories, duplicates, manifest agreement
+npm run audit      # reports/data-audit.{md,json}
 ```
 
-There is no test suite, no linter and no CI. Typechecking and the data validator
-run inside `build`.
+`.github/workflows/ci.yml` runs typecheck, the tests, the validator and the full
+build on every push to `main` and every pull request, so a red check is the same
+failure Vercel would hit. There is still no linter.
+
+The suite covers the pure modules only (`src/lib/router.ts`, `src/data/rank.ts`).
+The globe needs WebGL and the map style needs the network, so it is checked by the
+build and by opening the page, not by the tests. [Deploying](docs/deploy.md) has
+the Vercel project, secrets and cron map.
 
 Expected build footprint: entry chunk ~449 kB JS (≈126 kB gzip, including the
 1,218-row atlas and the manifest) plus a lazy `Globe` chunk ~1.07 MB (≈287 kB

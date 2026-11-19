@@ -5,7 +5,14 @@ import react from "@vitejs/plugin-react";
    canonical or an og:image is worse than none. `index.html` carries __SITE_URL__
    placeholders; with SITE_URL set they become absolute, without it they stay
    root-relative. */
-const SITE_URL = (process.env.SITE_URL ?? "").replace(/\/$/, "");
+/* Vercel knows the production hostname at build time but not the scheme, so a
+   deploy without SITE_URL set still gets absolute canonical and sitemap URLs. */
+const SITE_URL = (
+  process.env.SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "")
+).replace(/\/$/, "");
 
 function seo(): Plugin {
   return {
