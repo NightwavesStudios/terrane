@@ -1006,6 +1006,31 @@ button {
 .layers-row--cat .layers-note {
   margin: 0;
 }
+/* The exaggeration slider sits under its switch, full width, with a target tall
+   enough to drag on a phone. */
+.layers-panel .layers-row--slider {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 0 10px 10px;
+  cursor: default;
+}
+.layers-panel .layers-row--slider .layers-text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.layers-panel .layers-row--slider input[type="range"] {
+  width: 100%;
+  height: 26px;
+  margin: 0;
+  accent-color: #57f0b2;
+}
+.layers-panel .layers-row--slider input[type="range"]::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+}
 .layers-label--cat {
   display: flex;
   align-items: center;

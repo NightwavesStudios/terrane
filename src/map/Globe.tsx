@@ -123,6 +123,37 @@ const RUNTIME_IDS = [
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
 
+/**
+ * The 3D mesh.
+ *
+ * MapLibre draws terrain correctly at rest. What it does not survive is being
+ * re-created: the earlier version called `setTerrain` for every exaggeration
+ * step and once more on settle, and each call builds a new Terrain and a new
+ * RenderToTexture over the same tile manager. The render-to-texture pass the
+ * map keeps is then the one taken while the DEM was still an empty 1x1 texture,
+ * so the mesh draws flat as soon as the camera stops.
+ *
+ * So the mesh is created once, by the switch, and the slider writes
+ * `terrain.exaggeration` — a uniform every frame reads — with one repaint.
+ */
+function applyTerrainTo(map: MlMap, layers: LayerState) {
+  if (!map.getSource("relief")) return;
+  const on = Boolean(map.getTerrain());
+
+  if (layers.terrain && !on) {
+    map.setTerrain({ source: "relief", exaggeration: layers.exaggeration });
+    return;
+  }
+  if (!layers.terrain && on) {
+    map.setTerrain(null);
+    return;
+  }
+  if (layers.terrain && map.terrain && Math.abs(map.terrain.exaggeration - layers.exaggeration) > 0.001) {
+    map.terrain.exaggeration = layers.exaggeration;
+    map.triggerRepaint();
+  }
+}
+
 /** A camera in the URL: `?at=lat,lon,zoom`, 3/3/2 decimals. */
 function readCamera(): { center: [number, number]; zoom: number | null } {
   const raw = new URLSearchParams(window.location.search).get("at");
@@ -306,6 +337,8 @@ export default function Globe({
       }
     };
 
+    const applyTerrain = () => applyTerrainTo(map_, layersRef.current);
+
     /** Re-adds everything the style does not declare. Idempotent and cheap when whole. */
     const ensureRuntimeLayers = () => {
       if (!booted.current || !map_.getStyle()) return;
@@ -324,6 +357,7 @@ export default function Globe({
       if (layersRef.current.contours && !map_.getLayer("contours-minor")) {
         contours.current?.reload();
       }
+      applyTerrain();
     };
 
     const bootstrap = () => {
@@ -507,7 +541,8 @@ export default function Globe({
     setDestinationCats(map_, layers);
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
-
+    layersRef.current = layers;
+    applyTerrainTo(map_, layers);
   }, [layers, ready]);
 
   /* ── data updates (ranked atlas rows) ──────────────── */
@@ -629,7 +664,7 @@ export default function Globe({
         `z ${map_.getZoom().toFixed(2)} · pitch ${map_.getPitch().toFixed(0)}° · ${fps.value} fps`,
         `pins ${pins.drawn.toLocaleString()} / ${pins.cached.toLocaleString()} cached · ${pins.duplicates} dup · setData ${pins.lastSetDataMs.toFixed(1)} ms`,
         `trails ${trails.drawn.toLocaleString()} · ${trails.cells} cells · setData ${trails.lastSetDataMs.toFixed(1)} ms`,
-        `dem ${demTiles} · ${pins.cells + pins.parkingCells} cells`, 
+        `dem ${demTiles} · terrain ${map_.getTerrain() ? `on ×${map_.terrain?.exaggeration.toFixed(1)}` : "off"} · ${pins.cells + pins.parkingCells} cells`,
       ];
       if (debugOn.current) setDebugLines(lines);
       (window as unknown as { __terraneStats?: unknown }).__terraneStats = {

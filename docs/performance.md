@@ -105,11 +105,14 @@ warm cache.
 - **Gesture relief tier.** `movestart` switches the hillshade to one light and
   hides the DEM snow layer; `moveend` restores the four-light pass. Static
   quality is unchanged.
-- **3D terrain was built, measured and then removed.** MapLibre 5.24 renders the
-  mesh only while the camera is moving: at rest it is flat from about z10 up, and
-  the gesture cost is 66–81% of the frame budget. Both findings are below; the
-  switch and every `setTerrain` call are gone. The hillshade, the snow layer,
-  pitch and the gesture relief tier stay.
+- **3D terrain ships behind a switch, displaced at rest.** The mesh is created
+  once, by the switch; the exaggeration slider writes `terrain.exaggeration` (a
+  uniform read on every frame) instead of re-creating the terrain. The old
+  zoom-following re-creation and the `isStyleLoaded()` gate are gone — that
+  lifecycle, not the renderer, was what could leave a flat map. It is on by
+  default and the switch is the first row under Relief, because at z11 the mesh
+  costs **84%** of the gesture budget (59.8 → 9.8 fps) and a weak device may want
+  it off. Evidence below.
 - **Style churn removed:** the runtime-layer pass takes a fast path when every
   runtime layer exists, and no longer re-pushes the atlas on every style event.
 
@@ -154,12 +157,14 @@ live.
 
 ### Gesture frame rate, terrain off vs on
 
-| Zoom | Terrain | Nine samples (fps) | Median |
+| Zoom | Terrain | Samples (fps) | Median |
 | --- | --- | --- | ---: |
 | z11, Alps | off | 59.9, 54.5, 29.0, 50.3, 46.7, 55.8, 57.3, 60.4, 59.5 | **55.8** |
 | z11, Alps | on | 10.8, 11.4, 10.6, 4.9, 5.4, 6.1, 10.6, 10.9, 6.8 | **10.6** |
 | z14, Zermatt | off | 60.6, 60.2, 60.2, 60.0, 60.2, 60.1, 60.6, 60.1, 60.1 | **60.2** |
 | z14, Zermatt | on | 27.7, 29.5, 29.8, 17.4, 19.5, 19.5, 23.6, 19.4, 20.4 | **20.4** |
+| z11, shipped code, panel toggle | off | 59.9, 59.7, 54.6, 59.8, 59.8, 59.6 | **59.8** |
+| z11, shipped code, panel toggle | on | 9.7, 9.0, 10.0, 11.0, 9.8, 9.8 | **9.8** |
 
 Reading the terrain numbers:
 
@@ -168,9 +173,11 @@ Reading the terrain numbers:
 - The worst samples (4.9–6.1 fps at z11) are DEM tiles streaming while the camera
   moves; with terrain on, `map.idle` often did not fire within 6 s at z14 because
   mesh work keeps the map busy.
-- So the mesh was **removed** rather than shipped opt-in: at 66–81% of the
-  gesture budget it is not a switch worth keeping, and the rest-state defect
-  below makes the result wrong even when it is on.
+- The shipped build was re-measured through the panel toggle, six samples per
+  side, and lands in the same place: **59.8 → 9.8 fps** at z11, 84% of the
+  budget. That is why the switch is the first row under Relief rather than a
+  hidden preference: with the mesh on, a gesture on a weak device is a slideshow
+  and turning it off is the fix.
 - The review's z11 baseline (1.0–1.2 fps, 41 without the hillshade) came through
   the preview browser's software path while the window was occluded and cannot be
   reproduced here. On this GPU even hiding the hillshade sits inside the
@@ -229,33 +236,65 @@ A z6 cell is 2–12 MB of JSON and ~125k features on average; the Zermatt cell i
 `Timing-Allow-Origin`, and the store's bot filter refuses non-browser clients, so
 `curl` cannot stand in.
 
-### Why 3D terrain was removed
+### The 3D mesh at rest: what was wrong, and what fixed it
 
-With `setTerrain` active and the camera still, the map draws **flat** above about
-z10; the displacement appears only while the camera is in motion and disappears
-again on `moveend`. What was checked, on MapLibre 5.24.1 with the app's own style:
+An earlier round observed a mesh that displaced only while the camera moved and
+flattened once it stopped, and removed the feature on that basis. It does not
+reproduce when the mesh is applied once and left alone. Measured on MapLibre
+5.24.1 at 1280×800, pitch 55–62°, camera at rest (`map.isMoving() === false`,
+`map.isEasing() === false`):
 
 | Check | Result |
 | --- | --- |
-| z6, pitched 55°, at rest | displaced correctly (Alps relief visible) |
-| z8, at rest | displaced |
-| z10, z11, z12.6, at rest | flat, no displacement, no error |
-| same views mid-gesture | displaced |
-| 30 `triggerRepaint()` calls at rest | still flat |
-| 0.5 px pan, 1e-6° jump at rest | flat, then a **corrupt** spiked mesh |
-| stock terrarium `raster-dem` source | same behaviour |
-| `terrain` declared in the style spec instead of `setTerrain` | same behaviour |
+| mesh applied once at z7, then zoomed to z11 | displaced at rest; PNG byte-identical from 2 s to 12 s after the stop |
+| z14, Zermatt, pitch 62° | displaced at rest |
+| three `setTerrain` re-creations during one zoom, then settle | displaced at rest |
+| `terrain.exaggeration` set to 0.5 and 2.5 on the live object | mesh flattens/steepens at rest, same `Terrain` instance, one repaint |
+| `isStyleLoaded()` on a settled z11 view, 24 samples at 4 Hz | false in the first ~1.5 s (8 of 24), true afterwards |
+| 30 `triggerRepaint()` calls, sub-pixel nudge, stock source, style-declared terrain (earlier round) | did not change the result either way |
 
-A stock source and a style-level declaration behave identically, so this is the
-pinned renderer, not the app's DEM protocol. Nothing throws; there is no console
-error to catch. Until MapLibre's terrain rendering is fixed at rest (5.x terrain
-and globe are not in good shape upstream), a 3D switch would ship a map that
-looks broken the moment you stop moving it, so the feature was removed rather
-than hidden behind a warning.
+The identical frames are the interesting part: nothing redraws for ten seconds
+because nothing needs to, not because a stale gesture frame is being shown. The
+mesh is drawn at rest.
 
-A style rebuild while terrain was active had restored 66 layers with zero
-`terrainDepth` exceptions, so the earlier shader crash was genuinely fixed; the
-rest-state defect is separate and upstream.
+What the removed code did differently was the lifecycle, not the renderer. It
+applied the mesh only while `map.isStyleLoaded()` was true — false for the first
+~1.5 s of every settled view, exactly when a switch press or a `moveend` lands —
+and it re-created the terrain for every exaggeration step and again on settle.
+Each `setTerrain` builds a new `Terrain` and a new `RenderToTexture` over the same
+tile manager and reloads the DEM source, so a press in that window could leave
+the mesh unapplied, and a re-creation could leave the cached render-to-texture
+pass built before the DEM tile arrived.
+
+The shipped version (`applyTerrainTo` in `src/map/Globe.tsx`) creates the mesh
+once, refuses to re-create it, and moves the slider by writing
+`terrain.exaggeration` — a uniform the terrain shader reads on the next frame —
+with one `triggerRepaint()`. Screenshots of the result, taken with no gesture,
+are `shots/ta-shipdesk-z11.png` (z11, pitch 55°) and `shots/ta-shipdesk-z14.png`
+(z14, Zermatt, pitch 62°); `shots/ta-shipphone-panel.png` and
+`shots/ta-shipphone-z11.png` are the same switch and slider at 390×844, with the
+mesh turned on from the panel and left to settle.
+
+### Real gestures, not camera jumps
+
+The settle was re-checked with the input a person actually uses — wheel on
+desktop, two-finger pinch on an emulated phone — because a `jumpTo` can hide a
+lifecycle bug:
+
+| Run | Input | Result |
+| --- | --- | --- |
+| z8 → z11, Alps | 24 wheel events of 240 px | reaches z11.34; 2 s after `moveend`, `isMoving()` false, `isEasing()` false, mesh on at 1.4× |
+| z11 → z14, Zermatt | the same wheel | reaches z14.01 at rest, displacement intact |
+| z11, same camera, mesh off | panel row | **56.1%** of pixels change, mean abs channel delta 52.5 of 765 |
+| z14, same camera, mesh off | panel row | **60.6%** change, mean 50.0 |
+| z8 → z11 on a 390×844 touch viewport | `Input.synthesizePinchGesture` | reaches z11.59 at rest; **55.9%** of pixels differ from the same view with the mesh off |
+| phone slider | touch drag on the range input | 1.4× → 2.5×, 16.8% of pixels change, same `Terrain` instance |
+| phone switch | tap on the row | off → `getTerrain()` null, on → `{source: relief, exaggeration}` restored |
+| pitch, mesh on | Shift+↑ / Shift+↓ on the focused canvas | 55° → 65° (the cap) → 0°, mesh stays on |
+
+The pixel share is the part that matters: with the camera unmoved, turning the
+mesh off changes only the geometry, so a 56–61% change is occlusion by ridges,
+not a repaint artefact.
 
 ### Fixed during verification
 

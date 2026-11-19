@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { CATEGORIES, FAMILIES, type Family } from "../data/features";
 import { useManifest } from "../lib/live";
@@ -14,6 +14,9 @@ import { useManifest } from "../lib/live";
 export interface LayerState {
   relief: boolean;
   /** The 3D mesh; `relief` still owns the hillshade and the snow. */
+  terrain: boolean;
+  /** How many times the real elevation the mesh is drawn at. */
+  exaggeration: number;
   hillshade: boolean;
   snow: boolean;
   contours: boolean;
@@ -31,6 +34,8 @@ export interface LayerState {
 
 export const DEFAULT_LAYERS: LayerState = {
   relief: true,
+  terrain: true,
+  exaggeration: 1.4,
   hillshade: true,
   snow: true,
   contours: false,
@@ -47,6 +52,7 @@ export const DEFAULT_LAYERS: LayerState = {
 
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "relief", label: "Relief" },
+  { key: "terrain", label: "3D terrain" },
   { key: "hillshade", label: "Hillshade" },
   { key: "snow", label: "Elevation snow" },
   { key: "contours", label: "Contours" },
@@ -188,16 +194,40 @@ export default function LayerControl({
       {open && (
         <div className="layers-panel" role="group" aria-label="Map layers">
           {BASE_ROWS.map((row) => (
-            <label className="layers-row" key={row.key}>
-              <input
-                type="checkbox"
-                checked={Boolean(value[row.key])}
-                onChange={() => onChange({ ...value, [row.key]: !value[row.key] })}
-              />
-              <span className="layers-text">
-                <span className="layers-label">{row.label}</span>
-              </span>
-            </label>
+            <Fragment key={row.key}>
+              <label className="layers-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(value[row.key])}
+                  onChange={() => onChange({ ...value, [row.key]: !value[row.key] })}
+                />
+                <span className="layers-text">
+                  <span className="layers-label">{row.label}</span>
+                  {row.key === "terrain" ? (
+                    <span className="layers-note mono">
+                      {value.terrain ? `${value.exaggeration.toFixed(1)}× height` : "flat"}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+              {row.key === "terrain" && value.terrain ? (
+                <label className="layers-row layers-row--slider">
+                  <span className="layers-text">
+                    <span className="layers-label layers-label--cat">Exaggeration</span>
+                    <span className="layers-note mono">{value.exaggeration.toFixed(1)}×</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.5}
+                    step={0.1}
+                    value={value.exaggeration}
+                    aria-label="Terrain exaggeration"
+                    onChange={(e) => onChange({ ...value, exaggeration: Number(e.target.value) })}
+                  />
+                </label>
+              ) : null}
+            </Fragment>
           ))}
 
           <label className="layers-row layers-row--group">
