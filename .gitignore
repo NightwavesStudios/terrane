@@ -7,13 +7,21 @@ dist
 terrane.html
 shots/
 .cache
-# The harvested cells live in object storage, not in git: 370 MB, 1,869 files.
-# `npm run poi:push` sends them to the bucket; the map reads them from there.
+
+# The harvested cells live in object storage, not in git: ~382 MB of POI cells
+# and ~288 MB of trail cells. `npm run poi:push` / `npm run data:upload` send them
+# to the bucket; the map reads them from there.
 public/poi/
 public/.poi-staging
 public/.poi-previous
+public/trails/
 
-# Python bytecode from the harvest script
+# Generated at build time from the atlas and the runtime store.
+public/sitemap.xml
+public/robots.txt
+public/coverage.json
+
+# Python bytecode from the harvest scripts
 __pycache__/
 *.pyc
 
@@ -22,9 +30,10 @@ data/sources/*.ndjson
 data/sources/*.ndjson.gz
 data/upload-manifest.json
 
-# Trail cells work like the POI cells: generated, uploaded to object storage.
-public/trails/
+# Generated reports. `reports/coverage.json` is kept as the last known-good
+# strict-gate baseline; everything else is written by a local run.
+reports/*
+!reports/coverage.json
 
 # The dev server's own log, and the local Vercel link (`vercel link`).
-reports/dev.log
 .vercel
