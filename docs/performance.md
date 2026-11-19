@@ -102,9 +102,11 @@ warm cache.
   animation frame; at z8+ the payload is the viewport plus 50% margin; each cell
   keeps its features split by band, so a low-zoom push walks a handful of rows
   rather than every cached feature.
-- **Gesture relief tier.** `movestart` switches the hillshade to one light and
-  hides the DEM snow layer; `moveend` restores the four-light pass. Static
-  quality is unchanged.
+- **One lighting state.** The hillshade used to drop to a single key light for
+  the length of a gesture and restore four on settle, which changed the colour of
+  every slope twice per gesture — the map re-lit itself the moment the camera
+  stopped. The tier is gone: four lights, snow tint and shadow colours are the
+  same at rest and in motion, and the gesture cost of that is measured below.
 - **3D terrain ships behind a switch, displaced at rest.** The mesh is created
   once, by the switch; the exaggeration slider writes `terrain.exaggeration` (a
   uniform read on every frame) instead of re-creating the terrain. The old
@@ -184,15 +186,34 @@ Reading the terrain numbers:
   run-to-run spread (46.6 vs 49.0 fps over three runs each), so the gesture tier
   is verified by its paint state below, not by a frame-rate delta.
 
-### Gesture relief tier (verified)
+### Lighting: one state, and what it costs
 
-Reading the hillshade's paint properties around an `easeTo`:
+The old tier switched paint properties on `movestart`/`moveend`:
 
 | Phase | `hillshade-method` | Directions | Snow layer |
 | --- | --- | --- | --- |
 | Settled | `multidirectional` | 315, 45, 225, 135 | visible |
 | `movestart` | `basic` | 315 | none |
-| After `moveend` | `multidirectional` | 315, 45, 225, 135 | visible |
+
+Every switch rewrote highlight and shadow colours, so the colour of the whole map
+changed as the camera started and again as it stopped. That is what "the lighting
+only changes while moving" was. With the tier removed, `hillshade-method` reads
+`multidirectional` in every sample through a click move and after it (20 samples,
+150 ms apart), and the colours never change.
+
+The cost is real and is the trade taken deliberately: at z11, six samples with
+the mesh off, the gesture runs at **30.7, 30.1, 30.0 fps** (median 30.1) instead
+of the ~59.8 the one-light tier allowed. Half the frame rate for a map that does
+not change colour when it stops.
+
+### Clicking a point
+
+A click used to `flyTo` with `speed: 0.75, curve: 1.45`, whose duration grows with
+the distance and the zoom jump; from z8 to a cave at 13.4 it zoomed for seconds —
+a crawl on a device where the mesh already runs at 10 fps — which read as a map
+that never stops. It is now an `easeTo` of **850 ms**: one click on a pin at z8
+produced exactly one camera call and reached z13.4 in **1.2 s** wall clock (the
+sample that first reports `isMoving() === false`).
 
 ### Initial load
 
@@ -298,13 +319,13 @@ not a repaint artefact.
 
 ### Fixed during verification
 
-The relief tier wrote `hillshade-highlight-color` and `hillshade-shadow-color` as
-arrays of different lengths (four colours for four lights, one for the key
-light). MapLibre's default 300 ms paint transition tried to interpolate them and
-threw `colorArray: Arrays have mismatched length (4 vs. 1)` inside the render
-loop on every gesture start and end. Both colour properties now get zero-length
-transitions before the tier switches, so the change is atomic. Exceptions after
-the fix: **zero**, across the whole run.
+While the gesture tier existed it wrote `hillshade-highlight-color` and
+`hillshade-shadow-color` as arrays of different lengths (four colours for four
+lights, one for the key light), and MapLibre's 300 ms paint transition threw
+`colorArray: Arrays have mismatched length (4 vs. 1)` inside the render loop on
+every gesture start and end; zero-length transitions fixed that. The tier is now
+gone, so there is one paint and the exception cannot occur at all. Exceptions
+across the current runs: **zero**.
 
 ### Still unmeasured
 

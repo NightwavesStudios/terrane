@@ -50,9 +50,11 @@ import type { Place } from "../data/places";
  * lights turn relief into grey noise. The light is anchored to the map, not the
  * viewport, so pitching does not swing shadows across the ridges.
  *
- * Four lights are also the most expensive thing on a moving map, so a gesture
- * drops to the one key light (`HILLSHADE_BASIC`) and the full pass returns when
- * the camera settles. A still frame keeps the shading; a zoom keeps the frames.
+ * One state, always. A gesture used to drop to a single key light and restore
+ * four on settle, which saved frames but changed the colour of every slope twice
+ * per gesture — the map visibly re-lit itself the moment the camera stopped.
+ * That is what "the lighting only changes while moving" looked like from the
+ * outside, so the tier is gone: the same four lights run at rest and in motion.
  */
 type HillshadePaint = NonNullable<HillshadeLayerSpecification["paint"]>;
 
@@ -63,15 +65,6 @@ const HILLSHADE_MULTI: HillshadePaint = {
   "hillshade-illumination-altitude": [45, 30, 45, 30],
   "hillshade-highlight-color": ["#6f8158", "#5d6e4b", "#5a6a49", "#5d6e4b"],
   "hillshade-shadow-color": ["#020806", "#07120c", "#050e09", "#07120c"],
-};
-
-const HILLSHADE_BASIC: HillshadePaint = {
-  "hillshade-method": "basic",
-  "hillshade-illumination-anchor": "map",
-  "hillshade-illumination-direction": 315,
-  "hillshade-illumination-altitude": 45,
-  "hillshade-highlight-color": "#6f8158",
-  "hillshade-shadow-color": "#020806",
 };
 
 export interface GlobeFocus {
@@ -317,26 +310,6 @@ export default function Globe({
       }
     };
 
-    const setReliefQuality = (moving: boolean) => {
-      if (!map_.getLayer("relief-hillshade")) return;
-      const paint = moving ? HILLSHADE_BASIC : HILLSHADE_MULTI;
-      /* The two tiers differ in colour *length*: one light has a single colour,
-         four lights have four. MapLibre's default paint transition tries to
-         interpolate the old array against the new one and throws mid-render
-         ("colorArray: Arrays have mismatched length"); zero-length transitions
-         switch the tier atomically, which is what a gesture needs anyway. */
-      for (const key of ["hillshade-highlight-color", "hillshade-shadow-color"]) {
-        map_.setPaintProperty("relief-hillshade", `${key}-transition`, { duration: 0, delay: 0 });
-      }
-      for (const [key, value] of Object.entries(paint)) {
-        map_.setPaintProperty("relief-hillshade", key, value);
-      }
-      const snow = layersRef.current.relief && layersRef.current.snow;
-      if (map_.getLayer("relief-snow")) {
-        map_.setLayoutProperty("relief-snow", "visibility", moving || !snow ? "none" : "visible");
-      }
-    };
-
     const applyTerrain = () => applyTerrainTo(map_, layersRef.current);
 
     /** Re-adds everything the style does not declare. Idempotent and cheap when whole. */
@@ -478,9 +451,7 @@ export default function Globe({
     }, 2500);
 
     map_.on("styledata", ensureRuntimeLayers);
-    map_.on("movestart", () => setReliefQuality(true));
     map_.on("moveend", () => {
-      setReliefQuality(false);
       writeCamera();
       if (map_.getZoom() >= 6.6) {
         void loadMoreDestinations(map_).then(() => refreshDuplicates(map_));
@@ -576,12 +547,14 @@ export default function Globe({
     /* A park is a place you look at from 9.6, a tent from 14.6. If the reader is
        already closer than the category's frame, keep their zoom. */
     const zoom = Math.max(map_.getZoom(), focusZoomFor(pick.cat));
-    map_.flyTo({
+    /* A bounded move. `flyTo` scales its duration with distance and zoom, so a
+       click from a wide view zoomed for five seconds and read as a map that
+       never stopped; 850 ms is the same destination at a predictable cost. */
+    map_.easeTo({
       center: [pick.lon, pick.lat],
       zoom,
       pitch: pitchForZoom(zoom),
-      speed: 0.75,
-      curve: 1.45,
+      duration: 850,
       essential: true,
       padding:
         window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
@@ -620,12 +593,11 @@ export default function Globe({
   useEffect(() => {
     const map_ = map.current;
     if (!map_ || !focus || !ready) return;
-    map_.flyTo({
+    map_.easeTo({
       center: [focus.lon, focus.lat],
       zoom: focus.zoom,
       pitch: pitchForZoom(focus.zoom),
-      speed: 0.75,
-      curve: 1.45,
+      duration: 850,
       essential: true,
     });
   }, [focus, ready]);
