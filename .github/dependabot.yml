@@ -12,6 +12,11 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
+    ignore:
+      # Deliberately held at v5 (README, "Why MapLibre is held at v5"); a v6 bump
+      # is a mapping decision, not a dependency chore.
+      - dependency-name: "maplibre-gl"
+        update-types: ["version-update:semver-major"]
     groups:
       dev-dependencies:
         dependency-type: development
