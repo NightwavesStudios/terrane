@@ -79,7 +79,15 @@ for (const source of registry.sources ?? []) {
   const rejectRate = rec.fetched ? rejectedSerious / rec.fetched : 0;
   const problems = [];
   if (unaccounted !== 0) problems.push(`${unaccounted} unaccounted records`);
-  if (!gateOk) problems.push(`gate ${gateField} ${gateValue ?? 0} < ${source.gate?.min}`);
+  if (!gateOk) {
+    // A source that returned nothing fails its gate however large its raw feed was,
+    // so say that instead of printing a comparison that is arithmetically true.
+    problems.push(
+      rec.fetched
+        ? `gate ${gateField} ${gateValue ?? 0} < ${source.gate?.min}`
+        : `fetched 0 (gate ${gateField} ≥ ${source.gate?.min ?? 0})`,
+    );
+  }
   if (rejectRate >= 0.02) problems.push(`${(rejectRate * 100).toFixed(1)}% rejected`);
   if (age == null || age > limit) problems.push(`stale ${age}d > ${limit}d`);
 
@@ -147,7 +155,11 @@ const diskTrails = trailStats?.segments ?? 0;
 // still on disk, so reporting zero there would be a lie. Carry the last full
 // merge's count forward instead, and say in the report that it was carried.
 const trailSegments = merge.trails?.segments ?? (diskTrails || placedTrails);
-const trailsCarriedForward = merge.trails?.segments == null && trailSegments > 0;
+// merge-sources writes the carried value into merge.json with `carried_from`, so a
+// points-only run is distinguishable from a real trail rebuild by that field as
+// well as by a null trail block.
+const trailsCarriedForward =
+  (merge.trails?.segments == null || Boolean(merge.trails?.carried_from)) && trailSegments > 0;
 
 const totals = {
   sources: rows.length,
@@ -174,7 +186,7 @@ const report = {
   totals,
   merge: merge.points ?? null,
   trailMerge: merge.trails ?? null,
-  trailSource: merge.trails ? "merge" : trailsCarriedForward ? "carried-forward" : "none",
+  trailSource: trailsCarriedForward ? "carried-forward" : merge.trails ? "merge" : "none",
   sources: rows,
   mapped: { pointsBySource, trailsBySource },
   gaps: {
@@ -242,10 +254,10 @@ const md = [
   "## Merge",
   "",
   `- Points: ${(merge.points?.input ?? 0).toLocaleString()} in, ${(merge.points?.kept ?? 0).toLocaleString()} kept, ${(merge.points?.merged ?? 0).toLocaleString()} merged, ${(merge.points?.replaced_osm ?? 0).toLocaleString()} OSM rows replaced by agency rows.`,
-  merge.trails
-    ? `- Trails: ${(merge.trails.input ?? 0).toLocaleString()} lines, ${(merge.trails.segments ?? 0).toLocaleString()} segments, ${(merge.trails.cells ?? 0).toLocaleString()} cells.`
-    : trailsCarriedForward
-      ? `- Trails: ${trailSegments.toLocaleString()} segments and ${(trailStats?.cells ?? 0).toLocaleString()} cells carried forward unchanged from the last full merge — this run merged points only, so trails were not rebuilt (not zero).`
+  trailsCarriedForward
+    ? `- Trails: ${trailSegments.toLocaleString()} segments and ${(trailStats?.cells ?? merge.trails?.cells ?? 0).toLocaleString()} cells carried forward unchanged from the last full merge — this run merged points only, so trails were not rebuilt (not zero).`
+    : merge.trails
+      ? `- Trails: ${(merge.trails.input ?? 0).toLocaleString()} lines, ${(merge.trails.segments ?? 0).toLocaleString()} segments, ${(merge.trails.cells ?? 0).toLocaleString()} cells.`
       : "- Trails: no trail cells on disk and no full merge recorded — unknown, not zero.",
   "",
 ].join("\n");

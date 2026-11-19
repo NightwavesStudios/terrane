@@ -68,6 +68,23 @@ def read_json(path, default=None):
         return default
 
 
+def source_files():
+    """One path per logical source, never both copies of it.
+
+    The adapters write `<id>.ndjson`; a compressed `<id>.ndjson.gz` from an older
+    run can sit next to it. Reading both ingests the same records twice, which
+    doubled the trail segment count and inflated the merge accounting, so the
+    uncompressed file wins whenever it exists.
+    """
+    by_base = {}
+    for name in sorted(os.listdir(DATA)):
+        base = name[:-3] if name.endswith(".gz") else name
+        current = by_base.get(base)
+        if current is None or current.endswith(".gz"):
+            by_base[base] = name
+    return [by_base[base] for base in sorted(by_base)]
+
+
 def read_ndjson(path):
     if not os.path.exists(path):
         return
@@ -118,7 +135,7 @@ def rank(src):
 
 def point_records():
     records = []
-    for name in sorted(os.listdir(DATA)):
+    for name in source_files():
         base = name[:-3] if name.endswith(".gz") else name
         if not base.endswith(".ndjson") or base.endswith("_trails.ndjson") or base.startswith("osm_routes"):
             continue
@@ -179,7 +196,14 @@ def dedupe(records):
 
 
 def fetch_bucket_cell(x, y):
-    """CI starts with an empty checkout. The OSM cells only exist in R2."""
+    """CI starts with an empty checkout. The OSM cells only exist in R2.
+
+    A 404 means "this cell was never published", which is a real empty cell and
+    safe to write agency rows into. Any other failure is not: treating an
+    unreachable or unreadable bucket as an empty cell writes a cell holding only
+    agency rows over a published cell full of OSM rows, and the upload step then
+    publishes that loss. Those failures raise, and the run stops.
+    """
     global BUCKET_CELLS
     if not BUCKET:
         return None
@@ -189,8 +213,18 @@ def fetch_bucket_cell(x, y):
         with urllib.request.urlopen(req, timeout=30) as res:
             BUCKET_CELLS += 1
             return json.loads(res.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, ValueError, TimeoutError):
-        return None
+    except urllib.error.HTTPError as err:
+        if err.code == 404:
+            return None
+        raise BucketCellError(f"{url}: HTTP {err.code}") from err
+    except (urllib.error.URLError, TimeoutError) as err:
+        raise BucketCellError(f"{url}: {getattr(err, 'reason', err)}") from err
+    except ValueError as err:
+        raise BucketCellError(f"{url}: unparseable JSON ({err})") from err
+
+
+class BucketCellError(RuntimeError):
+    """A cell could not be read from the bucket for a reason other than absence."""
 
 
 def load_cell(x, y):
@@ -275,11 +309,17 @@ def merge_points():
     for rec in kept:
         by_cell[cell_of(rec["lat"], rec["lon"])].append(rec)
 
+    # Read every cell this run will touch before writing any of them. Reading
+    # lazily inside the write loop meant a bucket failure halfway through left
+    # the cells already visited rewritten and the rest untouched — a partial
+    # publish that looks exactly like a successful merge.
+    loaded = {key: load_cell(*key) for key in by_cell}
+
     cells = 0
     replaced = 0
     max_cell = 0
     for (x, y), incoming in by_cell.items():
-        cell = load_cell(x, y)
+        cell = loaded[(x, y)]
         rows = cell["items"]
         existing_ids = {str(r.get("id")) for r in rows if r.get("id")}
         # Authority over OSM: an agency row within 50 m of an OSM row replaces it.
@@ -333,7 +373,7 @@ def merge_points():
 
 def read_trails():
     records = []
-    for name in sorted(os.listdir(DATA)):
+    for name in source_files():
         base = name[:-3] if name.endswith(".gz") else name
         if not base.endswith("_trails.ndjson") and base != "osm_routes.ndjson":
             continue
@@ -388,8 +428,34 @@ def line_length(coords):
     return total
 
 
-def merge_trails():
-    records = read_trails()
+def require_trail_input(records):
+    """Refuse to rebuild trails from less than the published store.
+
+    OSM hiking routes are about 70% of the trail cells. A run that rebuilds from
+    the agency feeds alone replaces ~449k published segments with ~325k and then
+    reports success, so a missing required source — or an input that has collapsed
+    against the last known-good merge — aborts the whole run before any cell is
+    written. `--points-only` is the supported way to leave trails alone.
+    """
+    if not any(r.get("src") == "osm_routes" for r in records):
+        raise SystemExit(
+            "merge: refusing to rebuild trails — no osm_routes rows are present.\n"
+            "  The three agency trail feeds alone are ~325k segments against a "
+            "published ~449k.\n"
+            "  Run the OSM route harvest first (scripts/sources/osm_routes_global.py), "
+            "or use --points-only to carry trails forward. Nothing was written."
+        )
+    stats = read_json(os.path.join(ROOT, "src", "data", "trail-stats.json"), {}) or {}
+    known = int(stats.get("input") or 0)
+    if known and len(records) < known * 0.9:
+        raise SystemExit(
+            f"merge: refusing to rebuild trails — {len(records):,} input records is "
+            f"under 90% of the last known-good {known:,}.\n  Nothing was written."
+        )
+
+
+def merge_trails(records=None):
+    records = read_trails() if records is None else records
     cells = defaultdict(list)
     for rec in records:
         for index, (cell, run) in enumerate(split_by_cell(rec["coords"], TRAIL_CELL)):
@@ -458,12 +524,32 @@ def merge_trails():
 
 def main():
     points_only = "--points-only" in os.sys.argv
-    points = merge_points()
+    trail_records = None
+    if not points_only:
+        # Validate the trail input before the point merge writes anything: a run
+        # that cannot rebuild trails must abort whole, not publish its points and
+        # leave the trails reduced.
+        trail_records = read_trails()
+        require_trail_input(trail_records)
+    try:
+        points = merge_points()
+    except BucketCellError as err:
+        print(
+            "merge: refusing to write cells — the OSM bucket could not be read "
+            f"({err}).\n  Writing anyway would replace published OSM rows with the "
+            "agency rows in that cell, so nothing was written.",
+            file=os.sys.stderr,
+        )
+        raise SystemExit(1)
     previous = read_json(os.path.join(REPORTS, "merge.json"), {}) or {}
     # A points-only run does not touch the trail cells, so it must not erase the
     # trail numbers the published coverage page is built from. Carry the last full
     # merge forward; if there is none, fall back to the stats the cells came from.
-    trails = merge_trails() if not points_only else previous.get("trails")
+    trails = merge_trails(trail_records) if not points_only else previous.get("trails")
+    if points_only and trails:
+        # Mark the carry explicitly, so the coverage report can say the trail cells
+        # were carried forward rather than implying they were rebuilt this run.
+        trails = {**trails, "carried_from": trails.get("carried_from") or "reports/merge.json"}
     if points_only and not trails:
         stats = read_json(os.path.join(ROOT, "src", "data", "trail-stats.json"), {}) or {}
         if stats.get("segments"):

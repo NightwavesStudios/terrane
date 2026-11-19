@@ -110,7 +110,11 @@ jobs:
       - run: python3 scripts/sources/national.py
       - run: python3 scripts/sources/parks_canada.py
 
-      - run: python3 scripts/merge-sources.py
+      # Points only: this job harvests no trail source, so a full merge would
+      # rebuild the trail cells from an empty trail input (the checkout has no
+      # osm_routes rows) and shrink 449k segments to zero. Trails are rebuilt by
+      # data-monthly-trails.yml and carried forward here, never zeroed.
+      - run: python3 scripts/merge-sources.py --points-only
       - run: node scripts/poi-stats.mjs
       - run: node scripts/dedupe-report.mjs
       - run: node scripts/build-manifest.mjs

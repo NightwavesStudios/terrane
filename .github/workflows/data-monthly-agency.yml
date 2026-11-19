@@ -36,5 +36,7 @@ jobs:
       - run: python3 scripts/sources/parks_canada.py
       - run: python3 scripts/merge-sources.py --points-only
       - run: node scripts/build-manifest.mjs
-      - run: node scripts/coverage-report.mjs
+      # Strict on every job that publishes: a zero or missing source must stop
+      # the run before the upload, not publish a manifest claiming zero records.
+      - run: node scripts/coverage-report.mjs --strict
       - run: node scripts/upload-changed.mjs
