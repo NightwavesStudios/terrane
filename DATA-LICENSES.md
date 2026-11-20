@@ -15,8 +15,8 @@ licence.
 | Source | Used for | Licence | Attribution | Obligation |
 | --- | --- | --- | --- | --- |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright), via [Geofabrik](https://download.geofabrik.de/) | Points and hiking routes | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) | © OpenStreetMap contributors | Attribution; share-alike for a derived database. Keep the notice on any redistributed extract. |
-| [Wikidata](https://www.wikidata.org/) | Destination atlas and long tail | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Wikidata contributors (courtesy) | No legal requirement; attribution is good practice. |
-| Hand-written field entries | Destination pages | © Terrane contributors, MIT | Terrane | Facts only; no copied prose. |
+| [Wikidata](https://www.wikidata.org/) | Destination atlas, long tail and one-line descriptions | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Wikidata contributors (courtesy) | No legal requirement; attribution is good practice. |
+| [Wikimedia Commons](https://commons.wikimedia.org/) | Destination photographs | Per file (CC BY, CC BY-SA, CC0 or public domain) | The photographer named on the file page | Credit and licence link on every image; the file page is linked. No image is copied into the repository or the cell store. |
 | [Recreation.gov RIDB](https://ridb.recreation.gov/) | US federal facilities and campsites | Public domain (US Government) | Recreation.gov / RIDB | None; retain provenance. |
 | [US Forest Service](https://www.fs.usda.gov/about-agency/open-data) | Recreation sites and NFS trails | Public domain (US Government) | USDA Forest Service | None; retain provenance. |
 | [Bureau of Land Management](https://www.blm.gov/about/data) | Recreation sites and GTLF trails | Public domain (US Government) | Bureau of Land Management | None; retain provenance. |
@@ -28,6 +28,14 @@ The basemap is [OpenFreeMap](https://openfreemap.org/) vector tiles from
 OpenStreetMap data, with [Mapterhorn](https://mapterhorn.com/) terrain. The map
 keeps the OpenStreetMap and OpenFreeMap attribution visible at all times, as the
 ODbL and the tile provider require.
+
+## Photographs
+
+`src/data/place-details.json` stores a thumbnail URL, the photographer credit,
+the licence name and the licence URL for each image Commons reports. The page
+links the credit to the file page and the licence to its deed; an image without
+either is not emitted. Thumbnails are loaded from Wikimedia's image hosts at
+request time, not mirrored, so the repository and the R2 bucket do not grow.
 
 ## What the derived cells are
 

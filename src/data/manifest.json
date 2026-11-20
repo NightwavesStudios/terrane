@@ -2,33 +2,33 @@
   "pipeline": 2,
   "days": {
     "osm": "2026-11-18",
-    "wikidata": "2026-11-18"
+    "wikidata": "2026-11-20"
   },
   "totals": {
-    "all": 9440518,
-    "destinations": 24472,
+    "all": 9440520,
+    "destinations": 24474,
     "mapped": 9416046,
     "trails": 485798
   },
   "categories": 30,
   "countries": {
-    "atlas": 156,
+    "atlas": 157,
     "mapped": 385
   },
   "byCategory": {
     "landmark": 190,
     "park": 1980,
-    "peak": 7648,
-    "desert": 134,
+    "peak": 7643,
+    "desert": 135,
     "range": 550,
     "lake": 3800,
     "island": 2600,
-    "waterfall": 1305,
+    "waterfall": 1310,
     "volcano": 327,
     "valley": 900,
     "reserve": 2200,
     "cave": 817,
-    "spring": 55,
+    "spring": 56,
     "beach": 965,
     "glacier": 1000,
     "canyon": 1,
@@ -61,9 +61,9 @@
       "id": "wikidata",
       "name": "Wikidata",
       "licence": "CC0",
-      "records": 24472,
-      "updated": "2026-11-18",
-      "note": "1218 atlas destinations · 23254 long-tail records"
+      "records": 24474,
+      "updated": "2026-11-20",
+      "note": "1213 atlas destinations · 23261 long-tail records"
     },
     {
       "id": "osm_routes",
@@ -229,16 +229,16 @@
     "checkedCells": 1037
   },
   "details": {
-    "pages": 1218,
-    "described": 1212,
-    "photographed": 1048,
-    "official": 69,
-    "ranges": 601,
-    "protected": 324,
-    "updated": "2026-11-18"
+    "pages": 1213,
+    "described": 1207,
+    "photographed": 1045,
+    "official": 73,
+    "ranges": 598,
+    "protected": 328,
+    "updated": "2026-11-20"
   },
   "validation": {
-    "ok": false,
+    "ok": true,
     "checks": [
       {
         "name": "category ids are unique",
@@ -263,7 +263,7 @@
       {
         "name": "atlas is a non-empty array",
         "ok": true,
-        "detail": "1218"
+        "detail": "1213"
       },
       {
         "name": "atlas rows have the required fields",
@@ -273,12 +273,12 @@
       {
         "name": "atlas slugs are unique",
         "ok": true,
-        "detail": "1218"
+        "detail": "1213"
       },
       {
         "name": "reach rows are valid",
         "ok": true,
-        "detail": "2664 rows"
+        "detail": "2672 rows"
       },
       {
         "name": "reach kinds are categories",
@@ -293,7 +293,7 @@
       {
         "name": "reach-more rows are valid",
         "ok": true,
-        "detail": "20590 rows"
+        "detail": "20589 rows"
       },
       {
         "name": "reach-more kinds are categories",
@@ -343,12 +343,12 @@
       {
         "name": "manifest totals match",
         "ok": true,
-        "detail": "9440518"
+        "detail": "9440520"
       },
       {
         "name": "manifest destination count matches",
         "ok": true,
-        "detail": "24472"
+        "detail": "24474"
       },
       {
         "name": "manifest mapped count matches",
@@ -408,12 +408,12 @@
       {
         "name": "trail links stay within their radius and cap",
         "ok": true,
-        "detail": "2363 links"
+        "detail": "2135 links"
       },
       {
         "name": "every trail link names a trail",
         "ok": true,
-        "detail": "2363 links"
+        "detail": "2135 links"
       },
       {
         "name": "every source carries licence and attribution metadata",
@@ -423,17 +423,17 @@
       {
         "name": "every destination page has a detail record",
         "ok": true,
-        "detail": "1218/1218"
+        "detail": "1213/1213"
       },
       {
         "name": "place details are well formed",
-        "ok": false,
-        "detail": "1218 records"
+        "ok": true,
+        "detail": "1213 records"
       },
       {
         "name": "manifest detail counts match",
         "ok": true,
-        "detail": "{\"pages\":1218,\"described\":1212,\"photographed\":1048,\"official\":69,\"ranges\":601,\"protected\":324}"
+        "detail": "{\"pages\":1213,\"described\":1207,\"photographed\":1045,\"official\":73,\"ranges\":598,\"protected\":328}"
       }
     ]
   }

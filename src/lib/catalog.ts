@@ -14,7 +14,7 @@ import { normalize } from "./text";
 /**
  * One lazy index of everything Discover can show.
  *
- * The atlas is bundled, the 23,254-row reach tail is two chunks, and the named
+ * The atlas is bundled, the 23,261-row reach tail is two chunks, and the named
  * OpenStreetMap pins arrive with the map's cells. Discover and search read a
  * single flat list built from all three, so a row does not change shape — or
  * disappear from search — depending on which loader happened to run first.

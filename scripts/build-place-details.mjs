@@ -26,6 +26,13 @@ const META = (() => {
   }
 })();
 const OUT = `${ROOT}/src/data/place-details.json`;
+const PRIOR = (() => {
+  try {
+    return JSON.parse(readFileSync(OUT, "utf8")).items ?? {};
+  } catch {
+    return {};
+  }
+})();
 
 const UA = "Terrane/0.1 (place details harvest; https://terrane.app)";
 const BATCH = 50;
@@ -102,6 +109,16 @@ function httpsOnly(value) {
   if (!value) return null;
   const url = value.trim();
   return url.startsWith("https://") ? url : null;
+}
+
+/* Commons often reports a licence deed as http://. The deed is the same page
+   over https, and the page must not emit a mixed-content link. */
+function secureUrl(value) {
+  if (!value) return null;
+  const url = String(value).trim();
+  if (url.startsWith("https://")) return url;
+  if (url.startsWith("http://")) return `https://${url.slice(7)}`;
+  return null;
 }
 
 function stripHtml(value) {
@@ -202,7 +219,7 @@ async function getImages(titles) {
           max: Number(info.width) || 0,
           credit: stripHtml(meta.Artist?.value || meta.Credit?.value || "Wikimedia Commons"),
           licence: stripHtml(meta.LicenseShortName?.value || "See file page"),
-          licenceUrl: meta.LicenseUrl?.value || info.descriptionurl,
+          licenceUrl: secureUrl(meta.LicenseUrl?.value) || info.descriptionurl,
           page: info.descriptionurl,
         });
       }
@@ -239,14 +256,26 @@ async function main() {
   console.log(`→ details: ${ATLAS.length} atlas destinations`);
 
   const byQid = new Map(ATLAS.map((row) => [row.wd, row]));
-  const entities = await getEntities(ATLAS.map((row) => row.wd));
-  console.log(`  ${entities.size} Wikidata entities`);
+  const priorByWd = new Map();
+  for (const item of Object.values(PRIOR)) {
+    if (item?.wd) priorByWd.set(item.wd, item);
+  }
+  const missing = ATLAS.filter((row) => !priorByWd.has(row.wd)).map((row) => row.wd);
+  const entities = await getEntities(missing);
+  console.log(
+    `  ${entities.size} new Wikidata entities (${ATLAS.length - missing.length} reused by Q id)`,
+  );
 
   const records = new Map();
   const fileTitles = new Set();
   const assocIds = new Set();
 
   for (const row of ATLAS) {
+    const prior = priorByWd.get(row.wd);
+    if (prior) {
+      records.set(row.slug, prior);
+      continue;
+    }
     const entity = entities.get(row.wd);
     if (!entity) {
       records.set(row.slug, { wd: row.wd });
@@ -291,6 +320,14 @@ async function main() {
 
   const ranges = ATLAS.filter((row) => /(?:^|\s)(?:range|ranges|mountains)$/i.test(row.name.trim()));
   const parks = ATLAS.filter((row) => row.type === "park");
+  const atlasSlugs = new Set(ATLAS.map((row) => row.slug));
+
+  function repairAssoc(assoc) {
+    if (!assoc) return null;
+    if (!assoc.slug || atlasSlugs.has(assoc.slug)) return assoc;
+    const { slug: _stale, ...rest } = assoc;
+    return rest;
+  }
 
   function association(id) {
     if (!id) return null;
@@ -322,13 +359,14 @@ async function main() {
     if (record.elev != null) item.elev = record.elev;
     if (record.prom != null) item.prom = record.prom;
 
+    if (record.img) item.img = record.img;
     const rowImages = (record.files ?? [])
       .map((file) => images.get(normalizeTitle(fileTitle(file))))
       .filter(Boolean);
     if (rowImages.length) {
       item.img = rowImages;
-      withImage += 1;
     }
+    if (item.img) withImage += 1;
     if (record.site) {
       item.site = record.site;
       withSite += 1;
@@ -336,33 +374,39 @@ async function main() {
     if (record.wiki) item.wiki = record.wiki;
     if (record.commons) item.commons = record.commons;
 
+    if (record.range) item.range = repairAssoc(record.range);
+    if (record.protected) item.protected = repairAssoc(record.protected);
     const range = association(record.rangeId);
     if (range) {
       item.range = range;
-      withRange += 1;
     }
+    if (item.range) withRange += 1;
     const protectedArea = association(record.protectedId);
     if (protectedArea) {
       item.protected = protectedArea;
-      withProtected += 1;
     }
+    if (item.protected) withProtected += 1;
 
     /* A recorded parent range or protected area is a claim about the place. A
        nearest neighbour is not, so it is stored under its own key and the page
        labels it "Nearest". */
-    if (!range) {
+    if (!item.range) {
       const nearRange = nearest(ranges, row);
       if (nearRange) item.nearestRange = nearRange;
+      else delete item.nearestRange;
     }
-    if (!protectedArea) {
+    if (!item.protected) {
       const nearPark = nearest(parks, row);
       if (nearPark) item.nearestPark = nearPark;
+      else delete item.nearestPark;
     }
 
     items[row.slug] = item;
   }
 
-  if (entities.size === 0) throw new Error("no Wikidata entities were fetched");
+  if (missing.length && entities.size === 0) {
+    throw new Error("no Wikidata entities were fetched for the new pages");
+  }
 
   const generated = META.atlas ?? META.reach ?? "unknown";
   writeFileSync(

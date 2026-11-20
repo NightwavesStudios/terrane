@@ -51,8 +51,8 @@ once.
   3, `10` per z9 for tier 4) with overflow one band later. A single Alpine z6 cell
   holds 1,415 tier-3 rows; without the cap its band would draw a wall of dots. A
   1200×800 view over the Alps is now 373 dots at z5.5 and 363 at z7.5.
-- `rankPlaces` no longer overloads `featured`/`curated` as band flags, so `src`
-  provenance stays true; curated rows carry `editorial: true`.
+- `rankPlaces` assigns the band explicitly instead of overloading a presentation
+  flag, so `src` provenance stays true.
 - `npm run bands` writes `reports/dot-bands.{md,json}` (band counts, worst z6 cell,
   world spread, sample viewports) from the same table the map reads.
 
@@ -75,8 +75,8 @@ panel and the globe hint presented provenance as taxonomy.
 - The 8 km radius harvest is deleted (`kit.json`, `kit-detail.json`,
   `harvest-kit.mjs`, `src/map/kit.ts`, `src/map/reach.ts`, `src/map/poi.ts`). The
   world OSM cells cover that ground once.
-- `importance()` no longer rewards curated rows, and the cap is per z6 cell (2 top +
-  4 second, 24/360 globally), so 51 US entries can no longer crowd out one state.
+- `importance()` ranks by reach alone, and the cap is per z6 cell (2 top +
+  4 second, 24/360 globally), so one country can no longer crowd out a state.
 - `src/data/manifest.json` carries totals, per-category counts, `generatedAt`, the
   validation result and failed extracts; every visible count reads from it.
   `scripts/validate-data.mjs` fails the build on schema, bounds, unknown categories,
@@ -87,10 +87,9 @@ panel and the globe hint presented provenance as taxonomy.
 - `npm run data:refresh` runs atlas, reach, bulk merge, audit, manifest and validate
   in order; there is still no scheduler.
 
-The audit now counts the 68 hand-written entries, which the manifest had been
-missing: **24,540 destinations** (1,218 atlas + 68 hand-written + 23,254 long tail)
-and 9,371,124 mapped places. The Georgia box went from 3 atlas / 71 long tail / 147
-radius pins to 3 atlas / 34 hand-written / 71 long tail / 0 radius pins.
+The audit now counts the destinations from the generated atlas and the long tail,
+and the manifest and the audit use the same total. The Georgia box is measured
+from those rows only.
 
 The two destination pairs that still sat within 50 m are resolved in the data, not
 hidden: Tavan Bogd (Q143008) is the massif whose Wikidata `P610` highest point is
@@ -212,6 +211,6 @@ level rather than only at world view.
 
 ### Data
 
-- 1,288 places across 157 countries: 650 peaks ranked by topographic prominence,
-  380 parks, 190 natural landmarks and 68 curated entries. No cities, no buildings,
-  no cultural sites — outdoor places only.
+- The atlas is generated from Wikidata: 650 peaks ranked by topographic
+  prominence, 380 parks and 190 natural landmarks, capped per country. No cities,
+  no buildings, no cultural sites — outdoor places only.

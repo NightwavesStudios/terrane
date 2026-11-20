@@ -6,14 +6,15 @@ Terrane is an interactive globe of places worth going outside for: peaks, ranges
 parks, coastlines, campsites, water and parking. Spin the planet, click a point,
 read what is around it.
 
-**9,440,586 places in 30 categories**, one model: 24,540 destinations (1,218
-Wikidata atlas rows, 68 hand-written entries and a 23,254-row Wikidata long tail),
-9,416,046 mapped places from OpenStreetMap and agency inventories, and 485,798
-trail segments in 1,017 z7 cells. Coverage is uneven; the [Data page](/coverage) and
+**9,440,520 places in 30 categories**, one model: 24,474 destinations (1,213
+Wikidata atlas rows and a 23,261-row Wikidata long tail), 9,416,046 mapped places
+from OpenStreetMap and agency inventories, and 485,798 trail segments in 1,017 z7
+cells. Coverage is uneven; the [Data page](/coverage) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md) say exactly where.
 
-> **Facts only.** Place pages show type, high point, country and coordinates.
-> There are no written field guides, photos, accounts or trip planning.
+> **Facts only.** Place pages show type, high point, country, coordinates and a
+> Wikidata description, with a credited Commons photograph where one exists.
+> There are no accounts and no trip planner; saves stay in the browser.
 
 ## Quick start
 
@@ -23,6 +24,7 @@ npm run dev        # http://localhost:3000
 npm run build      # data checks + tsc + Vite + SEO → dist/
 npm test           # Vitest: routing, ranking, filters, distances
 npm run check      # typecheck + tests + data validation
+npm run details    # Wikidata/Commons place details (network; committed output)
 npm run audit      # data audit → reports/ (generated, gitignored)
 npm run clean      # remove dist and other regenerable build output
 ```
@@ -44,12 +46,14 @@ it needs a rebuild, not a restart.
 | --- | --- | --- |
 | `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. |
 | `/?place=<slug>` | `Home` | The globe with a place pre-selected and flown to. |
-| `/place/:slug` | `Place` | Fact sheet: type, high point, country, coordinates and what is within 30 km. |
+| `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
+| `/saved` | `Saved` | The destinations saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
 
 Routing is real paths through the History API, parsed in `src/lib/router.ts`.
-There is no router dependency.
+There is no router dependency. Saves are a versioned `localStorage` list; the
+place page's back link restores the last globe camera from `sessionStorage`.
 
 ## Stack
 
@@ -59,9 +63,9 @@ There is no router dependency.
 | UI | React 19 + TypeScript 7 | `strict`, `noUnusedLocals`, `noUnusedParameters`. |
 | Map | MapLibre GL 5 | Major deliberately held at 5; see [performance](docs/performance.md). |
 | Routing | `src/lib/router.ts` | History API, no dependency. |
-| Styling | `src/styles.css` | One hand-written stylesheet, no framework. |
+| Styling | `src/styles.css` | One stylesheet, no framework. |
 | Fonts | `public/fonts/` | Self-hosted woff2 subsets, no Google Fonts request. |
-| State | React state + `sessionStorage` | No store library; the IP lookup is per tab. |
+| State | React state + `localStorage` / `sessionStorage` | No store library; saves are per browser, the IP lookup and last camera per tab. |
 | Tests | Vitest | Pure modules only; the WebGL globe is checked by the build and by opening it. |
 
 ## Architecture at a glance
@@ -69,14 +73,14 @@ There is no router dependency.
 ```
 src/
   App.tsx            route switch; Home is eager, Place and Coverage are lazy
-  pages/             Home, Place, Coverage
-  components/        header, chips, layers, search, card, generated ridge art
+  pages/             Home, Place, Saved, Coverage
+  components/        header, chips, layers, search, card, ridge art, place/
   map/               MapLibre style, globe component, layers, DEM, contours
-  data/              typed models + generated JSON (atlas, reach, manifest)
-  lib/               router, live cell feed, geolocation, distances, filters, meta
+  data/              typed models + generated JSON (atlas, reach, place details, manifest)
+  lib/               router, live cell feed, geolocation, distances, filters, meta, saves
 ```
 
-- **`src/map/style.ts`** is the hand-written basemap: OpenFreeMap vector tiles,
+- **`src/map/style.ts`** is the custom basemap: OpenFreeMap vector tiles,
   a latitude-banded land backdrop, landcover, park areas, water, roads,
   boundaries and the full label ladder.
 - **`src/map/Globe.tsx`** owns one `Map`, adds runtime layers, and turns clicks
@@ -91,6 +95,10 @@ src/
 - **`src/lib/live.ts`** fetches the manifest and coverage report at runtime so a
   harvest changes the counts without a new app build. **`src/lib/cells.ts`** is
   the single cell-store origin.
+- **`src/lib/placeDetails.ts`** loads the one detail chunk lazily; the page paints
+  from the atlas first and fills in descriptions, photos and links when it
+  arrives. **`src/lib/saved.ts`** is the versioned save list, and
+  **`src/lib/lastView.ts`** restores the camera behind a place page.
 
 Deeper detail: [architecture](docs/architecture.md),
 [data pipeline](docs/data-pipeline.md), [deployment](docs/deploy.md),
@@ -108,6 +116,11 @@ endpoints, deduplicated and re-simplified in metres; `npm run trail:quality` is
 the strict geometry gate. The atlas and the famous long tail are bundled; the
 rest of the tail is a lazy chunk.
 
+Place pages are generated from the atlas plus `src/data/place-details.json`:
+Wikidata's one-line description, Commons photographs with their credit and
+licence, official websites, parent ranges and protected areas. `npm run details`
+refreshes it; the file is committed and is not part of `npm run build`.
+
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
 date from the data files, so two builds of the same commit produce the same
@@ -118,7 +131,7 @@ generated and which are source.
 
 ```bash
 npm run typecheck  # tsc -b
-npm test           # 44 tests: router, ranking, filters, distances, camera
+npm test           # 111 tests: router, ranking, filters, distances, camera, catalog, saves
 npm run validate   # manifest counts, schemas, duplicate rules, coverage
 npm run build      # all of the above + Data checks + Vite build + SEO into dist
 npm run audit      # data density, duplicates and freshness (report only)
@@ -149,7 +162,7 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 
 ## Known limitations
 
-- **The destination set is a selection, not a census.** 1,218 atlas rows, with
+- **The destination set is a selection, not a census.** 1,213 atlas rows, with
   per-country caps; the long tail is ranked by fame, not completeness.
 - **Practical coverage is OSM coverage.** A blank cell means nobody mapped it;
   Europe is densest. Agency feeds cover the US, Canada and NZ only.
@@ -160,8 +173,15 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
   model is resampled; large forms, not gullies.
 - **Zooming is engine-bound.** The globe projection and the hillshade are the
   cost; measurements are in [performance](docs/performance.md).
-- **No field guides, photos, accounts or trip planner.** Product decisions, not
-  omissions.
+- **Photos and descriptions are Wikidata's coverage.** 1,045 of 1,213 pages have
+  a Commons image and 1,207 have a description; the rest show ridge art and no
+  About section. Official websites are sparser still (73 pages).
+- **Saves are local to one browser.** There is no account and no sync; clearing
+  site data removes them.
+- **The 23,261 reach rows have no page.** They keep their map card and nearest
+  destination link.
+- **Per-page social tags need JavaScript.** The SPA updates the head on route
+  change; a crawler that does not execute JavaScript sees the site-level tags.
 - **The data is not one licence.** Code is MIT (`LICENSE`); the data keeps each
   source's terms. See [`DATA-LICENSES.md`](DATA-LICENSES.md) and the per-source
   links on `/coverage`.
@@ -171,5 +191,5 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 Map © OpenStreetMap contributors ([ODbL](https://www.openstreetmap.org/copyright)) ·
 OpenFreeMap · Terrain: Mapterhorn and Copernicus DEM · Data: OSM (ODbL), Wikidata
 (CC0), Recreation.gov (RIDB), USFS, NPS, BLM (public domain), Parks Canada (OGL
-Canada), NZ Department of Conservation (CC BY 4.0). Full obligations are in
-[`DATA-LICENSES.md`](DATA-LICENSES.md).
+Canada), NZ Department of Conservation (CC BY 4.0) · Photos: Wikimedia Commons
+(per-file licences). Full obligations are in [`DATA-LICENSES.md`](DATA-LICENSES.md).

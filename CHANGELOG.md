@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-11-20 — Destination pages, generated only
+
+- Removed the 68 hand-written destinations and their index pipeline. Every
+  destination now comes from the Wikidata atlas; the three type labels remain.
+- Added `npm run details`, a committed Wikidata/Commons harvest: one-line
+  descriptions, credited photographs, official websites, parent ranges, protected
+  areas, elevation and prominence for 1,213 pages.
+- Rebuilt `/place/:slug` around one section order: photo hero (or generated ridge
+  art), fact strip, About, landscape, trails, activities and nearby places.
+- Added save/unsave in `localStorage`, the `/saved` page and save controls on the
+  map card; saves are local to one browser.
+- Added the last-camera back link, per-page OG image and JSON-LD, and a detail
+  coverage block in the manifest.
+- `validate-data.mjs` now fails on a missing detail record, an uncredited image or
+  a manifest count that disagrees with the detail file.
+- The atlas was rebuilt through the Wikidata Action API without the old exclusion
+  list: 13 former names returned as generated rows and the per-country caps
+  displaced 14 old rows, leaving 1,213 unique pages.
+
 ## 2026-11-19 — Repository freeze readiness
 
 - Builds are reproducible: the manifest and validator no longer write wall-clock

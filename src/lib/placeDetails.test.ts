@@ -11,13 +11,23 @@ describe("thumbAt", () => {
   const url =
     "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/File.jpg/1920px-File.jpg";
 
-  it("rewrites the bucket width", () => {
-    expect(thumbAt(url, 640)).toContain("/640px-");
-    expect(thumbAt(url, 960)).toContain("/960px-");
+  it("resolves the file through Special:FilePath", () => {
+    expect(thumbAt(url, 640)).toBe(
+      "https://commons.wikimedia.org/wiki/Special:FilePath/File.jpg?width=640",
+    );
+    expect(thumbAt(url, 960)).toContain("width=960");
+  });
+
+  it("uses the file name from a bucketed portrait thumb", () => {
+    const portrait =
+      "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Portrait.jpg/1920px-Portrait.jpg?utm_source=x";
+    expect(thumbAt(portrait, 960)).toBe(
+      "https://commons.wikimedia.org/wiki/Special:FilePath/Portrait.jpg?width=960",
+    );
   });
 
   it("caps at the original width", () => {
-    expect(thumbAt(url, 1440, 800)).toContain("/800px-");
+    expect(thumbAt(url, 1440, 800)).toContain("width=800");
   });
 
   it("leaves a non-thumbnail URL alone", () => {

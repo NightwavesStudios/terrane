@@ -80,17 +80,37 @@ export function usePlaceDetail(slug: string): PlaceDetail | null {
   return detail;
 }
 
+/** The encoded file name inside a Wikimedia thumb or original URL. */
+function wikimediaFile(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!/(^|\.)wikimedia\.org$/.test(parsed.hostname)) return null;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const thumb = parts.indexOf("thumb");
+    if (thumb >= 0 && parts.length >= thumb + 4) return parts[thumb + 3];
+    return parts[parts.length - 1] || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Rewrite a Wikimedia thumbnail URL to a width the file can actually serve.
+ * Resolve a Wikimedia file to a thumbnail at the requested display width.
  *
- * Commons returns a bucketed thumbnail (often 1920px) and the original width in
- * `max`. Asking for a larger width than the original is a 404, so the request is
- * capped; the page then falls back to the ridge art on any image error.
+ * Commons' direct thumb URLs are bucketed: a 1440-wide request for a portrait
+ * file is served as 1920px, and asking for an unbucketed width is a 400. The
+ * `Special:FilePath` endpoint maps any width to a valid bucket and redirects to
+ * the canonical image host. `max` is the original width, so a small file is
+ * never upscaled.
  */
 export function thumbAt(url: string, width: number, max?: number): string {
-  if (!url.includes("/thumb/")) return url;
-  const capped = max && max > 0 ? Math.min(width, max) : width;
-  return url.replace(/\/\d+px-/, `/${capped}px-`);
+  const file = wikimediaFile(url);
+  if (!file) return url;
+  const capped = Math.max(
+    1,
+    Math.round(max && max > 0 ? Math.min(width, max) : width),
+  );
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=${capped}`;
 }
 
 /** OSM trail difficulty values as a reader reads them. */

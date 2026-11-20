@@ -198,8 +198,8 @@ export function addDestinations(map: MlMap): void {
         "text-field": ["get", "n"],
         "text-font": ["Noto Sans Regular"],
         // Size follows the band: a world major reads larger than a tail name.
-        // The stops ascend by construction, which the old hand-written bands
-        // above z8 did not — MapLibre dropped those layers without saying so.
+        // The stops ascend by construction, which the earlier band stops above
+        // z8 did not — MapLibre dropped those layers without saying so.
         "text-size": [
           "interpolate",
           ["linear"],
@@ -299,7 +299,7 @@ export function loadMoreDestinations(): Promise<void> {
 /**
  * Every destination row, whether or not a map is mounted.
  *
- * Discover and search need the whole 24,540-row set the first time they open,
+ * Discover and search need the whole 24,474-row set the first time they open,
  * not the slice a particular camera has happened to load. Both chunks are
  * already cached modules, so asking here costs one download and the map's
  * loader re-uses it.

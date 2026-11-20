@@ -2,13 +2,12 @@
 
 Node scripts build the app data and manifest; Python scripts harvest and merge
 open data. `scripts/sources/common.py` is the shared adapter helper, and
-`scripts/lib/` holds the curated-index parser and the site-origin helper.
+`scripts/lib/` holds the site-origin helper.
 
 ## Build and checks
 
 | Script | Run by | Purpose |
 | --- | --- | --- |
-| `build-curated-index.mjs` | `npm run build`, `manifest` | Regenerate `src/data/curated-index.json` from `places.ts`. |
 | `build-manifest.mjs` | `npm run build`, `validate` | Derive counts and dates from the data files. |
 | `validate-data.mjs` | `npm run build`, `validate` | Schema, category, manifest and duplicate checks; writes the validation block. |
 | `gen-seo.mjs` | `npm run build` (after Vite) | Absolute `dist/sitemap.xml` and `dist/robots.txt`. |
@@ -26,6 +25,8 @@ open data. `scripts/sources/common.py` is the shared adapter helper, and
 | Script | Purpose |
 | --- | --- |
 | `build-atlas.py` | Wikidata atlas → `src/data/atlas.json`; updates `wikidata-meta.json`. |
+| `build-atlas-api.py` | Action-API atlas rebuild from entity JSON (atomic); resolves the former seed names without SPARQL. |
+| `build-place-details.mjs` | Wikidata/Commons place details → `src/data/place-details.json`. |
 | `harvest-reach.py` | Wikidata long tail → `reach.json`, `reach-more.json`. |
 | `harvest-poi-bulk.py` | Streaming Geofabrik/pyosmium world POI harvest; resumable and shardable. |
 | `merge-sources.py` | Dedupe and tile points/trails; refuses a truncated trail rebuild. |

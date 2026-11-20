@@ -207,7 +207,7 @@ export default function Home() {
       </div>
 
       {/* One map, one count. Every point is a category; nothing here separates
-          the hand-written rows from the harvested ones, because the map does not. */}
+          the atlas rows from the reach tail, because the map does not. */}
       <p className="globe-hint mono">
         {manifest.totals.all.toLocaleString("en-US")} places · {manifest.categories}{" "}
         categories · {manifest.countries.mapped} countries · updated {updated} · drag

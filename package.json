@@ -15,6 +15,7 @@
     "check": "npm run typecheck && npm test && npm run validate",
     "clean": "node scripts/clean.mjs",
     "atlas": "python3 scripts/build-atlas.py",
+    "atlas:api": "python3 scripts/build-atlas-api.py",
     "preview": "vite preview",
     "seo": "node scripts/gen-seo.mjs",
     "manifest": "node scripts/build-manifest.mjs",

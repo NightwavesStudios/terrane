@@ -12,8 +12,8 @@ The map draws from four layers of data:
 | Source | Family | Cadence | Records | Licence |
 | --- | --- | --- | ---: | --- |
 | OpenStreetMap via Geofabrik | points | weekly | 9,371,124 | ODbL 1.0 |
-| Wikidata | destinations | occasional | 1,218 + 23,254 | CC0 |
-| Hand-written entries | destinations | frozen | 68 | — |
+| Wikidata | destinations and descriptions | occasional | 1,213 + 23,261 | CC0 |
+| Wikimedia Commons | photographs | occasional | 1,140 images on 1,045 pages | per file |
 | Recreation.gov RIDB | points | daily | 7,790 | Public domain (US Gov) |
 | US Forest Service sites | points | monthly | 26,534 | Public domain (US Gov) |
 | Bureau of Land Management sites | points | monthly | 694 | Public domain (US Gov) |
@@ -98,6 +98,23 @@ of the 382 MB POI store. Dropping unnamed boards from the cell files would shrin
 both the store and the cell payloads, but it rewrites published objects, so it is
 a separate, approved data job — not part of the map pass.
 
+## Place details
+
+`scripts/build-place-details.mjs` (`npm run details`) is an occasional harvest,
+not a build step: its output is committed, so a checkout builds offline. For
+each atlas Q id it reads Wikidata's `schema:description`, P18 images, P856
+official website, P4552 mountain range, P814 protected area, P2044 elevation,
+P2660 prominence, the English Wikipedia sitelink and P373. Commons `imageinfo`
+adds the thumbnail, the photographer, the licence and the licence URL.
+
+A recorded range or protected area is stored as `range` / `protected`; when there
+is none, the nearest atlas `range` or `park` page within 50 km is stored as
+`nearestRange` / `nearestPark` and labelled "Nearest". The file is a lazy chunk
+on `/place/:slug`. `validate-data.mjs` fails on a missing record, a broken image
+URL, an uncredited image, an unknown association slug or a manifest count that
+does not match. Images are hotlinked, not mirrored: the R2 store is already 676 MB
+of a 1 GB allowance.
+
 ## Refresh
 
 Install the one non-stdlib Python dependency:
@@ -110,6 +127,7 @@ Common commands:
 
 ```bash
 npm run atlas          # Wikidata atlas
+npm run details        # Wikidata/Commons place details
 npm run data:refresh   # atlas + reach + world POI + merge + stats + validate
 npm run poi:world      # world OSM harvest (resumable, sharded in CI)
 npm run poi:merge      # dedupe, tile, validate, swap public/poi
@@ -154,8 +172,9 @@ to write a source manifest whose accounting does not add up.
 ## Licences
 
 Code is MIT (`LICENSE`). Data keeps each source's terms: OSM is ODbL, the US
-federal feeds are public domain, Parks Canada is OGL-Canada, DOC NZ is CC BY 4.0
-and Wikidata is CC0. `DATA-LICENSES.md` records the obligations; the same fields
+federal feeds are public domain, Parks Canada is OGL-Canada, DOC NZ is CC BY 4.0,
+Wikidata is CC0, and Commons photographs keep their per-file licences.
+`DATA-LICENSES.md` records the obligations; the same fields
 (`licence`, `licenceUrl`, `attribution`, `terms`) live in `src/data/sources.json`
 and are shown on `/coverage` and each feature card. A source without them fails
 `npm run validate`.
@@ -166,7 +185,7 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | --- | --- | --- |
 | `src/data/atlas.json` | `scripts/build-atlas.py` | yes |
 | `src/data/reach.json`, `reach-more.json` | `scripts/harvest-reach.py` | yes |
-| `src/data/curated-index.json` | `scripts/build-curated-index.mjs` | yes |
+| `src/data/place-details.json` | `scripts/build-place-details.mjs` | yes |
 | `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
 | `src/data/trail-links.json` | `scripts/build-trail-links.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |

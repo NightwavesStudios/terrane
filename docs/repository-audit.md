@@ -13,7 +13,7 @@ This is the pre-freeze audit of the repository, not a product roadmap. Baseline:
 | Finding | Resolution |
 | --- | --- |
 | Builds were non-deterministic (`new Date()`, mtimes) | `build-manifest.mjs` and `validate-data.mjs` derive dates from data files; a second build leaves the tree clean. |
-| Sitemap used relative `<loc>` and ran before Vite | `gen-seo.mjs` runs after the build, writes absolute URLs into `dist/`, uses the shared Vercel origin fallback, includes `/coverage`, and reads `curated-index.json`. |
+| Sitemap used relative `<loc>` and ran before Vite | `gen-seo.mjs` runs after the build, writes absolute URLs into `dist/`, uses the shared Vercel origin fallback, includes `/coverage`, and reads the generated atlas. |
 | `npm run single` could not load lazy chunks | Removed the script and its docs. The Vite build emits six JS chunks and two CSS files; a first-chunk inliner cannot produce a working page. |
 | Local cell mirrors were copied into `dist` | `vite.config.ts` disables `copyPublicDir` and copies `public/` except `poi/` and `trails/`. Local build output fell from 302 MB to 3.2 MB. |
 | Trails stopped loading after a route change | `trails.ts` keys its listener binding by map (`WeakSet`), like `mapped.ts`. |
