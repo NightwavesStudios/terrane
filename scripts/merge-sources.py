@@ -16,19 +16,38 @@ import gzip
 import json
 import math
 import os
+import shutil
+import sys
 import urllib.error
 import urllib.request
 from collections import Counter, defaultdict
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+
+from lib.geo import (  # noqa: E402
+    clip_line_to_tiles,
+    line_length_m,
+    point_to_segment_m,
+    sample_line,
+    simplify_line,
+    split_line_parts,
+)
+
 DATA = os.path.join(ROOT, "data", "sources")
 POI = os.path.join(ROOT, "public", "poi")
 TRAILS = os.path.join(ROOT, "public", "trails")
+TRAILS_STAGING = os.path.join(ROOT, "public", ".trails-staging")
 REPORTS = os.path.join(ROOT, "reports")
 CELL = 6
 # Trail lines are denser than points: a z6 cell over the Alps crossed the wire
 # limit even after simplification. z7 keeps every route and makes each cell small.
 TRAIL_CELL = 7
+TRAIL_AUTHORITY = {"nps_trails": 4, "usfs_trails": 3, "blm_trails": 2, "osm_routes": 1}
+AGENCY_TRAIL_SOURCES = {"nps_trails", "usfs_trails", "blm_trails"}
+AGENCY_RADIUS_M = 30.0
+AGENCY_COVERAGE = 0.70
+DEDUPE_GRID_DEG = 0.005
 BUCKET = (os.environ.get("POI_BUCKET") or "").rstrip("/")
 BUCKET_CELLS = 0
 N = 2 ** CELL
@@ -392,40 +411,112 @@ def read_trails():
     return records
 
 
-def simplify(coords, max_points=60):
-    if len(coords) <= max_points:
-        return coords
-    step = max(1, len(coords) // max_points)
-    out = coords[::step]
-    if out[-1] != coords[-1]:
-        out.append(coords[-1])
-    return out[:max_points]
+def trail_priority(item):
+    return TRAIL_AUTHORITY.get(item.get("src"), 0)
 
 
-def split_by_cell(coords, zoom=CELL):
-    runs = []
-    current = [coords[0]]
-    current_cell = cell_of(coords[0][1], coords[0][0], zoom)
-    for point in coords[1:]:
-        cell = cell_of(point[1], point[0], zoom)
-        if cell == current_cell:
-            current.append(point)
+def exact_key(coords):
+    return tuple((round(float(x), 6), round(float(y), 6)) for x, y in coords)
+
+
+class SegmentGrid:
+    """A coarse spatial hash of agency trail segments, for coverage tests."""
+
+    def __init__(self):
+        self.cells = defaultdict(list)
+
+    def add_line(self, coords):
+        for a, b in zip(coords, coords[1:]):
+            span = max(abs(b[0] - a[0]), abs(b[1] - a[1]))
+            steps = max(1, min(2000, int(span / 0.001)))
+            for i in range(steps + 1):
+                lon = a[0] + (b[0] - a[0]) * i / steps
+                lat = a[1] + (b[1] - a[1]) * i / steps
+                key = (int(math.floor(lon / DEDUPE_GRID_DEG)), int(math.floor(lat / DEDUPE_GRID_DEG)))
+                self.cells[key].append((a, b))
+
+    def near(self, point, radius_m=AGENCY_RADIUS_M):
+        gx = int(math.floor(point[0] / DEDUPE_GRID_DEG))
+        gy = int(math.floor(point[1] / DEDUPE_GRID_DEG))
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                for a, b in self.cells.get((gx + dx, gy + dy), ()):
+                    if point_to_segment_m(point, a, b) <= radius_m:
+                        return True
+        return False
+
+
+def agency_coverage(coords, grid):
+    """Fraction of an OSM line that lies within 30 m of an agency trail."""
+    points = sample_line(coords, 100.0)
+    if not points:
+        return 0.0
+    return sum(1 for p in points if grid.near(p)) / len(points)
+
+
+def dedupe_trail_items(items):
+    """Exact duplicates keep the authority; OSM pieces covered by an agency
+    inventory are dropped so one physical trail is not drawn twice."""
+    dropped = Counter()
+    kept = []
+    seen = {}
+    for item in sorted(
+        items, key=lambda i: (-trail_priority(i), i.get("src") or "", i.get("id") or "")
+    ):
+        key = exact_key(item["coords"])
+        hit = seen.get(key)
+        if hit is not None:
+            dropped[f"duplicate_{item.get('src')}_into_{hit}"] += 1
             continue
-        current.append(point)
-        runs.append((current_cell, current))
-        current = [point]
-        current_cell = cell
-    if len(current) >= 2:
-        runs.append((current_cell, current))
-    return runs
+        seen[key] = item.get("src") or ""
+        kept.append(item)
+
+    if any(item.get("src") in AGENCY_TRAIL_SOURCES for item in kept) and any(
+        item.get("src") == "osm_routes" for item in kept
+    ):
+        grid = SegmentGrid()
+        for item in kept:
+            if item.get("src") in AGENCY_TRAIL_SOURCES:
+                grid.add_line(item["coords"])
+        filtered = []
+        for item in kept:
+            if item.get("src") == "osm_routes" and agency_coverage(item["coords"], grid) >= AGENCY_COVERAGE:
+                dropped["osm_covered_by_agency"] += 1
+                continue
+            filtered.append(item)
+        kept = filtered
+    return kept, dropped
 
 
-def line_length(coords):
-    total = 0.0
-    for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
-        lat = math.radians((y1 + y2) / 2)
-        total += math.hypot((x2 - x1) * 111_320 * math.cos(lat), (y2 - y1) * 110_540)
-    return total
+def _empty_cell():
+    return {"z": TRAIL_CELL, "sources": [], "items": []}
+
+
+def write_trail_payload(path, payload):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"), ensure_ascii=False)
+    return os.path.getsize(path)
+
+
+def snapshot_trail_cells():
+    """Cells the previous store held, for explicit empty payloads.
+
+    A rebuild can run after the generated mirror has been removed to make disk
+    room; in that case the list saved before deletion is the only record of which
+    cells must be emptied rather than silently left stale in the store.
+    """
+    old = set()
+    saved = read_json(os.path.join(REPORTS, "pre-rebuild-trail-cells.json"), None)
+    if isinstance(saved, list):
+        old.update(str(rel) for rel in saved if str(rel).endswith(".json"))
+    if not os.path.isdir(TRAILS):
+        return old
+    for root, _dirs, files in os.walk(TRAILS):
+        for name in files:
+            if name.endswith(".json"):
+                old.add(os.path.relpath(os.path.join(root, name), TRAILS))
+    return old
 
 
 def require_trail_input(records):
@@ -456,27 +547,60 @@ def require_trail_input(records):
 
 def merge_trails(records=None):
     records = read_trails() if records is None else records
+    old_cells = snapshot_trail_cells()
     cells = defaultdict(list)
+    parts = 0
+
     for rec in records:
-        for index, (cell, run) in enumerate(split_by_cell(rec["coords"], TRAIL_CELL)):
-            run = simplify(run, 45)
-            if len(run) < 2:
-                continue
-            cells[cell].append(
-                {
-                    "src": rec.get("src"),
-                    "name": rec.get("name") or "",
-                    "difficulty": rec.get("difficulty") or "",
-                    "distance_m": rec.get("distance_m") or round(line_length(run)),
-                    "url": rec.get("url") or "",
-                    "coords": run,
-                    "where": rec.get("where") or "",
-                    "id": f"{rec.get('srcId', '')}:{index}",
-                }
-            )
+        src = rec.get("src") or "osm"
+        coords = rec.get("coords") or []
+        if len(coords) < 2:
+            continue
+        for index, (x, y, run) in enumerate(clip_line_to_tiles(coords, TRAIL_CELL)):
+            run = simplify_line(run, tolerance_m=10.0, max_points=300)
+            # 1.8 km is inside the gate's 2 km chord definition, so small
+            # differences between the Python and JS distance calculations can
+            # never leave a segment on the failing side of the boundary.
+            for sub, piece in enumerate(
+                split_line_parts(run, max_gap_m=1800.0, chord_m=1200.0, chord_ratio=4.0)
+            ):
+                if len(piece) < 2:
+                    continue
+                parts += 1
+                name = " ".join(str(rec.get("name") or "").split())
+                country = str(rec.get("country") or "").strip()
+                cells[(x, y)].append(
+                    {
+                        "src": src,
+                        "name": name,
+                        "difficulty": rec.get("difficulty") or "",
+                        # The source's full-route distance is not the distance of a
+                        # tile piece. Measure the piece that is actually stored.
+                        "distance_m": int(round(line_length_m(piece))),
+                        "url": rec.get("url") or "",
+                        "coords": piece,
+                        "where": rec.get("where") or country,
+                        "country": country,
+                        "id": f"{rec.get('srcId') or src}:{x}:{y}:{index}:{sub}",
+                    }
+                )
+
+    if os.path.isdir(TRAILS_STAGING):
+        shutil.rmtree(TRAILS_STAGING)
+    dropped = Counter()
+    by_source = Counter()
+    written = set()
     max_cell = 0
-    for (x, y), items in cells.items():
-        sources = sorted({i["src"] for i in items if i["src"]})
+    segments = 0
+    empty_after_dedupe = 0
+
+    for (x, y), items in sorted(cells.items()):
+        kept, drops = dedupe_trail_items(items)
+        dropped.update(drops)
+        if not kept:
+            empty_after_dedupe += 1
+            continue
+        sources = sorted({i["src"] for i in kept if i["src"]})
         src_index = {src: index for index, src in enumerate(sources)}
 
         def payload_for(current):
@@ -492,30 +616,68 @@ def merge_trails(records=None):
                         i["url"],
                         i["coords"],
                         i["where"],
+                        i["country"],
                     ]
                     for i in current
                 ],
             }
 
-        path = os.path.join(TRAILS, str(TRAIL_CELL), str(x), f"{y}.json")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(payload_for(items), f, separators=(",", ":"), ensure_ascii=False)
-        # A z6 cell over the Alps can hold enough long routes to cross the 12 MB
-        # wire limit. Keep every route but coarsen its line until the cell fits.
-        for max_points in (30, 20, 12):
-            if os.path.getsize(path) <= 12_000_000:
+        rel = f"{TRAIL_CELL}/{x}/{y}.json"
+        path = os.path.join(TRAILS_STAGING, rel)
+        size = write_trail_payload(path, payload_for(kept))
+        # A dense cell can still cross the wire limit. Keep every route and
+        # coarsen the lines with Douglas-Peucker, never by dropping every Nth
+        # point.
+        for max_points in (240, 160, 100, 60):
+            if size <= 12_000_000:
                 break
-            for item in items:
-                item["coords"] = simplify(item["coords"], max_points)
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(payload_for(items), f, separators=(",", ":"), ensure_ascii=False)
-        max_cell = max(max_cell, os.path.getsize(path))
+            expanded = []
+            for item in kept:
+                coords = simplify_line(item["coords"], 10.0, max_points)
+                # The wire distance must describe the geometry that is actually
+                # stored, including this second, tighter simplification. Split
+                # again because coarsening can itself create a long segment.
+                for sub, piece in enumerate(split_line_parts(coords, max_gap_m=1200.0)):
+                    if len(piece) < 2:
+                        continue
+                    expanded.append(
+                        {
+                            **item,
+                            "coords": piece,
+                            "distance_m": int(round(line_length_m(piece))),
+                            "id": f"{item['id']}:{sub}",
+                        }
+                    )
+            kept = expanded
+            size = write_trail_payload(path, payload_for(kept))
+        max_cell = max(max_cell, size)
+        segments += len(kept)
+        for item in kept:
+            by_source[item["src"]] += 1
+        written.add(rel)
+
+    # A cell that used to carry a route but no longer does gets an explicit empty
+    # payload. The client already knows how to read it, and no delete endpoint is
+    # needed in the store worker.
+    stale = sorted(old_cells - written)
+    for rel in stale:
+        write_trail_payload(os.path.join(TRAILS_STAGING, rel), _empty_cell())
+        written.add(rel)
+
+    if os.path.isdir(TRAILS):
+        shutil.rmtree(TRAILS)
+    os.rename(TRAILS_STAGING, TRAILS)
+
     stats = {
         "input": len(records),
-        "cells": len(cells),
-        "segments": sum(len(v) for v in cells.values()),
+        "cells": len(written) - len(stale),
+        "segments": segments,
         "max_cell_bytes": max_cell,
+        "bySource": dict(sorted(by_source.items())),
+        "dropped": dict(sorted(dropped.items())),
+        "candidateParts": parts,
+        "emptyCells": empty_after_dedupe,
+        "staleCellsEmptied": len(stale),
     }
     with open(os.path.join(ROOT, "src", "data", "trail-stats.json"), "w", encoding="utf-8") as f:
         json.dump({**stats, "updated": __import__("datetime").datetime.utcnow().date().isoformat()}, f, indent=1)
@@ -523,7 +685,12 @@ def merge_trails(records=None):
 
 
 def main():
-    points_only = "--points-only" in os.sys.argv
+    points_only = "--points-only" in sys.argv
+    trails_only = "--trails-only" in sys.argv
+    if points_only and trails_only:
+        raise SystemExit("merge: --points-only and --trails-only are different runs")
+
+    previous = read_json(os.path.join(REPORTS, "merge.json"), {}) or {}
     trail_records = None
     if not points_only:
         # Validate the trail input before the point merge writes anything: a run
@@ -531,50 +698,62 @@ def main():
         # leave the trails reduced.
         trail_records = read_trails()
         require_trail_input(trail_records)
-    try:
-        points = merge_points()
-    except BucketCellError as err:
-        print(
-            "merge: refusing to write cells — the OSM bucket could not be read "
-            f"({err}).\n  Writing anyway would replace published OSM rows with the "
-            "agency rows in that cell, so nothing was written.",
-            file=os.sys.stderr,
-        )
-        raise SystemExit(1)
-    previous = read_json(os.path.join(REPORTS, "merge.json"), {}) or {}
-    # A points-only run does not touch the trail cells, so it must not erase the
-    # trail numbers the published coverage page is built from. Carry the last full
-    # merge forward; if there is none, fall back to the stats the cells came from.
-    trails = merge_trails(trail_records) if not points_only else previous.get("trails")
-    if points_only and trails:
-        # Mark the carry explicitly, so the coverage report can say the trail cells
-        # were carried forward rather than implying they were rebuilt this run.
-        trails = {**trails, "carried_from": trails.get("carried_from") or "reports/merge.json"}
-    if points_only and not trails:
-        stats = read_json(os.path.join(ROOT, "src", "data", "trail-stats.json"), {}) or {}
-        if stats.get("segments"):
-            trails = {
-                "input": stats.get("input"),
-                "segments": stats["segments"],
-                "cells": stats.get("cells"),
-                "max_cell_bytes": stats.get("max_cell_bytes"),
-                "carried_from": "src/data/trail-stats.json",
-            }
+
+    if trails_only:
+        # Leave the published points untouched; a trail repair must not need a
+        # bucket round-trip for 9.4 million points.
+        points = previous.get("points") or {}
+        print("points: carried forward (trails-only run)")
+    else:
+        try:
+            points = merge_points()
+        except BucketCellError as err:
+            print(
+                "merge: refusing to write cells — the OSM bucket could not be read"
+                f" ({err}).\n  Writing anyway would replace published OSM rows with the "
+                "agency rows in that cell, so nothing was written.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+    if points_only:
+        trails = previous.get("trails")
+        if trails:
+            trails = {**trails, "carried_from": trails.get("carried_from") or "reports/merge.json"}
+        if not trails:
+            stats = read_json(os.path.join(ROOT, "src", "data", "trail-stats.json"), {}) or {}
+            if stats.get("segments"):
+                trails = {
+                    "input": stats.get("input"),
+                    "segments": stats["segments"],
+                    "cells": stats.get("cells"),
+                    "max_cell_bytes": stats.get("max_cell_bytes"),
+                    "carried_from": "src/data/trail-stats.json",
+                }
+    else:
+        trails = merge_trails(trail_records)
+
     os.makedirs(REPORTS, exist_ok=True)
-    report = {"points": points, "trails": trails, "generatedAt": __import__("datetime").datetime.utcnow().isoformat() + "Z"}
+    report = {
+        "points": points,
+        "trails": trails,
+        "generatedAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+    }
     with open(os.path.join(REPORTS, "merge.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=1)
-    print(
-        f"points: {points['input']:,} in · {points['kept']:,} kept · "
-        f"{points['merged']:,} merged · {points['replaced_osm']:,} OSM replaced · "
-        f"{points['cells']:,} cells"
-    )
+    if points:
+        print(
+            f"points: {points.get('input', 0):,} in · {points.get('kept', 0):,} kept · "
+            f"{points.get('merged', 0):,} merged · {points.get('replaced_osm', 0):,} OSM replaced · "
+            f"{points.get('cells', 0):,} cells"
+        )
     if trails:
         carried = " (carried forward, trails not rebuilt)" if points_only else ""
         print(
             f"trails: {int(trails.get('input') or 0):,} lines · "
-            f"{int(trails['segments']):,} segments · "
-            f"{int(trails.get('cells') or 0):,} cells{carried}"
+            f"{int(trails.get('segments') or 0):,} segments · "
+            f"{int(trails.get('cells') or 0):,} cells · "
+            f"dropped {sum((trails.get('dropped') or {}).values()):,}{carried}"
         )
 
 

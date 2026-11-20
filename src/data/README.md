@@ -10,7 +10,7 @@ which is which before editing.
 | `places.ts` | The 68 hand-written destinations and their typed model. Frozen: the validator enforces a ceiling of 68. |
 | `categories.json` | The one taxonomy: 16 destination and 13 practical categories, plus trails. |
 | `bands.json` | Dot/label zooms, radius scale, opacity, label size and per-band cell quota. |
-| `sources.json` | Source registry: ids, names, licences, endpoints, cadence, expected counts and publishing gates. |
+| `sources.json` | Source registry: ids, names, licences, licence links, attribution, terms, endpoints, cadence, expected counts and publishing gates. |
 | `atlas-merges.json` | The documented duplicate merges that `validate` accepts. |
 
 ## Generated (commit the result when it changes)
@@ -22,13 +22,18 @@ which is which before editing.
 | `wikidata-meta.json` | the two Wikidata harvests |
 | `curated-index.json` | `scripts/build-curated-index.mjs` |
 | `poi-stats.json` | `scripts/poi-stats.mjs` |
-| `trail-stats.json` | `scripts/merge-sources.py` |
+| `trail-stats.json` | `scripts/merge-sources.py`, then `scripts/trail-quality.mjs` |
+| `trail-links.json` | `scripts/build-trail-links.mjs` |
 | `manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` |
 
 `manifest.json` is bundled into the app and is also the live-update fallback. It
 is deterministic: dates come from `poi-stats`, `trail-stats`, the source
 manifests and `wikidata-meta.json`, never from the clock or checkout mtimes. The
 validation block contains only the check results, no timestamp.
+
+`trail-stats.json` carries the `quality` block produced from the cells the merge
+just wrote. The cells themselves are gitignored; the validation gate reads the
+recorded quality block, and the monthly data workflow re-measures before upload.
 
 `manifest.json` is also uploaded to the cell store so the running page can show
 new counts without a rebuild.

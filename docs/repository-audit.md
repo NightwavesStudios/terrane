@@ -4,9 +4,9 @@ This is the pre-freeze audit of the repository, not a product roadmap. Baseline:
 
 - 146 tracked files, clean tree, no tags.
 - Node 22.18 / npm 10.9; all nine top-level npm dependencies used.
-- 9,440,586 places / 24,540 destinations / 9,416,046 mapped / 449,576 trails /
+- 9,440,586 places / 24,540 destinations / 9,416,046 mapped / 485,798 trails /
   30 categories / 156 atlas countries / 385 mapped countries.
-- Cell store preview published; production unpublished; R2 659 MB of 1 GB.
+- Cell store preview published; production unpublished; R2 ~700 MB of 1 GB.
 
 ## Resolved
 
@@ -40,7 +40,7 @@ This is the pre-freeze audit of the repository, not a product roadmap. Baseline:
 ## Open decisions
 
 1. **Cell-store production.** The app defaults to the published preview store.
-   Production is unpublished and empty, and duplicating 659 MB into a second R2
+   Production is unpublished and empty, and duplicating ~700 MB into a second R2
    environment would exceed the 1 GB allowance. Keep preview as canonical, or
    plan a move/shrink migration and update `src/lib/cells.ts` in the same change.
 2. **Code licence.** There is no LICENSE file. Data licences are documented per

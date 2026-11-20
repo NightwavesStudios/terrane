@@ -260,8 +260,9 @@ def emit(source: str, rows, *, registry: dict, raw: int, fetched: int, rejected:
     """Write the NDJSON and the accounting manifest for one source."""
     ensure_dirs()
     path = os.path.join(OUT_DIR, f"{source}.ndjson")
+    tmp = path + ".tmp"
     placed = 0
-    with open(path, "w", encoding="utf-8") as out:
+    with open(tmp, "w", encoding="utf-8") as out:
         for row in rows:
             if not row.get("srcId") or not row.get("cat"):
                 continue
@@ -269,6 +270,10 @@ def emit(source: str, rows, *, registry: dict, raw: int, fetched: int, rejected:
             row.setdefault("fetchedAt", now())
             out.write(json.dumps(row, separators=(",", ":"), ensure_ascii=False) + "\n")
             placed += 1
+
+    # Write beside the old file and replace only when the whole manifest is
+    # accounted for. A failed harvest must not leave a half-written source.
+    os.replace(tmp, path)
 
     manifest = {
         "id": source,

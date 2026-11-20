@@ -1,5 +1,6 @@
 import categoriesFile from "./categories.json";
 import bandsFile from "./bands.json";
+import sourcesFile from "./sources.json";
 import { PLACES, type Place } from "./places";
 
 const BANDS = (bandsFile as unknown as { bands: { dot: number; label: number }[] }).bands;
@@ -193,6 +194,22 @@ export function placesToRows(places: Place[]): FeatureRow[] {
 }
 
 /** Human names for provenance, used on the card and the coverage page. */
+type SourceMeta = {
+  id: string;
+  licence: string;
+  licenceUrl: string;
+  attribution: string;
+};
+const SOURCE_META = new Map(
+  (sourcesFile as unknown as { sources: SourceMeta[] }).sources.map((source) => [source.id, source]),
+);
+
+/** The licence behind a card's "Data:" line, linked where the source has a URL. */
+export function sourceLicence(src: string): { licence: string; url: string } | null {
+  const meta = SOURCE_META.get(src);
+  return meta ? { licence: meta.licence, url: meta.licenceUrl } : null;
+}
+
 export const SOURCE_LABEL: Record<string, string> = {
   osm: "OpenStreetMap",
   osm_routes: "OpenStreetMap",

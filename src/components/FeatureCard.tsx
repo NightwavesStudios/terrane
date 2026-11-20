@@ -1,5 +1,5 @@
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
-import { SOURCE_LABEL, category, type Pick } from "../data/features";
+import { SOURCE_LABEL, category, sourceLicence, type Pick } from "../data/features";
 import type { Place } from "../data/places";
 import RidgeArt from "./RidgeArt";
 
@@ -31,6 +31,7 @@ export default function FeatureCard({
       : "";
   const closeTo = nearPlace && nearKm != null && nearKm < 15;
   const source = pick.src ? SOURCE_LABEL[pick.src] ?? pick.src : "";
+  const licence = pick.src ? sourceLicence(pick.src) : null;
   const distanceLabel =
     pick.distance && pick.distance > 0
       ? `${Math.round(pick.distance / 100) / 10} km`
@@ -71,6 +72,14 @@ export default function FeatureCard({
         {source ? (
           <p className="mono pick-source">
             Data: {source}
+            {licence ? (
+              <>
+                {" · "}
+                <a href={licence.url} target="_blank" rel="noreferrer">
+                  {licence.licence}
+                </a>
+              </>
+            ) : null}
             {pick.url ? (
               <>
                 {" · "}

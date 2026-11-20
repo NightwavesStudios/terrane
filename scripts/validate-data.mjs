@@ -31,6 +31,7 @@ const stats = read("src/data/poi-stats.json");
 const manifest = read("src/data/manifest.json");
 const merges = read("src/data/atlas-merges.json");
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
+const trailLinks = read("src/data/trail-links.json", { radiusKm: 0, items: {} });
 
 const coordOk = (lat, lon) =>
   Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
@@ -233,6 +234,76 @@ check("manifest destination count matches", manifest.totals.destinations === des
 check("manifest mapped count matches", manifest.totals.mapped === mapped, `${mapped}`);
 check("manifest categories match", manifest.categories === categories.length, `${manifest.categories}`);
 check("trail network has records", (trailStats.segments ?? 0) > 0, `${trailStats.segments ?? 0} segments`);
+
+/* ── trail geometry ──
+   The 288 MB of cells are gitignored, so a checkout cannot re-measure them.
+   `scripts/trail-quality.mjs` writes this block from the cells the data job just
+   built; the build gate checks the recorded result, not a stale count. */
+const trailQuality = trailStats.quality;
+check("trail quality block is recorded", Boolean(trailQuality), "reports/trail-quality.json");
+if (trailQuality) {
+  check(
+    "no trail segment lies outside its tile",
+    trailQuality.outOfTile === 0,
+    `${trailQuality.outOfTile ?? "?"} outside`,
+  );
+  check(
+    "trail chord rate is under 0.01%",
+    trailQuality.chordRate <= 0.0001,
+    `${trailQuality.chords ?? "?"} chords (${((trailQuality.chordRate ?? 0) * 100).toFixed(3)}%)`,
+  );
+  check(
+    "trail duplicate rate is under 0.5%",
+    trailQuality.duplicateRate < 0.005,
+    `${trailQuality.duplicateCopies ?? "?"} copies (${((trailQuality.duplicateRate ?? 0) * 100).toFixed(2)}%)`,
+  );
+  check(
+    "trail distances match their geometry",
+    trailQuality.distanceMismatchRate < 0.05,
+    `${trailQuality.distanceMismatch ?? "?"} mismatches`,
+  );
+  check(
+    "trail cells stay under the wire limit",
+    trailQuality.maxCellBytes <= 12_000_000,
+    `${trailQuality.maxCellBytes ?? "?"} bytes`,
+  );
+  const qualitySegments = Object.values(trailQuality.bySource ?? {}).reduce(
+    (sum, row) => sum + (row.segments ?? 0),
+    0,
+  );
+  check(
+    "trail quality source counts add up",
+    qualitySegments === trailStats.segments,
+    `${qualitySegments}/${trailStats.segments}`,
+  );
+}
+
+const linkRows = Object.values(trailLinks.items ?? {}).flat();
+check(
+  "trail links use the 10 km radius",
+  trailLinks.radiusKm === 10,
+  `${trailLinks.radiusKm} km`,
+);
+check(
+  "trail links stay within their radius and cap",
+  linkRows.every((row) => row.km <= 10.01) &&
+    Object.values(trailLinks.items ?? {}).every((rows) => rows.length <= 6),
+  `${linkRows.length} links`,
+);
+check(
+  "every trail link names a trail",
+  linkRows.every((row) => typeof row.name === "string" && row.name.length > 0),
+  `${linkRows.length} links`,
+);
+
+const licenceMissing = (registry.sources ?? []).filter(
+  (s) => !s.licence || !s.licenceUrl || !s.attribution || !s.terms,
+);
+check(
+  "every source carries licence and attribution metadata",
+  licenceMissing.length === 0,
+  licenceMissing.map((s) => s.id).join(",") || "all present",
+);
 
 const failed = checks.filter((c) => !c.ok);
 const result = {

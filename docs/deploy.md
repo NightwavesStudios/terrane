@@ -63,7 +63,7 @@ Current state, verified 2026-11-19:
 - **Preview** is published at
   `https://terrane-poi-cells-mqa53q-preview.freebuff.site` and is the app default.
 - **Production** is unpublished and empty.
-- Account R2 usage is ~659 MB of a 1 GB allowance (382 MB POI, 288 MB trails).
+- Account R2 usage is ~700 MB of a 1 GB allowance (382 MB POI, 317 MB trails).
 
 Do not publish production by copying the bucket: a second full copy would exceed
 the quota. Promoting production is a migration decision — move or shrink the

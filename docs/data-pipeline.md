@@ -25,7 +25,7 @@ The map draws from four layers of data:
 | OSM hiking routes | trails | monthly | 269,889 | ODbL 1.0 |
 
 Trail counts above are input features. The merge splits routes at cell boundaries,
-so the store holds **449,576 segments** from 431,030 inputs. The exact current
+so the store holds **485,798 segments** from 495,761 input rows. The exact current
 numbers are in `src/data/manifest.json`; the source registry, including gates and
 endpoints, is `src/data/sources.json`.
 
@@ -59,10 +59,23 @@ the map falls back to fetching every cell optimistically.
 The store is the Sites project **Terrane POI cells**. Its **preview** environment
 is published at `https://terrane-poi-cells-mqa53q-preview.freebuff.site` and is
 the app default. Production is unpublished and has no objects. The account R2
-usage is ~659 MB of a 1 GB allowance (382 MB of POI cells, 288 MB of trail cells),
+usage is ~700 MB of a 1 GB allowance (382 MB of POI cells, 317 MB of trail cells),
 so copying the store into a second environment would exceed the quota before the
 copy finished. Promoting production is therefore a deliberate migration, not a
 deploy button: it needs a plan to move or shrink the objects first.
+
+The uploader can gzip each object (`--gzip`) and the Worker echoes
+`Content-Encoding` on reads. A one-time recompression is a dry run until the
+migration is explicitly approved:
+
+```bash
+npm run data:upload -- --dry-run --gzip
+```
+
+A manifest revision (`generatedAt`) is appended as `?v=` to cell requests after
+the index is read, so a publish is not hidden behind a cell's one-hour cache.
+`npm run store:check` HEADs every key in the upload manifest and compares the
+recorded byte counts; `--local` compares local object counts instead.
 
 Local mirrors are `public/poi` and `public/trails`. They are gitignored and used
 by the upload scripts. To read one in development, point `VITE_POI_BASE` at the
@@ -101,9 +114,29 @@ npm run poi:world      # world OSM harvest (resumable, sharded in CI)
 npm run poi:merge      # dedupe, tile, validate, swap public/poi
 npm run poi:stats      # src/data/poi-stats.json
 npm run data:merge     # agency adapters → cells
+npm run data:trails    # trails-only merge + strict quality + links + manifest
+npm run trail:quality  # strict geometry gate → reports/trail-quality.{json,md}
+npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links.json
 npm run data:coverage  # reports/coverage.{md,json} + public/coverage.json
 npm run data:upload    # PUT changed cells and manifests
+npm run store:check    # HEAD every stored object; compare counts/bytes
 ```
+
+The trail rebuild is deliberately separate from a point merge. `--trails-only`
+keeps the published points untouched; `--points-only` carries the last trail
+numbers forward. A full trail rebuild refuses to start without OSM rows or with
+less than 90% of the last known-good input, so a checkout with only the agency
+feeds cannot silently replace the store with a smaller network.
+
+`scripts/trail-quality.mjs --strict` is the trail gate. It fails on any segment
+outside its z7 tile, a relative chord rate above 0.01%, duplicate geometry above
+0.5%, distance mismatch above 5%, a cell over 12 MB, or invalid coordinates. The
+monthly workflow runs it before upload; `npm run validate` checks the quality
+block recorded in `trail-stats.json` so CI does not need the 317 MB local mirror.
+
+Uploads are uncompressed by default. `node scripts/upload-changed.mjs --gzip`
+(and the Worker's `Content-Encoding` handling) is available for the planned R2
+recompression; it is opt-in until that migration is approved.
 
 `data-weekly.yml` runs the world harvest in 12 shards by `--shard I/12`; the
 assemble job refuses to publish unless every planned Geofabrik extract produced
@@ -116,6 +149,15 @@ a missing source, a zero source, a source below its published gate, unaccounted
 records, or totals below 90% of the last known-good report. `common.emit` refuses
 to write a source manifest whose accounting does not add up.
 
+## Licences
+
+Code is MIT (`LICENSE`). Data keeps each source's terms: OSM is ODbL, the US
+federal feeds are public domain, Parks Canada is OGL-Canada, DOC NZ is CC BY 4.0
+and Wikidata is CC0. `DATA-LICENSES.md` records the obligations; the same fields
+(`licence`, `licenceUrl`, `attribution`, `terms`) live in `src/data/sources.json`
+and are shown on `/coverage` and each feature card. A source without them fails
+`npm run validate`.
+
 ## Generated files
 
 | File | Written by | Committed |
@@ -123,7 +165,8 @@ to write a source manifest whose accounting does not add up.
 | `src/data/atlas.json` | `scripts/build-atlas.py` | yes |
 | `src/data/reach.json`, `reach-more.json` | `scripts/harvest-reach.py` | yes |
 | `src/data/curated-index.json` | `scripts/build-curated-index.mjs` | yes |
-| `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge | yes |
+| `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
+| `src/data/trail-links.json` | `scripts/build-trail-links.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |
 | `src/data/wikidata-meta.json` | atlas / reach harvest | yes |

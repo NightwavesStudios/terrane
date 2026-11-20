@@ -17,6 +17,21 @@ export type Coverage = {
   generatedAt: string;
   totals: { sources: number; ok: number; attention: number; points: number; trails: number };
   gaps?: { stale?: string[]; missing?: string[]; attention?: string[]; unknown?: string[] };
+  trails?: {
+    segments: number;
+    cells: number;
+    bytes: number | null;
+    maxCellBytes: number | null;
+    bySource?: Record<string, number> | null;
+    byCountry?: Record<string, number> | null;
+    quality?: {
+      segments: number;
+      outOfTile: number;
+      chords: number;
+      duplicateCopies: number;
+      distanceMismatch: number;
+    } | null;
+  };
   sources: {
     id: string;
     name: string;
@@ -27,6 +42,9 @@ export type Coverage = {
     stale: boolean;
     problems: string[];
     licence: string;
+    licenceUrl?: string | null;
+    attribution?: string | null;
+    terms?: string | null;
     coverage: string;
     cadence: string;
   }[];

@@ -25,6 +25,8 @@ const reach = read("src/data/reach.json");
 const reachMore = read("src/data/reach-more.json");
 const curated = readCurated();
 const stats = read("src/data/poi-stats.json");
+const trailStats = read("src/data/trail-stats.json");
+const trailLinks = read("src/data/trail-links.json");
 
 /* ── one flat list of destinations, so cross-source duplicates are visible ── */
 const destinations = [
@@ -198,6 +200,16 @@ const report = {
     within110m: dup110.dupes,
     examples: dup50.examples,
   },
+  trails: {
+    segments: trailStats.segments ?? 0,
+    cells: trailStats.cells ?? 0,
+    bytes: trailStats.bytes ?? null,
+    maxCellBytes: trailStats.max_cell_bytes ?? null,
+    bySource: trailStats.bySource ?? null,
+    quality: trailStats.quality ?? null,
+    linkedDestinations: trailLinks.linkedDestinations ?? 0,
+    destinations: trailLinks.destinations ?? 0,
+  },
   coverage: {
     categoriesWithoutRecords: missing.map((c) => c.id),
     note: "OSM completeness follows mapping effort, not ground truth; Europe is densest.",
@@ -262,6 +274,19 @@ const md = [
   `- ${report.coverage.note}`,
   `- ${report.freshness.scheduledUpdate}`,
   "",
+  "## Trails",
+  "",
+  `- ${report.trails.segments.toLocaleString()} segments in ${report.trails.cells.toLocaleString()} cells; ${((report.trails.bytes ?? 0) / 1e6).toFixed(1)} MB, largest cell ${((report.trails.maxCellBytes ?? 0) / 1e6).toFixed(2)} MB.`,
+  ...(report.trails.quality
+    ? [
+        `- ${report.trails.quality.outOfTile} outside their tile · ${report.trails.quality.chords} chords · ${report.trails.quality.duplicateCopies} duplicate copies · ${report.trails.quality.distanceMismatch} distance mismatches.`,
+        `- By source: ${Object.entries(report.trails.bySource ?? {})
+          .map(([id, count]) => `${id} ${Number(count).toLocaleString()}`)
+          .join(" · ")}.`,
+      ]
+    : ["- Quality block missing; run `npm run trail:quality`."]),
+  `- Trail links: ${report.trails.linkedDestinations}/${report.trails.destinations} destinations have a named trail within 10 km.`,
+  "",
 ].join("\n");
 writeFileSync(join(root, "reports/data-audit.md"), md);
 
@@ -271,4 +296,7 @@ console.log(
 );
 console.log(
   `cells ${cells.size} (median ${cellMedian}, max ${cellCounts.at(-1) ?? 0}) · Georgia box ${georgia.atlas}/${georgia.curated}/${georgia.wikidata} · dupes ≤50 m ${dup50.dupes}`,
+);
+console.log(
+  `trails ${report.trails.segments.toLocaleString()} segments · ${report.trails.quality?.outOfTile ?? "?"} outside tile · ${report.trails.linkedDestinations} destinations linked`,
 );

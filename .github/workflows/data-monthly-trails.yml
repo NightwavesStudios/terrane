@@ -30,7 +30,7 @@ jobs:
           python-version: "3.11"
       - run: npm ci
       - run: node scripts/fetch-source-state.mjs
-      # OSM hiking routes are ~70% of the trail store (273k of 449k segments).
+      # OSM hiking routes are ~68% of the trail store (330k of 486k segments).
       # The checkout has no rows, so without this harvest the merge below would
       # rebuild trails from the three agency feeds alone and the strict gate
       # would refuse the run — correctly, but the job could never go green.
@@ -39,6 +39,10 @@ jobs:
       - run: python3 scripts/sources/usfs.py trails
       - run: python3 scripts/sources/blm.py trails
       - run: python3 scripts/merge-sources.py
+      # The gate reads the cells the merge just wrote. It must run before the
+      # manifest, because it also writes the quality block the app validates.
+      - run: node scripts/trail-quality.mjs --strict
+      - run: node --max-old-space-size=6144 scripts/build-trail-links.mjs
       - run: node scripts/build-manifest.mjs
       - run: node scripts/coverage-report.mjs --strict
       - run: node scripts/upload-changed.mjs

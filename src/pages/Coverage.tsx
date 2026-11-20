@@ -72,7 +72,16 @@ export default function Coverage() {
                     <tr key={source.id} className={source.status === "ok" ? "" : "coverage-row--bad"}>
                       <td>
                         <strong>{source.name}</strong>
-                        <span className="mono coverage-licence">{source.licence}</span>
+                        <span className="mono coverage-licence">
+                          {source.licenceUrl ? (
+                            <a href={source.licenceUrl} target="_blank" rel="noreferrer">
+                              {source.licence}
+                            </a>
+                          ) : (
+                            source.licence
+                          )}
+                          {source.attribution ? ` · ${source.attribution}` : ""}
+                        </span>
                       </td>
                       <td>{source.coverage}</td>
                       <td className="mono">{source.fetched.toLocaleString()}</td>
@@ -91,6 +100,17 @@ export default function Coverage() {
                 </tbody>
               </table>
             </div>
+
+            {coverage.trails?.quality ? (
+              <section className="coverage-trails">
+                <h2>Trail geometry</h2>
+                <p className="mono coverage-loading">
+                  {coverage.trails.segments.toLocaleString()} segments · {coverage.trails.cells.toLocaleString()} cells ·{" "}
+                  {coverage.trails.quality.outOfTile} outside tile · {coverage.trails.quality.chords} chords ·{" "}
+                  {coverage.trails.quality.duplicateCopies} duplicate copies
+                </p>
+              </section>
+            ) : null}
 
             <section className="coverage-gaps">
               <h2>What no source can give us</h2>

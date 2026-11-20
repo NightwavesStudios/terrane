@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import Header from "../components/Header";
 import RidgeArt from "../components/RidgeArt";
 import { TYPE_LABEL, aroundPlace, bySlug } from "../data/places";
+import { SOURCE_LABEL } from "../data/features";
+import TRAIL_LINKS from "../data/trail-links.json";
 import { setMeta } from "../lib/meta";
 import { navigate } from "../lib/router";
 
@@ -44,6 +46,8 @@ export default function Place({ slug }: { slug: string }) {
   }
 
   const around = aroundPlace(place);
+  const trails = (TRAIL_LINKS as { items: Record<string, { name: string; km: number; src: string; difficulty: string }[]> })
+    .items[place.slug] ?? [];
 
   return (
     <div className="page">
@@ -135,6 +139,30 @@ export default function Place({ slug }: { slug: string }) {
               )}
 
             </section>
+
+            {trails.length > 0 ? (
+              <section className="around trails-here">
+                <div className="around-head">
+                  <h2>Trails here</h2>
+                  <span className="mono around-note">within {TRAIL_LINKS.radiusKm} km</span>
+                </div>
+                <ol className="around-list">
+                  {trails.map((trail) => (
+                    <li key={`${trail.name}-${trail.km}`}>
+                      <div className="around-row around-row--static">
+                        <span className="around-name">{trail.name}</span>
+                        <span className="around-type mono">
+                          {[trail.difficulty, SOURCE_LABEL[trail.src] ?? trail.src]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                        <span className="around-km mono">{trail.km.toFixed(1)} km</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
           </div>
 
           <aside className="place-aside">
@@ -153,7 +181,8 @@ export default function Place({ slug }: { slug: string }) {
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          MAP © OPENSTREETMAP · OPENFREEMAP · TERRAIN: MAPTERHORN · DATA: WIKIDATA
+          MAP © OPENSTREETMAP · OPENFREEMAP · TERRAIN: MAPTERHORN · DATA: WIKIDATA · OSM ODbL
+          · US FEDERAL · PARKS CANADA · DOC NZ
         </span>
       </footer>
     </div>

@@ -29,8 +29,12 @@
     "poi:push": "bash scripts/poi-upload.sh",
     "poi:status": "python3 scripts/harvest-poi-bulk.py --status",
     "data:merge": "python3 scripts/merge-sources.py",
+    "data:trails": "python3 scripts/merge-sources.py --trails-only && node scripts/trail-quality.mjs --strict && node --max-old-space-size=6144 scripts/build-trail-links.mjs && node scripts/build-manifest.mjs",
+    "trail:quality": "node scripts/trail-quality.mjs --strict",
+    "trail:links": "node --max-old-space-size=6144 scripts/build-trail-links.mjs",
     "data:coverage": "node scripts/coverage-report.mjs",
     "data:upload": "node scripts/upload-changed.mjs",
+    "store:check": "node scripts/store-integrity.mjs",
     "data:state": "node scripts/fetch-source-state.mjs",
     "data:dedupe": "node scripts/dedupe-report.mjs"
   },

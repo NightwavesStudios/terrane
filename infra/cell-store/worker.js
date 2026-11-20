@@ -58,10 +58,12 @@ export default {
       if (!allowed(key)) return json({ error: "bad key" }, 400);
       const body = await request.arrayBuffer();
       if (!body.byteLength) return json({ error: "empty body" }, 400);
+      const contentEncoding =
+        request.headers.get("content-encoding") === "gzip" ? "gzip" : undefined;
       await env.FILES.put(key, body, {
-        httpMetadata: { contentType: "application/json" },
+        httpMetadata: { contentType: "application/json", contentEncoding },
       });
-      return json({ ok: true, key, bytes: body.byteLength });
+      return json({ ok: true, key, bytes: body.byteLength, encoding: contentEncoding ?? "identity" });
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -89,6 +91,10 @@ export default {
     if (!object) return json({ error: "not found" }, 404);
 
     const headers = { ...headersFor(key), etag: object.httpEtag };
+    if (object.httpMetadata?.contentEncoding) {
+      headers["content-encoding"] = object.httpMetadata.contentEncoding;
+      headers.vary = "accept-encoding";
+    }
     if (request.method === "HEAD") return new Response(null, { headers });
     return new Response(object.body, { headers });
   },

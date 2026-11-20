@@ -8,8 +8,8 @@ read what is around it.
 
 **9,440,586 places in 30 categories**, one model: 24,540 destinations (1,218
 Wikidata atlas rows, 68 hand-written entries and a 23,254-row Wikidata long tail),
-9,416,046 mapped places from OpenStreetMap and agency inventories, and 449,576
-trail segments. Coverage is uneven; the [Data page](/coverage) and
+9,416,046 mapped places from OpenStreetMap and agency inventories, and 485,798
+trail segments in 1,017 z7 cells. Coverage is uneven; the [Data page](/coverage) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md) say exactly where.
 
 > **Facts only.** Place pages show type, high point, country and coordinates.
@@ -102,8 +102,10 @@ practical categories, plus trails. Destinations arrive in seven bands with a
 per-cell quota, so the world view is not a Himalaya view; `src/data/rank.ts`
 assigns bands deterministically and `src/data/bands.json` defines the zooms and
 sizes. Practical pins are fetched per z6 cell as the camera moves; trail routes
-are z7 cells. The atlas and the famous long tail are bundled; the rest of the
-tail is a lazy chunk.
+are z7 cells. Trail cells are clipped to their tile, assembled at member
+endpoints, deduplicated and re-simplified in metres; `npm run trail:quality` is
+the strict geometry gate. The atlas and the famous long tail are bundled; the
+rest of the tail is a lazy chunk.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -115,11 +117,12 @@ generated and which are source.
 
 ```bash
 npm run typecheck  # tsc -b
-npm test           # 29 tests: router, ranking, filters, distances, camera
+npm test           # 44 tests: router, ranking, filters, distances, camera
 npm run validate   # manifest counts, schemas, duplicate rules, coverage
 npm run build      # all of the above + Data checks + Vite build + SEO into dist
 npm run audit      # data density, duplicates and freshness (report only)
-```
+npm run trail:quality  # strict geometry gate (needs public/trails)
+n```
 
 `.github/workflows/ci.yml` runs typecheck, tests, validation and the full build on
 every push to `main` and every pull request, and uploads `dist`. The data
@@ -139,7 +142,7 @@ separate Sites/Cloudflare Worker in front of R2; `infra/cell-store/` holds its
 source and deploy manifest.
 
 The app currently defaults to the **published preview** environment of the cell
-store. Production is deliberately unpublished: the store is 659 MB of a 1 GB R2
+store. Production is deliberately unpublished: the store is ~700 MB of a 1 GB R2
 allowance, so a second environment would exceed the quota before the objects could
 be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 
@@ -158,12 +161,14 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
   cost; measurements are in [performance](docs/performance.md).
 - **No field guides, photos, accounts or trip planner.** Product decisions, not
   omissions.
-- **No licence file yet.** Data licences are listed per source in
-  [`docs/data-pipeline.md`](docs/data-pipeline.md); the code licence is a choice
-  still to be made.
+- **The data is not one licence.** Code is MIT (`LICENSE`); the data keeps each
+  source's terms. See [`DATA-LICENSES.md`](DATA-LICENSES.md) and the per-source
+  links on `/coverage`.
 
 ## Credits
 
-Map © OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn and
-Copernicus DEM · Data: OSM, Wikidata, Recreation.gov (RIDB), USFS, NPS, BLM,
-Parks Canada, NZ Department of Conservation.
+Map © OpenStreetMap contributors ([ODbL](https://www.openstreetmap.org/copyright)) ·
+OpenFreeMap · Terrain: Mapterhorn and Copernicus DEM · Data: OSM (ODbL), Wikidata
+(CC0), Recreation.gov (RIDB), USFS, NPS, BLM (public domain), Parks Canada (OGL
+Canada), NZ Department of Conservation (CC BY 4.0). Full obligations are in
+[`DATA-LICENSES.md`](DATA-LICENSES.md).

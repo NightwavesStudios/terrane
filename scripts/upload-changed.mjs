@@ -11,12 +11,17 @@
  *   npm run data:upload -- --dry-run
  */
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const root = process.cwd();
 const dry = process.argv.includes("--dry-run");
 const cellsOnly = process.argv.includes("--cells-only");
+/* Opt-in: the Worker already understands Content-Encoding, but an old deployment
+   does not. Recompressing the whole bucket is a separate, approved migration. */
+const gzip = process.argv.includes("--gzip") || process.env.GZIP === "1";
+const encoding = gzip ? "gzip" : "identity";
 // A job that does not rebuild the manifest must not publish one: its checkout's
 // copy is older than whatever the last data job uploaded.
 const skipManifest = process.argv.includes("--skip-manifest");
@@ -81,16 +86,25 @@ const keyFor = (path) => {
 };
 
 const changed = [];
+let rawBytes = 0;
+let storedBytes = 0;
 for (const path of files) {
   const body = readFileSync(path);
   const hash = createHash("sha256").update(body).digest("hex");
   const key = keyFor(path);
-  if (state.files[key] === hash) continue;
-  changed.push({ path, key, hash, body });
+  const previous = state.files[key];
+  const previousHash = typeof previous === "string" ? previous : previous?.hash;
+  const previousEncoding =
+    typeof previous === "string" ? "identity" : (previous?.encoding ?? "identity");
+  if (previousHash === hash && previousEncoding === encoding) continue;
+  const stored = gzip ? gzipSync(body, { level: 9 }) : body;
+  rawBytes += body.length;
+  storedBytes += stored.length;
+  changed.push({ path, key, hash, body: stored, bytes: stored.length });
 }
 
 console.log(
-  `${files.length.toLocaleString()} files · ${changed.length.toLocaleString()} changed · ${dry ? "dry run" : bucket || "no bucket"}`,
+  `${files.length.toLocaleString()} files · ${changed.length.toLocaleString()} changed · ${(rawBytes / 1e6).toFixed(1)} MB raw → ${(storedBytes / 1e6).toFixed(1)} MB ${gzip ? "gzip" : "uncompressed"} · ${dry ? "dry run" : bucket || "no bucket"}`,
 );
 
 if (dry) {
@@ -108,13 +122,18 @@ let failed = 0;
 async function worker() {
   while (next < changed.length) {
     const file = changed[next++];
+    const headers = {
+      "x-upload-token": token,
+      "content-type": "application/json",
+      ...(gzip ? { "content-encoding": "gzip" } : {}),
+    };
     const res = await fetch(`${bucket}/upload/${file.key}`, {
       method: "PUT",
-      headers: { "x-upload-token": token, "content-type": "application/json" },
+      headers,
       body: file.body,
     }).catch((err) => ({ ok: false, status: 0, statusText: String(err) }));
     if (res.ok) {
-      state.files[file.key] = file.hash;
+      state.files[file.key] = { hash: file.hash, encoding, bytes: file.bytes };
     } else {
       failed += 1;
       console.error(`FAILED ${file.key}: ${res.status} ${res.statusText}`);

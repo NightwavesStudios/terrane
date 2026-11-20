@@ -11,21 +11,27 @@
   "min": 250000,
   "field": "fetched"
  },
- "note": "route=hiking relations, assembled from member ways and simplified per cell",
- "fetchedAt": "2026-11-19T04:30:46+00:00",
- "updated": "2026-11-19",
- "raw": 673795,
- "fetched": 270499,
- "placed": 269889,
+ "note": "route=hiking relations, harvested by cached Geofabrik leaf boxes through Overpass and simplified per cell",
+ "fetchedAt": "2026-11-20T03:42:23+00:00",
+ "updated": "2026-11-20",
+ "raw": 1300987,
+ "fetched": 338702,
+ "placed": 334620,
  "rejected": {
-  "unassembled": 610
+  "unassembled": 4082
  },
  "unaccounted": 0,
- "bytes": 812419325,
- "leaves": 530,
- "uniqueRelations": 269889,
- "collectedSlices": 530,
- "overpass": true,
- "duplicateRelations": 403296,
- "responseRows": 673795
+ "bytes": 412092066,
+ "leaves": 687,
+ "slices": 687,
+ "relations": 1300987,
+ "uniqueRelations": 269375,
+ "parts": 334620,
+ "duplicateParts": 1267543,
+ "gapSplit": 330908,
+ "roleSkipped": 279484,
+ "nestedRelationsSkipped": 49219,
+ "outsideBbox": 314,
+ "overpass": false,
+ "offline": true
 }

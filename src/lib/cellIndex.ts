@@ -1,4 +1,4 @@
-import { cellUrl } from "./cells";
+import { cellUrl, setStoreVersion } from "./cells";
 
 /**
  * Which cells the store actually holds.
@@ -55,7 +55,11 @@ async function fetchIndex(): Promise<Index | null> {
   try {
     const res = await fetch(cellUrl("upload-manifest.json"));
     if (!res.ok) return null;
-    const body = (await res.json()) as { files?: Record<string, string> };
+    const body = (await res.json()) as {
+      files?: Record<string, string | { hash?: string; bytes?: number }>;
+      generatedAt?: string;
+    };
+    setStoreVersion(body?.generatedAt);
     const keys = body?.files ? Object.keys(body.files) : [];
     return keys.length ? { at: Date.now(), keys: new Set(keys) } : null;
   } catch {

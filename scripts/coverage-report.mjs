@@ -47,6 +47,9 @@ for (const source of registry.sources ?? []) {
       name: source.name,
       family: source.family,
       licence: source.licence,
+      licenceUrl: source.licenceUrl ?? null,
+      attribution: source.attribution ?? null,
+      terms: source.terms ?? null,
       coverage: source.coverage,
       cadence: source.cadence,
       expected: source.expected,
@@ -96,6 +99,9 @@ for (const source of registry.sources ?? []) {
     name: source.name,
     family: source.family,
     licence: source.licence,
+    licenceUrl: source.licenceUrl ?? null,
+    attribution: source.attribution ?? null,
+    terms: source.terms ?? null,
     coverage: source.coverage,
     cadence: source.cadence,
     expected: source.expected,
@@ -187,6 +193,15 @@ const report = {
   merge: merge.points ?? null,
   trailMerge: merge.trails ?? null,
   trailSource: trailsCarriedForward ? "carried-forward" : merge.trails ? "merge" : "none",
+  trails: {
+    segments: trailSegments,
+    cells: trailStats?.cells ?? merge.trails?.cells ?? 0,
+    bytes: trailStats?.bytes ?? null,
+    maxCellBytes: trailStats?.max_cell_bytes ?? null,
+    bySource: trailStats?.bySource ?? null,
+    byCountry: trailStats?.byCountry ?? null,
+    quality: trailStats?.quality ?? null,
+  },
   sources: rows,
   mapped: { pointsBySource, trailsBySource },
   gaps: {
@@ -259,6 +274,27 @@ const md = [
     : merge.trails
       ? `- Trails: ${(merge.trails.input ?? 0).toLocaleString()} lines, ${(merge.trails.segments ?? 0).toLocaleString()} segments, ${(merge.trails.cells ?? 0).toLocaleString()} cells.`
       : "- Trails: no trail cells on disk and no full merge recorded — unknown, not zero.",
+  "",
+  "## Trail geometry",
+  "",
+  trailStats?.quality
+    ? [
+        `- ${trailStats.quality.segments.toLocaleString()} segments in ${trailStats.cells.toLocaleString()} cells; ${(trailStats.bytes / 1e6).toFixed(1)} MB on disk, ${(trailStats.max_cell_bytes / 1e6).toFixed(2)} MB largest.`,
+        `- ${trailStats.quality.outOfTile} outside their tile · ${trailStats.quality.chords} chords · ${trailStats.quality.duplicateCopies} duplicate copies · ${trailStats.quality.distanceMismatch} distance mismatches.`,
+        `- By source: ${Object.entries(trailStats.bySource ?? {})
+          .map(([id, count]) => `${id} ${Number(count).toLocaleString()}`)
+          .join(" · ")}.`,
+      ].join("\n")
+    : "- Quality block not recorded; run `npm run trail:quality`.",
+  "",
+  "## Country / region register",
+  "",
+  ...(trailStats?.byCountry
+    ? Object.entries(trailStats.byCountry)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 25)
+        .map(([country, count]) => `- ${country}: ${Number(count).toLocaleString()} trail segments`)
+    : ["- No country counts recorded."]),
   "",
 ].join("\n");
 writeFileSync(join(root, "reports", "coverage.md"), md);

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T12:19:57.464Z",
+  "generatedAt": "2026-11-20T12:44:37.155Z",
   "strict": true,
   "definition": "Coverage is measured against the union of open sources Terrane ingests, not against a non-existent global census. A missing source, a zero source, an unaccounted row or a stale source is a gap.",
   "totals": {
@@ -7,29 +7,109 @@
     "ok": 10,
     "attention": 0,
     "points": 9416046,
-    "trails": 449576,
-    "rejected": 8097,
+    "trails": 485798,
+    "rejected": 11569,
     "unaccounted": 0
   },
-  "merge": {
-    "input": 44922,
-    "kept": 44409,
-    "dropped": {
-      "same_place_usfs_sites_into_ridb": 510,
-      "same_place_blm_sites_into_ridb": 2,
-      "same_place_parks_canada_into_parks_canada": 1
-    },
-    "merged": 513,
-    "replaced_osm": 0,
-    "cells": 98,
-    "max_cell_bytes": 2142765,
-    "bucket_cells": 0
-  },
+  "merge": {},
   "trailMerge": {
-    "input": 431030,
-    "cells": 1029,
-    "segments": 449576,
-    "max_cell_bytes": 11712426
+    "input": 495761,
+    "cells": 1017,
+    "segments": 485798,
+    "max_cell_bytes": 11990719,
+    "bySource": {
+      "blm_trails": 29488,
+      "nps_trails": 36170,
+      "osm_routes": 329991,
+      "usfs_trails": 90149
+    },
+    "dropped": {
+      "duplicate_blm_trails_into_blm_trails": 15876,
+      "duplicate_nps_trails_into_nps_trails": 160,
+      "duplicate_osm_routes_into_osm_routes": 3529,
+      "duplicate_usfs_trails_into_usfs_trails": 771,
+      "osm_covered_by_agency": 4182
+    },
+    "candidateParts": 509429,
+    "emptyCells": 0,
+    "staleCellsEmptied": 20
+  },
+  "trailSource": "merge",
+  "trails": {
+    "segments": 485798,
+    "cells": 1017,
+    "bytes": 317522181,
+    "maxCellBytes": 11990719,
+    "bySource": {
+      "blm_trails": 29488,
+      "nps_trails": 36170,
+      "osm_routes": 329991,
+      "usfs_trails": 90149
+    },
+    "byCountry": {
+      "Unspecified": 329989,
+      "United States": 155807,
+      "DE": 2
+    },
+    "quality": {
+      "checkedCells": 1037,
+      "emptyCells": 20,
+      "segments": 485798,
+      "points": 13478336,
+      "bytes": 317522181,
+      "maxCellBytes": 11990719,
+      "outOfTile": 0,
+      "invalidCoords": 0,
+      "under2": 0,
+      "chords": 0,
+      "chordRate": 0,
+      "duplicateCopies": 15,
+      "duplicateRate": 0.00003087703119403538,
+      "distanceMismatch": 7314,
+      "distanceMismatchRate": 0.015055640410211651,
+      "maxJumpKm": 1.8,
+      "bySource": {
+        "blm_trails": {
+          "segments": 29488,
+          "points": 198613,
+          "km": 17444.3,
+          "bytes": 6570192
+        },
+        "nps_trails": {
+          "segments": 36170,
+          "points": 281247,
+          "km": 25827.3,
+          "bytes": 9642195
+        },
+        "osm_routes": {
+          "segments": 329991,
+          "points": 11296250,
+          "km": 1555151.4,
+          "bytes": 258477291
+        },
+        "usfs_trails": {
+          "segments": 90149,
+          "points": 1702226,
+          "km": 217772.3,
+          "bytes": 42079503
+        }
+      },
+      "byCountry": {
+        "Unspecified": {
+          "segments": 329989,
+          "km": 1555146
+        },
+        "United States": {
+          "segments": 155807,
+          "km": 261043.8
+        },
+        "DE": {
+          "segments": 2,
+          "km": 5.3
+        }
+      },
+      "worstChordExamples": []
+    }
   },
   "sources": [
     {
@@ -37,6 +117,9 @@
       "name": "OpenStreetMap, via Geofabrik extracts",
       "family": "points",
       "licence": "ODbL 1.0",
+      "licenceUrl": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "terms": "ODbL 1.0: attribution, and share-alike for a derived database",
       "coverage": "global",
       "cadence": "weekly",
       "expected": 9371124,
@@ -45,7 +128,7 @@
       "placed": 9371124,
       "rejected": {},
       "unaccounted": 0,
-      "ageDays": 1,
+      "ageDays": 2,
       "stale": false,
       "gate": {
         "min": 9000000,
@@ -66,19 +149,22 @@
       "name": "OpenStreetMap hiking routes",
       "family": "trails",
       "licence": "ODbL 1.0",
+      "licenceUrl": "https://www.openstreetmap.org/copyright",
+      "attribution": "© OpenStreetMap contributors",
+      "terms": "ODbL 1.0: attribution, and share-alike for a derived database",
       "coverage": "global",
       "cadence": "monthly",
       "expected": 273368,
       "status": "ok",
-      "updated": "2026-11-19",
-      "fetchedAt": "2026-11-19T04:30:46+00:00",
-      "raw": 673795,
-      "fetched": 270499,
-      "placed": 269889,
+      "updated": "2026-11-20",
+      "fetchedAt": "2026-11-20T03:42:23+00:00",
+      "raw": 1300987,
+      "fetched": 338702,
+      "placed": 334620,
       "rejected": {
-        "unassembled": 610
+        "unassembled": 4082
       },
-      "rejectedTotal": 610,
+      "rejectedTotal": 4082,
       "unaccounted": 0,
       "ageDays": 0,
       "stale": false,
@@ -87,15 +173,18 @@
         "field": "fetched"
       },
       "gateOk": true,
-      "rejectRate": 0.002255091516049967,
+      "rejectRate": 0.012051892223842788,
       "problems": [],
-      "bytes": 812419325
+      "bytes": 412092066
     },
     {
       "id": "ridb",
       "name": "Recreation.gov RIDB full export",
       "family": "points",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://ridb.recreation.gov/",
+      "attribution": "Recreation.gov / RIDB",
+      "terms": "Public domain (US Government)",
       "coverage": "United States federal",
       "cadence": "daily",
       "expected": 5808,
@@ -108,7 +197,7 @@
       "rejected": {},
       "rejectedTotal": 0,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 5400,
@@ -124,6 +213,9 @@
       "name": "US Forest Service recreation sites",
       "family": "points",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://www.fs.usda.gov/about-agency/open-data",
+      "attribution": "USDA Forest Service",
+      "terms": "Public domain (US Government)",
       "coverage": "United States national forests",
       "cadence": "monthly",
       "expected": 32160,
@@ -136,7 +228,7 @@
       "rejected": {},
       "rejectedTotal": 0,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 28000,
@@ -152,6 +244,9 @@
       "name": "Bureau of Land Management recreation sites",
       "family": "points",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://www.blm.gov/about/data",
+      "attribution": "Bureau of Land Management",
+      "terms": "Public domain (US Government)",
       "coverage": "United States BLM land",
       "cadence": "monthly",
       "expected": 1308,
@@ -164,7 +259,7 @@
       "rejected": {},
       "rejectedTotal": 0,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 1000,
@@ -180,6 +275,9 @@
       "name": "National Park Service public trails",
       "family": "trails",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://www.nps.gov/aboutus/open-data.htm",
+      "attribution": "National Park Service",
+      "terms": "Public domain (US Government)",
       "coverage": "United States national parks",
       "cadence": "monthly",
       "expected": 31377,
@@ -194,7 +292,7 @@
       },
       "rejectedTotal": 3,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 25000,
@@ -210,6 +308,9 @@
       "name": "US Forest Service National Forest System trails",
       "family": "trails",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://www.fs.usda.gov/about-agency/open-data",
+      "attribution": "USDA Forest Service",
+      "terms": "Public domain (US Government)",
       "coverage": "United States national forests",
       "cadence": "monthly",
       "expected": 86238,
@@ -224,7 +325,7 @@
       },
       "rejectedTotal": 5336,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 70000,
@@ -240,6 +341,9 @@
       "name": "Bureau of Land Management GTLF public trails",
       "family": "trails",
       "licence": "Public domain (US Government)",
+      "licenceUrl": "https://www.blm.gov/about/data",
+      "attribution": "Bureau of Land Management",
+      "terms": "Public domain (US Government)",
       "coverage": "United States BLM land",
       "cadence": "monthly",
       "expected": 19000,
@@ -252,7 +356,7 @@
       "rejected": {},
       "rejectedTotal": 0,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 15000,
@@ -268,6 +372,9 @@
       "name": "Parks Canada accommodation",
       "family": "points",
       "licence": "Open Government Licence – Canada",
+      "licenceUrl": "https://open.canada.ca/en/open-government-licence-canada",
+      "attribution": "Parks Canada",
+      "terms": "Open Government Licence – Canada: attribution required",
       "coverage": "Canada national parks and historic sites",
       "cadence": "monthly",
       "expected": 11740,
@@ -282,7 +389,7 @@
       },
       "rejectedTotal": 2148,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 10000,
@@ -298,6 +405,9 @@
       "name": "New Zealand Department of Conservation campsites",
       "family": "points",
       "licence": "CC BY 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "attribution": "NZ Department of Conservation",
+      "terms": "CC BY 4.0: attribution required",
       "coverage": "New Zealand public conservation land",
       "cadence": "monthly",
       "expected": 300,
@@ -310,7 +420,7 @@
       "rejected": {},
       "rejectedTotal": 0,
       "unaccounted": 0,
-      "ageDays": 0,
+      "ageDays": 1,
       "stale": false,
       "gate": {
         "min": 200,
@@ -332,7 +442,7 @@
       "doc_nz": 312
     },
     "trailsBySource": {
-      "osm_routes": 269889,
+      "osm_routes": 334620,
       "nps_trails": 33906,
       "usfs_trails": 84564,
       "blm_trails": 42671
