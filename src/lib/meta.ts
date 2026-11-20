@@ -25,9 +25,37 @@ export type Meta = {
   description: string;
   path: string;
   type?: "website" | "article";
+  /** Absolute URL or a root-relative fallback such as `/og.jpg`. */
+  image?: string;
+  /** Structured data for this route; cleared when a route does not set one. */
+  jsonLd?: Record<string, unknown> | null;
 };
 
-export function setMeta({ title, description, path, type = "website" }: Meta) {
+const JSONLD_ID = "terrane-route-jsonld";
+
+function setJsonLd(value: Record<string, unknown> | null) {
+  let el = document.getElementById(JSONLD_ID) as HTMLScriptElement | null;
+  if (!value) {
+    el?.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement("script");
+    el.id = JSONLD_ID;
+    el.type = "application/ld+json";
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(value);
+}
+
+export function setMeta({
+  title,
+  description,
+  path,
+  type = "website",
+  image = "/og.jpg",
+  jsonLd = null,
+}: Meta) {
   const url = `${location.origin}${path}`;
   document.title = title;
 
@@ -45,10 +73,15 @@ export function setMeta({ title, description, path, type = "website" }: Meta) {
     name: "twitter:description",
     content: description,
   });
+
+  const imageUrl = image.startsWith("http") ? image : `${location.origin}${image}`;
+  upsert('meta[property="og:image"]', { property: "og:image", content: imageUrl });
+  upsert('meta[name="twitter:image"]', { name: "twitter:image", content: imageUrl });
+  setJsonLd(jsonLd);
 }
 
 export const HOME_META: Meta = {
-  title: `${SITE} — a globe of places worth going outside for`,
+  title: SITE,
   description: `Spin a globe of ${MANIFEST.totals.all.toLocaleString("en-US")} places in ${MANIFEST.categories} categories: peaks, parks, landmarks, campsites, water and parking. Real coordinates, shaded terrain and hiking trails.`,
   path: "/",
 };

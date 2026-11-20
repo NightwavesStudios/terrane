@@ -20,6 +20,7 @@ import { PLACES, bySlug } from "../data/places";
 import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
 import { useHome } from "../lib/locate";
+import { rememberView } from "../lib/lastView";
 import { dataDate, useCoverage, useManifest } from "../lib/live";
 
 const WORLD = { lon: 12, lat: 22 };
@@ -100,6 +101,7 @@ export default function Home() {
 
   const onView = useCallback((next: View) => {
     viewRef.current = next;
+    rememberView({ lat: next.lat, lon: next.lon, zoom: next.zoom });
     if (discoverOpen.current) setView(next);
   }, []);
 

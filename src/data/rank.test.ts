@@ -7,7 +7,6 @@ function place(over: Partial<Place> & Pick<Place, "slug" | "lat" | "lon">): Plac
     name: over.slug,
     type: "peak",
     country: "XX",
-    tagline: "",
     hue: 0,
     ...over,
   };
@@ -50,13 +49,6 @@ describe("importance", () => {
   it("gives a park and a landmark a fixed share", () => {
     expect(importance(place({ slug: "p", lat: 0, lon: 0, type: "park" }))).toBe(0.62);
     expect(importance(place({ slug: "l", lat: 0, lon: 0, type: "landmark" }))).toBe(0.55);
-    expect(importance(place({ slug: "g", lat: 0, lon: 0, type: "gem" }))).toBe(0.4);
-  });
-
-  it("does not reward provenance or a hand-written entry", () => {
-    const curated = place({ slug: "x", lat: 0, lon: 0, elevation: 1200, curated: true, editorial: true });
-    const atlas = place({ slug: "y", lat: 0, lon: 0, elevation: 1200 });
-    expect(importance(curated)).toBe(importance(atlas));
   });
 });
 

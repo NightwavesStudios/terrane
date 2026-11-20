@@ -2,6 +2,7 @@ import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { SOURCE_LABEL, category, sourceLicence, type Pick } from "../data/features";
 import type { Place } from "../data/places";
 import { pickFacts, pickTitle } from "../lib/present";
+import { toggleSaved, useSavedSlugs } from "../lib/saved";
 import RidgeArt from "./RidgeArt";
 
 /**
@@ -33,6 +34,8 @@ export default function FeatureCard({
 }) {
   const cat = category(pick.cat);
   const title = pickTitle(pick, cat.one);
+  const savedSlugs = useSavedSlugs();
+  const saved = pick.slug ? savedSlugs.has(pick.slug) : false;
   const near =
     nearPlace && nearKm != null ? { name: nearPlace.name, km: nearKm } : null;
   const source = pick.src ? SOURCE_LABEL[pick.src] ?? pick.src : "";
@@ -109,6 +112,25 @@ export default function FeatureCard({
         ) : null}
 
         <div className="pick-actions">
+          {pick.slug ? (
+            <button
+              className={`btn btn-light${saved ? " btn-saved" : ""}`}
+              onClick={() => {
+                if (!pick.slug) return;
+                toggleSaved({
+                  slug: pick.slug,
+                  name: title,
+                  cat: pick.cat,
+                  lat: pick.lat,
+                  lon: pick.lon,
+                  country: pick.country,
+                  region: pick.region,
+                });
+              }}
+            >
+              {saved ? "Saved ✓" : "Save"}
+            </button>
+          ) : null}
           {pick.book ? (
             <a className="btn btn-light" href={pick.book} target="_blank" rel="noreferrer">
               Book / reserve →

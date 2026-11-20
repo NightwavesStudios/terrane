@@ -5,8 +5,8 @@
     "wikidata": "2026-11-18"
   },
   "totals": {
-    "all": 9440586,
-    "destinations": 24540,
+    "all": 9440518,
+    "destinations": 24472,
     "mapped": 9416046,
     "trails": 485798
   },
@@ -16,9 +16,9 @@
     "mapped": 385
   },
   "byCategory": {
-    "landmark": 218,
-    "park": 2007,
-    "peak": 7661,
+    "landmark": 190,
+    "park": 1980,
+    "peak": 7648,
     "desert": 134,
     "range": 550,
     "lake": 3800,
@@ -64,14 +64,6 @@
       "records": 24472,
       "updated": "2026-11-18",
       "note": "1218 atlas destinations · 23254 long-tail records"
-    },
-    {
-      "id": "editorial",
-      "name": "Hand-written field entries",
-      "licence": "—",
-      "records": 68,
-      "updated": null,
-      "note": "68 destinations with a page; facts only; frozen"
     },
     {
       "id": "osm_routes",
@@ -236,8 +228,17 @@
     },
     "checkedCells": 1037
   },
+  "details": {
+    "pages": 1218,
+    "described": 1212,
+    "photographed": 1048,
+    "official": 69,
+    "ranges": 601,
+    "protected": 324,
+    "updated": "2026-11-18"
+  },
   "validation": {
-    "ok": true,
+    "ok": false,
     "checks": [
       {
         "name": "category ids are unique",
@@ -335,29 +336,19 @@
         "detail": "0 pairs"
       },
       {
-        "name": "editorial entries are frozen",
-        "ok": true,
-        "detail": "68 rows (ceiling 68)"
-      },
-      {
-        "name": "every hand-written row has provenance",
-        "ok": true,
-        "detail": "src + srcId"
-      },
-      {
         "name": "documented merges are applied",
         "ok": true,
-        "detail": "2 merges"
+        "detail": "1 merges"
       },
       {
         "name": "manifest totals match",
         "ok": true,
-        "detail": "9440586"
+        "detail": "9440518"
       },
       {
         "name": "manifest destination count matches",
         "ok": true,
-        "detail": "24540"
+        "detail": "24472"
       },
       {
         "name": "manifest mapped count matches",
@@ -428,6 +419,21 @@
         "name": "every source carries licence and attribution metadata",
         "ok": true,
         "detail": "all present"
+      },
+      {
+        "name": "every destination page has a detail record",
+        "ok": true,
+        "detail": "1218/1218"
+      },
+      {
+        "name": "place details are well formed",
+        "ok": false,
+        "detail": "1218 records"
+      },
+      {
+        "name": "manifest detail counts match",
+        "ok": true,
+        "detail": "{\"pages\":1218,\"described\":1212,\"photographed\":1048,\"official\":69,\"ranges\":601,\"protected\":324}"
       }
     ]
   }

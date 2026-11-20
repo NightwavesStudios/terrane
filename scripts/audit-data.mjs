@@ -11,7 +11,6 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { readCurated } from "./lib/curated.mjs";
 
 const root = process.cwd();
 const read = (p) => JSON.parse(readFileSync(join(root, p), "utf8"));
@@ -23,7 +22,6 @@ const catById = new Map(categories.map((c) => [c.id, c]));
 const atlas = read("src/data/atlas.json");
 const reach = read("src/data/reach.json");
 const reachMore = read("src/data/reach-more.json");
-const curated = readCurated();
 const stats = read("src/data/poi-stats.json");
 const trailStats = read("src/data/trail-stats.json");
 const trailLinks = read("src/data/trail-links.json");
@@ -33,14 +31,6 @@ const destinations = [
   ...atlas.map((r) => ({
     src: "atlas",
     cat: r.type,
-    name: r.name,
-    lat: r.lat,
-    lon: r.lon,
-    country: r.country,
-  })),
-  ...curated.map((r) => ({
-    src: "editorial",
-    cat: r.cat,
     name: r.name,
     lat: r.lat,
     lon: r.lon,
@@ -117,7 +107,6 @@ const dup110 = duplicates(110);
 const inGeorgia = (lat, lon) => lat > 30 && lat < 36 && lon > -86 && lon < -80;
 const georgia = {
   atlas: destinations.filter((r) => r.src === "atlas" && inGeorgia(r.lat, r.lon)).length,
-  curated: destinations.filter((r) => r.src === "editorial" && inGeorgia(r.lat, r.lon)).length,
   wikidata: destinations.filter((r) => r.src === "wikidata" && inGeorgia(r.lat, r.lon)).length,
 };
 const atlantaCell = cellOf(33.75, -84.39);
@@ -139,14 +128,7 @@ const sources = [
     updated: [mtime("src/data/atlas.json"), mtime("src/data/reach.json"), mtime("src/data/reach-more.json")]
       .sort()
       .at(-1),
-    note: `${atlas.length} atlas + ${curated.length} hand-written + ${reach.items.length + reachMore.items.length} reach`,
-  },
-  {
-    name: "Hand-written field entries",
-    records: curated.length,
-    files: 1,
-    updated: mtime("src/data/places.ts"),
-    note: "one row with a page each; frozen, not growing",
+    note: `${atlas.length} atlas + ${reach.items.length + reachMore.items.length} reach`,
   },
   ...(() => {
     const dir = join(root, "data", "sources");
@@ -253,7 +235,7 @@ const md = [
   row(["Populated z6 cells", report.density.cells]),
   row(["Destinations per cell, median", report.density.medianPerCell]),
   row(["Destinations per cell, max", report.density.maxPerCell]),
-  row(["Georgia box: atlas / hand-written / Wikidata", `${georgia.atlas} / ${georgia.curated} / ${georgia.wikidata}`]),
+  row(["Georgia box: atlas / Wikidata", `${georgia.atlas} / ${georgia.wikidata}`]),
   row(["Georgia (Atlanta) cell", georgiaCell]),
   "",
   "### Fullest cells",
@@ -295,7 +277,7 @@ console.log(
   `destinations ${destinations.length} · mapped ${totalMapped.toLocaleString()} · countries ${report.countries.atlas} (median ${median})`,
 );
 console.log(
-  `cells ${cells.size} (median ${cellMedian}, max ${cellCounts.at(-1) ?? 0}) · Georgia box ${georgia.atlas}/${georgia.curated}/${georgia.wikidata} · dupes ≤50 m ${dup50.dupes}`,
+  `cells ${cells.size} (median ${cellMedian}, max ${cellCounts.at(-1) ?? 0}) · Georgia box ${georgia.atlas}/${georgia.wikidata} · dupes ≤50 m ${dup50.dupes}`,
 );
 console.log(
   `trails ${report.trails.segments.toLocaleString()} segments · ${report.trails.quality?.outOfTile ?? "?"} outside tile · ${report.trails.linkedDestinations} destinations linked`,

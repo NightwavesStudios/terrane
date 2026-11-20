@@ -1,10 +1,12 @@
 import Logo from "./Logo";
 import { navigate, useRoute } from "../lib/router";
 import { useManifest } from "../lib/live";
+import { useSaved } from "../lib/saved";
 
 export default function Header({ tone }: { tone: "dark" | "light" }) {
   const route = useRoute();
   const manifest = useManifest();
+  const saved = useSaved();
 
   return (
     <header className={`header header--${tone}`}>
@@ -19,6 +21,15 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
           onClick={() => navigate("/")}
         >
           Globe
+        </button>
+        <button
+          className={route.name === "saved" ? "on" : ""}
+          onClick={() => navigate("/saved")}
+        >
+          Saved
+          {saved.length > 0 ? (
+            <span className="nav-count mono">{saved.length}</span>
+          ) : null}
         </button>
         <button
           className={route.name === "coverage" ? "on" : ""}

@@ -169,7 +169,7 @@ export function pickOfPlace(p: Place): Pick {
     where: p.region ?? p.country,
     region: p.region,
     country: p.country,
-    src: p.editorial ? "editorial" : "atlas",
+    src: "atlas",
     srcId: p.wd ?? p.slug,
   };
 }
@@ -178,7 +178,6 @@ const PLACE_CAT: Record<string, string> = {
   peak: "peak",
   park: "park",
   landmark: "landmark",
-  gem: "landmark",
 };
 
 /**
@@ -244,9 +243,9 @@ export function placesToRows(places: Place[]): FeatureRow[] {
       where: p.region ?? p.country,
       region: p.region,
       country: p.country,
-      src: p.editorial ? "editorial" : "atlas",
+      src: "atlas",
       srcId: p.wd ?? p.slug,
-      url: p.editorial ? undefined : `https://www.wikidata.org/wiki/${p.wd ?? ""}`,
+      url: p.wd ? `https://www.wikidata.org/wiki/${p.wd}` : undefined,
     };
   });
 }
@@ -273,7 +272,6 @@ export const SOURCE_LABEL: Record<string, string> = {
   osm_routes: "OpenStreetMap",
   wikidata: "Wikidata",
   atlas: "Wikidata",
-  editorial: "Hand-written",
   ridb: "Recreation.gov (RIDB)",
   usfs_sites: "US Forest Service",
   blm_sites: "Bureau of Land Management",

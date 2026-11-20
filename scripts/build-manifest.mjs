@@ -11,7 +11,6 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { readCurated } from "./lib/curated.mjs";
 
 const root = process.cwd();
 const read = (p, fallback = null) => {
@@ -27,17 +26,18 @@ const atlas = read("src/data/atlas.json");
 const reach = read("src/data/reach.json");
 const reachMore = read("src/data/reach-more.json");
 const poi = read("src/data/poi-stats.json", {});
-const curated = readCurated();
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
 const registry = read("src/data/sources.json", { sources: [] });
 const wikidataMeta = read("src/data/wikidata-meta.json", {});
+const details = read("src/data/place-details.json", { items: {} });
+const detailRows = Object.values(details.items ?? {});
 const wikidataUpdated =
   [wikidataMeta.atlas, wikidataMeta.reach, wikidataMeta.reachMore]
     .filter(Boolean)
     .sort()
     .at(-1) ?? null;
 
-const destinations = atlas.length + curated.length + reach.items.length + reachMore.items.length;
+const destinations = atlas.length + reach.items.length + reachMore.items.length;
 const agencyRecords = (registry.sources ?? [])
   .filter((s) => s.family === "points" && s.id !== "osm")
   .reduce((sum, s) => sum + (read(`data/sources/${s.id}.json`, null)?.placed ?? 0), 0);
@@ -50,7 +50,6 @@ const add = (id, count) => {
   byCategory[id] = (byCategory[id] || 0) + count;
 };
 for (const r of atlas) add(r.type, 1);
-for (const r of curated) add(r.cat, 1);
 for (const r of reach.items) add(reach.kinds[r[2]], 1);
 for (const r of reachMore.items) add(reachMore.kinds[r[2]], 1);
 for (const [id, count] of Object.entries(poi.byKind ?? {})) add(id, count);
@@ -88,14 +87,6 @@ const sources = [
     updated: wikidataUpdated,
     note: `${atlas.length} atlas destinations · ${reach.items.length + reachMore.items.length} long-tail records`,
   },
-  {
-    id: "editorial",
-    name: "Hand-written field entries",
-    licence: "—",
-    records: curated.length,
-    updated: null,
-    note: `${curated.length} destinations with a page; facts only; frozen`,
-  },
   ...agencySources,
 ];
 
@@ -114,6 +105,15 @@ const manifest = {
   coverage:
     "OpenStreetMap completeness follows mapping effort. Europe is mapped far more densely than most of Africa, South America and Central Asia; Wikidata is a selection, not a census.",
   trailStats,
+  details: {
+    pages: atlas.length,
+    described: detailRows.filter((item) => item.desc).length,
+    photographed: detailRows.filter((item) => item.img?.length).length,
+    official: detailRows.filter((item) => item.site).length,
+    ranges: detailRows.filter((item) => item.range).length,
+    protected: detailRows.filter((item) => item.protected).length,
+    updated: details.generated ?? null,
+  },
   validation: { ok: null, checks: [] },
 };
 

@@ -163,26 +163,6 @@ def slugify(name):
     return s
 
 
-def load_curated():
-    """The 68 hand-written places, with coordinates.
-
-    curated-index.json is slugs and names only, so the coordinates are read out of
-    places.ts, which is the one place they exist.
-    """
-    src = open("src/data/places.ts").read()
-    start = src.index("const CURATED: Place[] = [")
-    block = src[start:]
-    rows = []
-    for match in re.finditer(
-        r'slug: "([^"]+)"[\s\S]*?lat: (-?[\d.]+),\s*\n\s*lon: (-?[\d.]+),', block
-    ):
-        rows.append(
-            {"slug": match.group(1), "lat": float(match.group(2)), "lon": float(match.group(3))}
-        )
-    print(f"  {len(rows)} curated places with coordinates")
-    return rows
-
-
 def main():
     refresh = "--refresh" in sys.argv
     t0 = time.time()
@@ -227,9 +207,7 @@ def main():
     # 2. within the harvest, where OSM-minded mappers have entered the same
     #    summit twice under different items.
     atlas = json.load(open("src/data/atlas.json"))
-    curated = load_curated()
     known = [(row["lat"], row["lon"]) for row in atlas]
-    known += [(row["lat"], row["lon"]) for row in curated]
 
     def grid_key(lat, lon, size=0.05):
         return (int(lat // size), int(lon // size))
@@ -281,7 +259,7 @@ def main():
     near_names = []
     near_index = {}
     placed = {}
-    for row in atlas + curated:
+    for row in atlas:
         slug = row["slug"]
         if slug not in near_index:
             near_index[slug] = len(near_names)

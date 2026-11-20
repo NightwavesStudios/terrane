@@ -13,7 +13,6 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { readCurated } from "./lib/curated.mjs";
 
 const root = process.cwd();
 const CELL = 7;
@@ -117,20 +116,12 @@ if (existsSync(dir)) {
   }
 }
 
-const destinations = [
-  ...read("src/data/atlas.json", []).map((row) => ({
-    slug: row.slug,
-    name: row.name,
-    lat: row.lat,
-    lon: row.lon,
-  })),
-  ...readCurated().map((row) => ({
-    slug: row.slug,
-    name: row.name,
-    lat: row.lat,
-    lon: row.lon,
-  })),
-];
+const destinations = read("src/data/atlas.json", []).map((row) => ({
+  slug: row.slug,
+  name: row.name,
+  lat: row.lat,
+  lon: row.lon,
+}));
 
 const items = {};
 let linked = 0;

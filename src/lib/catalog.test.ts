@@ -9,7 +9,6 @@ function place(over: Partial<Place> & Pick<Place, "slug" | "name" | "type">): Pl
     region: "Valais",
     lat: 45.976,
     lon: 7.658,
-    tagline: "",
     hue: 200,
     ...over,
   };

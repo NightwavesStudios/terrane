@@ -244,7 +244,7 @@ export function buildCatalog(
       where: place.region ?? place.country,
       region: place.region,
       country: place.country,
-      src: place.editorial ? "editorial" : "atlas",
+      src: "atlas",
       srcId: place.wd ?? place.slug,
     });
     const row: CatalogRow = {

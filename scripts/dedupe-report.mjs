@@ -4,14 +4,13 @@
  * has a reviewed merge decision.
  *
  * The map's cells dedupe every harvested point in `merge-sources.py`. Destinations
- * are editorial/Wikidata rows and need a different rule: same category, within
+ * are atlas and Wikidata rows and need a different rule: same category, within
  * 50 m, and a matching name. This report is generated on every data run so a new
  * duplicate is visible before it reaches the atlas, instead of living only in a
  * commit message.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { readCurated } from "./lib/curated.mjs";
 
 const root = process.cwd();
 const read = (path, fallback) => {
@@ -25,7 +24,6 @@ const read = (path, fallback) => {
 const atlas = read("src/data/atlas.json", []);
 const reach = read("src/data/reach.json", { items: [], kinds: [] });
 const reachMore = read("src/data/reach-more.json", { items: [], kinds: [] });
-const curated = readCurated();
 const reviewed = read("src/data/atlas-merges.json", []);
 
 const norm = (value) =>
@@ -38,7 +36,6 @@ const norm = (value) =>
 
 const rows = [
   ...atlas.map((r) => ({ id: r.wd, src: "atlas", cat: r.type, name: r.name, lat: r.lat, lon: r.lon })),
-  ...curated.map((r) => ({ id: r.slug, src: "editorial", cat: r.cat, name: r.name, lat: r.lat, lon: r.lon })),
   ...reach.items.map((r) => ({ id: r[4], src: "wikidata", cat: reach.kinds[r[2]], name: r[4], lat: r[0], lon: r[1] })),
   ...reachMore.items.map((r) => ({ id: r[4], src: "wikidata", cat: reachMore.kinds[r[2]], name: r[4], lat: r[0], lon: r[1] })),
 ];

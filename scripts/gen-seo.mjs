@@ -1,6 +1,5 @@
 /**
- * Writes `dist/sitemap.xml` and `dist/robots.txt` from the atlas and the curated
- * index.
+ * Writes `dist/sitemap.xml` and `dist/robots.txt` from the atlas.
  *
  * This runs after `vite build` because it writes into the build output, not into
  * `public/`: generated files must not be committed or copied by Vite. A sitemap
@@ -17,12 +16,10 @@ if (!SITE) {
 }
 
 const atlas = JSON.parse(await readFile("src/data/atlas.json", "utf8"));
-const curated = JSON.parse(await readFile("src/data/curated-index.json", "utf8"));
 const manifest = JSON.parse(await readFile("src/data/manifest.json", "utf8"));
 
 const slugs = new Set();
 for (const row of atlas) if (row.slug) slugs.add(row.slug);
-for (const row of curated) if (row.slug) slugs.add(row.slug);
 
 const lastmod = manifest.days?.osm ?? manifest.days?.wikidata ?? "";
 const urls = [

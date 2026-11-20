@@ -11,7 +11,6 @@
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { readCurated } from "./lib/curated.mjs";
 import { join } from "node:path";
 
 const root = process.cwd();
@@ -27,7 +26,6 @@ const families = new Set(categoriesFile.families.map((f) => f.id));
 const atlas = read("src/data/atlas.json");
 const reach = read("src/data/reach.json");
 const reachMore = read("src/data/reach-more.json");
-const curated = readCurated();
 const stats = read("src/data/poi-stats.json");
 const manifest = read("src/data/manifest.json");
 const merges = read("src/data/atlas-merges.json");
@@ -46,6 +44,8 @@ if (trailGate.status !== 0) {
 
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
 const trailLinks = read("src/data/trail-links.json", { radiusKm: 0, items: {} });
+const details = read("src/data/place-details.json", { items: {} });
+const detailItems = details.items ?? {};
 
 const coordOk = (lat, lon) =>
   Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
@@ -134,7 +134,6 @@ check(
 /* ── coverage: a category with nothing behind it is a broken layer ── */
 const records = {};
 for (const r of atlas) records[r.type] = (records[r.type] || 0) + 1;
-for (const r of curated) records[r.cat] = (records[r.cat] || 0) + 1;
 for (const r of reach.items) records[reach.kinds[r[2]]] = (records[reach.kinds[r[2]]] || 0) + 1;
 for (const r of reachMore.items) records[reachMore.kinds[r[2]]] = (records[reachMore.kinds[r[2]]] || 0) + 1;
 for (const [k, v] of Object.entries(stats.byKind)) records[k] = (records[k] || 0) + v;
@@ -148,7 +147,6 @@ const seen = new Set();
 let dupes = 0;
 for (const r of [
   ...atlas.map((x) => [x.type, x.lat, x.lon]),
-  ...curated.map((x) => [x.cat, x.lat, x.lon]),
   ...reach.items.map((x) => [reach.kinds[x[2]], x[0], x[1]]),
   ...reachMore.items.map((x) => [reachMore.kinds[x[2]], x[0], x[1]]),
 ]) {
@@ -156,7 +154,7 @@ for (const r of [
   if (seen.has(key)) dupes += 1;
   else seen.add(key);
 }
-const destinationRows = atlas.length + curated.length + reach.items.length + reachMore.items.length;
+const destinationRows = atlas.length + reach.items.length + reachMore.items.length;
 const dupeRate = dupes / Math.max(1, destinationRows);
 check("cross-source duplicate rate under 1%", dupeRate < 0.01, `${dupes} pairs`);
 
@@ -175,7 +173,6 @@ const haversine = (lat1, lon1, lat2, lon2) => {
 };
 const labelled = [
   ...atlas.map((x) => [x.type, x.lat, x.lon, x.slug]),
-  ...curated.map((x) => [x.cat, x.lat, x.lon, x.slug]),
   ...reach.items.map((x) => [reach.kinds[x[2]], x[0], x[1], x[4]]),
   ...reachMore.items.map((x) => [reachMore.kinds[x[2]], x[0], x[1], x[4]]),
 ];
@@ -207,22 +204,11 @@ check(
 
 /* ── the merge decisions are in the data, not just in a commit message ── */
 const atlasWd = new Set(atlas.map((r) => r.wd));
-const curatedSlugs = new Set(curated.map((r) => r.slug));
-check(
-  "editorial entries are frozen",
-  curated.length <= 68,
-  `${curated.length} rows (ceiling 68)`,
-);
-check(
-  "every hand-written row has provenance",
-  curated.every((r) => r.src === "editorial" && r.srcId === r.slug),
-  "src + srcId",
-);
 
 const mergesApplied = merges.every(
   (m) =>
-    (atlasWd.has(m.keep) || curatedSlugs.has(m.keep)) &&
-    m.drop.every((d) => !atlasWd.has(d) && !curatedSlugs.has(d)) &&
+    atlasWd.has(m.keep) &&
+    m.drop.every((d) => !atlasWd.has(d)) &&
     m.drop.every((d) => {
       const row = atlas.find((r) => r.wd === m.keep);
       return !row || (row.also ?? []).some((a) => a.id === d);
@@ -317,6 +303,107 @@ check(
   "every source carries licence and attribution metadata",
   licenceMissing.length === 0,
   licenceMissing.map((s) => s.id).join(",") || "all present",
+);
+
+/* ── generated place details ──
+   The detail harvest is the only source of photos, descriptions and official
+   links. A page without a record, a broken image or an uncredited file is a
+   build failure, not a silent blank section. */
+const atlasBySlug = new Map(atlas.map((row) => [row.slug, row]));
+const detailKeys = Object.keys(detailItems);
+check(
+  "every destination page has a detail record",
+  detailKeys.length === atlas.length && detailKeys.every((slug) => atlasBySlug.has(slug)),
+  `${detailKeys.length}/${atlas.length}`,
+);
+
+const imageHosts = new Set([
+  "upload.wikimedia.org",
+  "thumb.wikimedia.org",
+  "commons.wikimedia.org",
+]);
+const httpsUrl = (value) => {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+const hostOf = (value) => {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return "";
+  }
+};
+const detailOk = detailKeys.every((slug) => {
+  const row = atlasBySlug.get(slug);
+  const item = detailItems[slug];
+  if (!row || !item || item.wd !== row.wd) return false;
+  if (item.desc != null && (typeof item.desc !== "string" || item.desc.length > 320)) {
+    return false;
+  }
+  if (item.elev != null && !Number.isFinite(item.elev)) return false;
+  if (item.prom != null && !Number.isFinite(item.prom)) return false;
+  if (item.site != null && !httpsUrl(item.site)) return false;
+  if (
+    item.wiki != null &&
+    (!httpsUrl(item.wiki) || hostOf(item.wiki) !== "en.wikipedia.org")
+  ) {
+    return false;
+  }
+  if (
+    item.commons != null &&
+    (!httpsUrl(item.commons) || hostOf(item.commons) !== "commons.wikimedia.org")
+  ) {
+    return false;
+  }
+  if (item.img != null) {
+    if (!Array.isArray(item.img) || item.img.length > 3) return false;
+    const imagesOk = item.img.every(
+      (img) =>
+        httpsUrl(img.url) &&
+        imageHosts.has(hostOf(img.url)) &&
+        typeof img.credit === "string" &&
+        img.credit.length > 0 &&
+        typeof img.licence === "string" &&
+        img.licence.length > 0 &&
+        httpsUrl(img.licenceUrl) &&
+        httpsUrl(img.page) &&
+        hostOf(img.page) === "commons.wikimedia.org",
+    );
+    if (!imagesOk) return false;
+  }
+  for (const key of ["range", "protected", "nearestRange", "nearestPark"]) {
+    const assoc = item[key];
+    if (!assoc) continue;
+    if (typeof assoc.name !== "string" || assoc.name.length === 0) return false;
+    if (assoc.slug != null && !atlasBySlug.has(assoc.slug)) return false;
+    if (
+      assoc.wiki != null &&
+      (!httpsUrl(assoc.wiki) || hostOf(assoc.wiki) !== "en.wikipedia.org")
+    ) {
+      return false;
+    }
+    if (assoc.km != null && !Number.isFinite(assoc.km)) return false;
+  }
+  return true;
+});
+check("place details are well formed", detailOk, `${detailKeys.length} records`);
+
+const detailCounts = {
+  pages: atlas.length,
+  described: detailKeys.filter((slug) => detailItems[slug].desc).length,
+  photographed: detailKeys.filter((slug) => detailItems[slug].img?.length).length,
+  official: detailKeys.filter((slug) => detailItems[slug].site).length,
+  ranges: detailKeys.filter((slug) => detailItems[slug].range).length,
+  protected: detailKeys.filter((slug) => detailItems[slug].protected).length,
+};
+const detailSummary = manifest.details ?? {};
+check(
+  "manifest detail counts match",
+  Object.entries(detailCounts).every(([key, value]) => detailSummary[key] === value),
+  JSON.stringify(detailCounts),
 );
 
 const failed = checks.filter((c) => !c.ok);

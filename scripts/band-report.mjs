@@ -8,14 +8,12 @@
  * writes `reports/dot-bands.{md,json}` and never touches the data files.
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { readCurated } from "./lib/curated.mjs";
 
 const bandsFile = JSON.parse(readFileSync("src/data/bands.json", "utf8"));
 const BANDS = bandsFile.bands;
 const atlas = JSON.parse(readFileSync("src/data/atlas.json", "utf8"));
 const reach = JSON.parse(readFileSync("src/data/reach.json", "utf8"));
 const more = JSON.parse(readFileSync("src/data/reach-more.json", "utf8"));
-const curated = readCurated();
 
 /** Mirrors `REACH_COHORT` in `src/map/destinations.ts`. */
 const REACH_COHORT = {
@@ -43,10 +41,7 @@ function cellOf(lat, lon, zoom) {
   return `${x}/${y}`;
 }
 
-const places = [
-  ...curated.map((p) => ({ ...p, elevation: p.elevation ?? 0 })),
-  ...atlas.map((p) => ({ ...p })),
-];
+const places = atlas.map((p) => ({ ...p }));
 
 const ranked = [...places].sort(
   (a, b) => importance(b) - importance(a) || a.name.localeCompare(b.name),

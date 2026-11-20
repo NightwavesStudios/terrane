@@ -9,7 +9,6 @@ const place = (over: Partial<Place>): Place => ({
   country: "Nowhere",
   lat: 0,
   lon: 0,
-  tagline: "",
   hue: 0,
   ...over,
 });
@@ -19,16 +18,16 @@ describe("homeScope", () => {
     expect(homeScope(null)).toBeNull();
   });
 
-  it("finds a region the atlas covers", () => {
+  it("falls back to the country when the atlas has no region rows", () => {
     const scope = homeScope({
       lat: 37,
       lon: -119,
       region: "California",
       country: "United States",
     });
-    expect(scope?.label).toBeTruthy();
-    expect(scope?.test(place({ region: "California" }))).toBe(true);
-    expect(scope?.test(place({ region: "Utah" }))).toBe(false);
+    expect(scope?.label).toBe("United States");
+    expect(scope?.test(place({ country: "United States" }))).toBe(true);
+    expect(scope?.test(place({ country: "Canada" }))).toBe(false);
   });
 
   it("falls back to the country when the region has no rows", () => {

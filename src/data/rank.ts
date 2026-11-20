@@ -5,11 +5,9 @@ import bandsFile from "./bands.json";
  * One ranking, one band per place. Importance sets the order; a regional quota
  * sets the band, so the world view is a world view and not a Himalaya view.
  *
- * The old score gave a hand-written entry 0.6 of the weight and height the rest,
- * so 33 Georgia (US) pages out-voted real summits and the map named one corner of
- * one country. Provenance still does not decide prominence: a peak earns its
- * place with height, a park or landmark is notable by existing, and an editorial
- * pick gets exactly the same treatment as any other row.
+ * Provenance does not decide prominence: a peak earns its place with height, and
+ * a park or landmark is notable by existing. No row gets a bonus for the file it
+ * arrived in.
  *
  * The cap is a cell quota at each band's own cell size, not a per-country cap and
  * not one global top list. A global list of the highest summits was 24 rows in
@@ -38,7 +36,7 @@ function heightShare(p: Place): number {
   return 0.4;
 }
 
-/** Deterministic: same input, same order. No editorial bonus. */
+/** Deterministic: same input, same order. No provenance bonus. */
 export function importance(p: Place): number {
   return heightShare(p);
 }

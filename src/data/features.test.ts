@@ -8,7 +8,6 @@ function place(over: Partial<Place> & Pick<Place, "name" | "type">): Place {
     country: "Iceland",
     lat: 64.1,
     lon: -21.9,
-    tagline: "",
     hue: 200,
     ...over,
   };
@@ -72,9 +71,6 @@ describe("destinationCategory", () => {
     );
   });
 
-  it("leaves a hand-written gem alone", () => {
-    expect(destinationCategory(place({ name: "The Wave", type: "gem" }))).toBe("landmark");
-  });
 });
 
 describe("pick shape", () => {

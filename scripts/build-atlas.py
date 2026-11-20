@@ -127,55 +127,20 @@ def parse_num(value):
         return None
 
 
-def norm_key(name):
-    """'Yosemite National Park' and 'Yosemite' should collide."""
-    s = name.lower()
-    s = re.sub(r"\b(national|state|provincial|marine|nature|natural)?\s*"
-               r"(park|reserve|monument|conservation area|protected area|site)\b", "", s)
-    return re.sub(r"[^a-z0-9]+", "", s)
-
-
 def clean_name(name):
     """Drop disambiguation parentheses and stray markup."""
     name = re.sub(r"\s*\([^)]*\)\s*$", "", name).strip()
     return name
 
 
-CURATED_TYPE = {"peak": "peak", "park": "park", "landmark": "landmark", "gem": "landmark"}
-
-
-def km_between(lat1, lon1, lat2, lon2):
-    """Great-circle distance. Used only as a 50 m same-place test."""
-    rad = math.pi / 180
-    dlat = (lat2 - lat1) * rad
-    dlon = (lon2 - lon1) * rad
-    h = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1 * rad) * math.cos(lat2 * rad) * math.sin(dlon / 2) ** 2
-    )
-    return 2 * 6371 * math.asin(min(1, math.sqrt(h)))
-
-
 def main():
-    curated = json.load(open("src/data/curated-index.json"))
-    curated_keys = {(norm_key(c["name"]), c["country"]) for c in curated}
-    curated_names = {norm_key(c["name"]) for c in curated}
-
-    # The hand-written entries win the ground they stand on: a generated row within
-    # 50 m of one is the same place, whatever its name says ("Monte" vs "Mount").
-    curated_points = [
-        (c["lat"], c["lon"], CURATED_TYPE.get(c.get("type", ""), c.get("type")))
-        for c in curated
-        if "lat" in c and "lon" in c
-    ]
-
     # Documented merges: a massif and its highest summit are one destination.
     merges = json.load(open("src/data/atlas-merges.json"))
     dropped_ids = {d for m in merges for d in m["drop"]}
     merge_by_keep = {m["keep"]: m for m in merges}
 
     result = []
-    seen_slugs = set(c["slug"] for c in curated)
+    seen_slugs = set()
 
     print("→ prominence: querying…")
     prominence = {}
@@ -222,18 +187,9 @@ def main():
         for item in by_item.values():
             if kind == "peak":
                 item["prominence"] = prominence.get(item["wd"])
-            key = (norm_key(item["name"]), item["country"])
-            if key in curated_keys or norm_key(item["name"]) in curated_names:
-                continue
             if not item["country"]:
                 continue
             if item["wd"] in dropped_ids:
-                continue
-            if any(
-                CURATED_TYPE.get(item["type"], item["type"]) == ctype
-                and km_between(item["lat"], item["lon"], lat, lon) < 0.05
-                for lat, lon, ctype in curated_points
-            ):
                 continue
             candidates.append(item)
 
@@ -276,7 +232,6 @@ def main():
 
     for item in result:
         item.pop("inception", None)
-        item.pop("prominence", None)  # ranking signal only, not shown in the UI
 
     result.sort(key=lambda p: (p["type"], p["name"]))
     json.dump(result, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
