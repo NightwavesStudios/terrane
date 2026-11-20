@@ -2,6 +2,7 @@ import type { ExpressionSpecification, Map as MlMap } from "maplibre-gl";
 import type { Feature, FeatureCollection, LineString } from "geojson";
 import type { LayerState } from "../components/LayerControl";
 import { cellUrl } from "../lib/cells";
+import { cellMayExist } from "../lib/cellIndex";
 
 /**
  * Trail routes, from our own cells: OSM hiking relations plus the US agency trail
@@ -214,21 +215,34 @@ export function refreshTrails(map: MlMap): void {
 
   for (const [x, y] of wanted.slice(0, 8)) {
     const key = keyOf(x, y);
+    const path = `trails/${CELL}/${x}/${y}.json`;
     pending.add(key);
-    void fetch(cellUrl(`trails/${CELL}/${x}/${y}.json`))
-      .then((res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        return res.json() as Promise<Cell>;
-      })
-      .then((cell) => {
-        const features = cell.items
-          .map((row) => toFeature(row, cell.sources ?? []))
-          .filter((f): f is Feature<LineString> => Boolean(f));
-        misses.delete(key);
-        loaded.set(key, features);
-        schedulePush(map);
+    void cellMayExist(path)
+      .then((present) => {
+        if (!present) {
+          /* The store's index does not list this cell: no routes there, no request,
+             no failed-response noise. Re-checked with the other misses, not sooner. */
+          misses.set(key, Date.now() + MISS_RETRY_MS);
+          return null;
+        }
+        return fetch(cellUrl(path))
+          .then((res) => {
+            if (!res.ok) throw new Error(String(res.status));
+            return res.json() as Promise<Cell>;
+          })
+          .then((cell) => {
+            const features = cell.items
+              .map((row) => toFeature(row, cell.sources ?? []))
+              .filter((f): f is Feature<LineString> => Boolean(f));
+            misses.delete(key);
+            loaded.set(key, features);
+            schedulePush(map);
+          });
       })
       .catch((err: unknown) => {
+        /* A cell that exists but cannot be read is a real fault, not absence: the
+           store said it is there, so say so once and retry soon. */
+        if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
         misses.set(key, retryAt(err));
       })
       .finally(() => pending.delete(key));

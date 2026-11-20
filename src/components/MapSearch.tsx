@@ -9,7 +9,15 @@ import { categoryLabel, searchAll, type Pick } from "../data/features";
  * cell the map has not fetched cannot be searched, and the empty state says so
  * rather than pretending the world is only what is already in memory.
  */
-export default function MapSearch({ onPick }: { onPick: (pick: Pick) => void }) {
+export default function MapSearch({
+  onPick,
+  onOpen,
+}: {
+  onPick: (pick: Pick) => void;
+  /** Opening search clears whatever was open beside it — the card would sit on
+   *  top of the field on a phone and neither surface would be usable. */
+  onOpen?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -22,9 +30,11 @@ export default function MapSearch({ onPick }: { onPick: (pick: Pick) => void }) 
         /^(input|textarea|select)$/i.test(e.target.tagName);
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        onOpen?.();
         setOpen(true);
       } else if (e.key === "/" && !typing) {
         e.preventDefault();
+        onOpen?.();
         setOpen(true);
       } else if (e.key === "Escape") {
         setOpen(false);
@@ -54,7 +64,10 @@ export default function MapSearch({ onPick }: { onPick: (pick: Pick) => void }) 
     <>
       <button
         className="search-open mono"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onOpen?.();
+          setOpen(true);
+        }}
         aria-label="Search the map"
       >
         <span className="search-open-label">Search</span>

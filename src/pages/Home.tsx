@@ -71,6 +71,46 @@ export default function Home() {
       ? kmBetween(pick.lat, pick.lon, nearPlace.lat, nearPlace.lon)
       : null;
 
+  /* The filter bar grows and shrinks with the viewport (chips wrap on a narrow
+     phone, the scope chip carries a place name), and every other piece of chrome
+     has to sit above it. Instead of hard-coding a height per breakpoint, the bar
+     and the tools are measured and published as two custom properties that the
+     stylesheet reads: `--filters-h` for the bar itself and `--panel-max` for the
+     space between the layers toggle and the bar. Both follow a rotation. */
+  useEffect(() => {
+    const root = document.documentElement.style;
+    const measure = () => {
+      const bar = document.querySelector(".globe-filters");
+      const toggle = document.querySelector(".layers-toggle");
+      if (!bar) return;
+      const barBox = bar.getBoundingClientRect();
+      const filters = `${Math.round(barBox.height)}px`;
+      if (root.getPropertyValue("--filters-h") !== filters) root.setProperty("--filters-h", filters);
+      void toggle;
+    };
+    measure();
+    /* Chips arrive with the scope and the bar re-wraps as they do, so watch it
+       for a few seconds as well as on every resize. */
+    let frames = 0;
+    let raf = window.requestAnimationFrame(function tick() {
+      measure();
+      if (++frames < 180) raf = window.requestAnimationFrame(tick);
+    });
+    const ro = new ResizeObserver(measure);
+    for (const sel of [".globe-filters", ".globe-filters .chips", ".globe"]) {
+      const el = document.querySelector(sel);
+      if (el) ro.observe(el);
+    }
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, []);
+
   useEffect(() => {
     if (!pick) return;
     const onKey = (e: KeyboardEvent) => {
@@ -95,7 +135,7 @@ export default function Home() {
   }
 
   return (
-    <div className="home">
+    <div className="home" data-pick={pick ? "on" : undefined}>
       <Suspense fallback={<div className="globe" aria-hidden="true" />}>
         <Globe
           places={places}
@@ -110,8 +150,8 @@ export default function Home() {
       <Header tone="dark" />
 
       <div className="map-tools">
-        <MapSearch onPick={setPick} />
-        <LayerControl value={layers} onChange={setLayers} />
+        <MapSearch onPick={setPick} onOpen={() => setPick(null)} />
+        <LayerControl value={layers} onChange={setLayers} onOpen={() => setPick(null)} />
       </div>
 
       {/* One map, one count. Every point is a category; nothing here separates

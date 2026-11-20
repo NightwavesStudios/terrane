@@ -73,9 +73,12 @@ const compact = new Intl.NumberFormat("en", {
 export default function LayerControl({
   value,
   onChange,
+  onOpen,
 }: {
   value: LayerState;
   onChange: (next: LayerState) => void;
+  /** Called when the panel opens, so a place card does not sit behind it. */
+  onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const manifest = useManifest();
@@ -83,20 +86,60 @@ export default function LayerControl({
     Number((manifest.byCategory as Record<string, number>)[id] ?? 0);
   const count = (id: string) => compact.format(rawCount(id));
   const box = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
+    /* `pointerdown`, not `mousedown`: a finger tap has to dismiss the panel the
+       same way a click does, and on touch `mousedown` only arrives after the
+       browser has finished synthesising it. */
+    const onDown = (e: PointerEvent) => {
       if (!box.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  /* The list is capped by the space between the toggle and the filter bar, which
+     differs at 390 px, 360 px and landscape — and the bar's own height changes
+     when the chips wrap. Measuring the open panel beats a media-query guess: it
+     is right on every screen and after a rotation, and the list scrolls. */
+  useEffect(() => {
+    if (!open) return;
+    const fit = () => {
+      const el = panel.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const bar = document.querySelector(".globe-filters");
+      const bottom = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+      /* No lower floor beyond a usable sliver: a landscape phone has ~130 px
+         between the toggle and the bar, and a 180 px floor would push the list
+         through the bar. */
+      el.style.maxHeight = `${Math.max(88, Math.round(bottom - top - 12))}px`;
+    };
+    fit();
+    /* The bar re-wraps after a resize (chips move, a row is added), which moves
+       the bottom this list is measured against, so watch it while open. */
+    const ro = new ResizeObserver(fit);
+    const bar = document.querySelector(".globe-filters");
+    if (bar) ro.observe(bar);
+    const later = window.setTimeout(fit, 400);
+    const settled = window.setTimeout(fit, 1000);
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    return () => {
+      window.clearTimeout(later);
+      window.clearTimeout(settled);
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
     };
   }, [open]);
 
@@ -181,7 +224,11 @@ export default function LayerControl({
     <div className="layers" ref={box}>
       <button
         className="layers-toggle mono"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const next = !open;
+          if (next) onOpen?.();
+          setOpen(next);
+        }}
         aria-expanded={open}
         aria-haspopup="true"
       >
@@ -192,7 +239,7 @@ export default function LayerControl({
       </button>
 
       {open && (
-        <div className="layers-panel" role="group" aria-label="Map layers">
+        <div className="layers-panel" role="group" aria-label="Map layers" ref={panel}>
           {BASE_ROWS.map((row) => (
             <Fragment key={row.key}>
               <label className="layers-row">

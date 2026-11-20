@@ -47,6 +47,15 @@ deploy manifest is `infra/cell-store/deploy.json`.
 Reads are public and CORS-open; writes are gated by the `UPLOAD_TOKEN` secret.
 `infra/cell-store/worker.js` only allows the known prefixes and live keys.
 
+The store also serves `upload-manifest.json`, the uploader's own list of every
+object it has written. The map reads that list before it fetches a cell
+(`src/lib/cellIndex.ts`), so a cell that was never harvested is an ordinary empty
+answer instead of a 404 the browser logs as a failed request; a cell the list
+names is still fetched, and a failure on it still throws. Families the uploader
+does not track — parking cells, which are published outside the manifest — are
+treated as unknown and fetched as before. If the list is missing or unreadable
+the map falls back to fetching every cell optimistically.
+
 The store is the Sites project **Terrane POI cells**. Its **preview** environment
 is published at `https://terrane-poi-cells-mqa53q-preview.freebuff.site` and is
 the app default. Production is unpublished and has no objects. The account R2

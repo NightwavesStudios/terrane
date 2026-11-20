@@ -72,7 +72,15 @@ export default {
     if (!key) {
       return json({
         store: "terrane data",
-        keys: ["poi/6/{x}/{y}.json", "trails/6/{x}/{y}.json", "manifest.json", "coverage.json"],
+        /* `upload-manifest.json` is the tile list the client reads to tell a cell
+           that was never harvested from a failed request. */
+        keys: [
+          "poi/6/{x}/{y}.json",
+          "trails/7/{x}/{y}.json",
+          "manifest.json",
+          "coverage.json",
+          "upload-manifest.json",
+        ],
       });
     }
     if (!allowed(key)) return json({ error: "not found" }, 404);

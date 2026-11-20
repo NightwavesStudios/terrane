@@ -10,6 +10,7 @@ import {
 } from "../data/features";
 import type { LayerState } from "../components/LayerControl";
 import { cellUrl } from "../lib/cells";
+import { cellMayExist } from "../lib/cellIndex";
 
 /**
  * Mapped places: campsites, huts, shelters, water, parking and the rest of the
@@ -747,27 +748,37 @@ export function refreshMapped(map: MlMap) {
   const pass = zoom < 7 ? 24 : MAX_CELLS_PER_PASS;
   for (const [x, y] of wanted.slice(0, pass)) {
     const key = cellKey(MAPPED_CELL_ZOOM, x, y);
+    const path = `poi/${MAPPED_CELL_ZOOM}/${x}/${y}.json`;
     pending.add(key);
-    void fetch(cellUrl(`poi/${MAPPED_CELL_ZOOM}/${x}/${y}.json`))
-      .then((res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        return res.json() as Promise<Cell>;
-      })
-      .then((cell) => {
+    void cellMayExist(path)
+      .then((present) => {
+        if (!present) {
+          /* Not in the store's index: an empty cell, not a failed request. */
+          misses.set(key, Date.now() + MISS_RETRY_MS);
+          return null;
+        }
+        return fetch(cellUrl(path))
+          .then((res) => {
+            if (!res.ok) throw new Error(String(res.status));
+            return res.json() as Promise<Cell>;
+          })
+          .then((cell) => {
         const meta = new Map<number, Record<string, string>>();
         for (const [index, tags] of cell.detail ?? []) meta.set(index, tags);
         const features = cell.items.map((row, index) => toFeature(row, meta.get(index)));
         assignBands(features);
         markCell(key, features, destinationIndex());
-        misses.delete(key);
-        loaded.set(key, features);
-        banded.set(key, splitBands(features));
-        total += features.length;
-        indexNamed(cell);
-        evictIfNeeded(visibleKeys);
-        schedulePush(map);
+            misses.delete(key);
+            loaded.set(key, features);
+            banded.set(key, splitBands(features));
+            total += features.length;
+            indexNamed(cell);
+            evictIfNeeded(visibleKeys);
+            schedulePush(map);
+          });
       })
       .catch((err: unknown) => {
+        if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
         misses.set(key, retryAt(err));
       })
       .finally(() => pending.delete(key));
@@ -783,23 +794,32 @@ export function refreshMapped(map: MlMap) {
 
     for (const [x, y] of parkWanted.slice(0, PARKING_MAX_CELLS)) {
       const key = cellKey(MAPPED_CELL_ZOOM, x, y);
+      const path = `poi/${MAPPED_CELL_ZOOM}/${x}/${y}.parking.json`;
       parkingPending.add(key);
-      void fetch(cellUrl(`poi/${MAPPED_CELL_ZOOM}/${x}/${y}.parking.json`))
-        .then((res) => {
-          if (!res.ok) throw new Error(String(res.status));
-          return res.json() as Promise<Cell>;
-        })
-        .then((cell) => {
-          const features = cell.items.map((row) => toFeature(row));
-          markCell(key, features, destinationIndex());
-          parkingMisses.delete(key);
-          parkingLoaded.set(key, features);
-          parkingTotal += features.length;
-          indexNamed(cell, true);
-          evictParkingIfNeeded(visibleKeys);
-          schedulePush(map);
+      void cellMayExist(path)
+        .then((present) => {
+          if (!present) {
+            parkingMisses.set(key, Date.now() + MISS_RETRY_MS);
+            return null;
+          }
+          return fetch(cellUrl(path))
+            .then((res) => {
+              if (!res.ok) throw new Error(String(res.status));
+              return res.json() as Promise<Cell>;
+            })
+            .then((cell) => {
+              const features = cell.items.map((row) => toFeature(row));
+              markCell(key, features, destinationIndex());
+              parkingMisses.delete(key);
+              parkingLoaded.set(key, features);
+              parkingTotal += features.length;
+              indexNamed(cell, true);
+              evictParkingIfNeeded(visibleKeys);
+              schedulePush(map);
+            });
         })
         .catch((err: unknown) => {
+          if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
           parkingMisses.set(key, retryAt(err));
         })
         .finally(() => parkingPending.delete(key));

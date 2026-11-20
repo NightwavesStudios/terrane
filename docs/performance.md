@@ -336,3 +336,93 @@ across the current runs: **zero**.
 - **The original review baselines** (1.0–1.2 fps at z11, ~53 ms hillshade at z14)
   belong to a different environment; only the off/on ratios in this section
   travel between machines.
+
+## Terrain surface: sea, lowlands, and the provider's blank tiles (2026-11-19)
+
+Three separate things made the 3D mesh read as "spiky", and only one of them was
+in the DEM shader.
+
+### 1. Sea level was never treated as sea level
+
+`demPipeline.ts` passed provider elevations straight through, negative terrarium
+values included, and the exaggeration slider (1.4–2.5×) multiplied whatever
+coastal noise the surface model carried. `settleSea()` now clamps anything at or
+below **1 m** to exactly 0 and ramps back to the true value by **7 m** with a C¹
+smoothstep, so the shore keeps a slope instead of a shelf. Sharpening is 0 on the
+256 px regional grid (`sharpenAmountFor`) — the 0.65 unsharp mask only runs where
+the grid carries native detail — and a 3×3 mix fades in below **40 m**
+(`lowlandWeight`) to take the needle noise off coasts without touching ridges.
+
+### 2. Blank tiles were being read as coverage
+
+Mapterhorn answers **200** with a 52–126 byte empty WebP wherever it has no
+national dataset, and the pipeline accepted that 200 as native coverage. Over the
+Ligurian coast that produced 0 m plates beside 1 400 m neighbours.
+
+| Level probe (8.85 E, 44.55 N, Apennines) | before | after |
+| --- | --- | --- |
+| z11 | native 0–1 167 m, 0 % zero | native, 0–1 167 m, 0 % zero |
+| z12 | native 0–1 171 m, **0 %** zero | native, 0–1 171 m, 0 % zero |
+| z13 | native 185–1 093 m | native, 185–1 093 m |
+| z14 | resample 459–1 093 m | resample, 459–1 093 m |
+
+(That ridge was never blank; the blanks sit in the coastal strip, which is why
+the visible defect was a wedge rather than a hole in the mountains.) What changed
+for real is the decision path: `nativeZoomFor` now judges a level by **payload**
+(`BLANK_TILE_BYTES = 2000`), not by status, descends until a tile carries data,
+refills provider masks from the next coarser grid (`fillHoles`), asks the second
+provider before declaring water (`resolve`), and serves a flat tile only when the
+last provider has nothing either. A 32×32 sample (`sampleTile`) skips
+conditioning on open water and on ground that never nears the shore, and scaled
+tiles keep the 256 grid so the terrain mesh does not quadruple its texel count.
+
+### 3. Water surface, measured on the tiles MapLibre drapes
+
+`map.queryTerrainElevation` is **not** usable as evidence here: it returned the
+same values at z9.5, 11, 12.4, 13.2 and 14 (identical to 0.1 m), and quoted Lake
+Geneva at 591 m before and 1 536 m after when the tile itself reads 372 m
+throughout. The tile pipeline is the ground truth, sampled by decoding the
+bitmaps it returns:
+
+| Probe | before | after |
+| --- | --- | --- |
+| Gulf of Genoa, z10–14 | 0 m, 100 % zero at every level | 0 m, 100 % zero at every level |
+| Lake Geneva, z13 | 372.0–372.8 m | 372.0–373.0 m |
+| Lake Geneva, z14 | 372 m flat | 372 m flat |
+| Apennine ridge | 0–1 093 m | 0–1 093 m |
+
+Sea and lake surfaces are flat to the metre at every zoom the map asks for, and
+the clamp is what keeps them there when a provider writes ±2 m of coastal noise.
+
+### 4. Frame rate, measured against the unmodified file on the same machine
+
+The z11/z14 hillshade numbers earlier on this page (10.6 and 20.4 fps with the
+mesh on) were taken when the machine was faster. Re-running the same harness
+against **`git show HEAD:src/map/demPipeline.ts`** in the same session gives
+7.1 fps at z11 and 18.9 fps at z14; the patched file gives **7.1** and **18.9**.
+The conditioning therefore costs nothing measurable at either zoom — the
+difference was ambient, not code.
+
+### 5. The 512 grid at z10–11 was tried and left at 256
+
+`FULL_GRID_ZOOM` stays at 12. Raising it to 10 (so z10 and z11 get the 512 grid)
+measured **6.9 fps** with the mesh on at z11 against **7.1** for the 256 grid —
+inside the noise — and the two z11 frames (`.cache/coast-after-z11.png` and
+`.cache/coast-grid512-z11.png`, same camera) are visually indistinguishable at
+that scale, because the hillshade texture, not the mesh, is what shows there.
+Four times the texels for no gain, so the regional grid stays 256 and the
+sharpening cutoff — not resolution — is what handles the faceting.
+
+### 6. Screenshots
+
+`.cache/before-z11.png`, `.cache/after3-z11.png`, `.cache/before-z13_2.png`,
+`.cache/after3-z13_2.png` — same camera (8.78 E, 44.42 N, pitch 55, terrain
+2.5×), before and after.
+
+### Still open
+
+The flat olive plates that remain over the Ligurian sea at z13 are **not** DEM:
+they are the latitude-band base geometry (`LAND_BANDS` in `style.ts`), a few
+coast-sized triangles that terrain drapes from inland heights out over the water.
+Fixing that means subdividing the band rings or keeping that layer out of the
+draped pass — a style change this pass deliberately did not make.
