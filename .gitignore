@@ -29,10 +29,12 @@ data/sources/*.ndjson
 data/sources/*.ndjson.gz
 data/upload-manifest.json
 
-# Generated reports. `reports/coverage.json` is kept as the last known-good
-# strict-gate baseline; everything else is written by a local run.
+# Generated reports. `reports/coverage.json` and `reports/merge.json` are the
+# committed strict-gate and trail-provenance baselines; everything else is
+# written by a local run.
 reports/*
 !reports/coverage.json
+!reports/merge.json
 
 # The dev server's own log, and the local Vercel link (`vercel link`).
 .vercel

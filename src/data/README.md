@@ -49,8 +49,9 @@ new counts without a rebuild.
    pair is recorded in `atlas-merges.json` with the absorbed row in `also`.
 4. `byCategory` and the total in the manifest must match the files; the build
    fails otherwise.
-5. Generated reports and POI cell mirrors do not belong in git; the rebuilt trail
-   cells are the reproducibility exception. See the root `.gitignore`.
+5. Generated reports and POI cell mirrors do not belong in git, except the
+   `reports/coverage.json` / `reports/merge.json` baselines and the rebuilt trail
+   cells. See the root `.gitignore`.
 
 ## Runtime versus bundled
 

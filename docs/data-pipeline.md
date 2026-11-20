@@ -171,7 +171,7 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |
 | `src/data/wikidata-meta.json` | atlas / reach harvest | yes |
-| `reports/*` | audits and reports | only `reports/coverage.json` |
+| `reports/*` | audits and reports | only `reports/coverage.json` and `reports/merge.json` |
 | `public/poi`, `public/coverage.json` | harvest / merge | no |
 | `public/trails` | merge | yes — committed for the strict gate |
 | `dist/sitemap.xml`, `dist/robots.txt` | `scripts/gen-seo.mjs` | no |
