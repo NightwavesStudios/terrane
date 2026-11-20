@@ -236,9 +236,10 @@ check("manifest categories match", manifest.categories === categories.length, `$
 check("trail network has records", (trailStats.segments ?? 0) > 0, `${trailStats.segments ?? 0} segments`);
 
 /* ── trail geometry ──
-   The 288 MB of cells are gitignored, so a checkout cannot re-measure them.
-   `scripts/trail-quality.mjs` writes this block from the cells the data job just
-   built; the build gate checks the recorded result, not a stale count. */
+   The POI cells are not in the checkout, and re-measuring 317 MB of committed
+   trail cells on every build is too slow. `scripts/trail-quality.mjs` writes
+   this block from the cells the data job just built; the build gate checks the
+   recorded result, not a stale count. */
 const trailQuality = trailStats.quality;
 check("trail quality block is recorded", Boolean(trailQuality), "reports/trail-quality.json");
 if (trailQuality) {

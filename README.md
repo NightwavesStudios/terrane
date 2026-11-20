@@ -31,11 +31,12 @@ Node 20+ (the repository pins 22 in `.nvmrc`). No API keys or environment
 variables are needed for the app. Python 3 is only needed for the harvest and
 atlas scripts; see [`scripts/requirements.txt`](scripts/requirements.txt).
 
-`public/poi/` and `public/trails/` are local, gitignored harvest mirrors used by
-the upload scripts. A fresh clone has none; the app reads the hosted cell store
-instead. Set `VITE_POI_BASE` to point a build at a different store, or at the dev
-origin (for example `http://localhost:3000`) to read a local mirror. It is
-inlined at build time, so it needs a rebuild, not a restart.
+`public/poi/` is a local, gitignored harvest mirror; `public/trails/` is the
+committed trail delivery used by the strict geometry gate. A fresh clone has no
+POI cells; the app reads the hosted cell store instead. Set `VITE_POI_BASE` to
+point a build at a different store, or at the dev origin (for example
+`http://localhost:3000`) to read a local mirror. It is inlined at build time, so
+it needs a rebuild, not a restart.
 
 ## Routes
 

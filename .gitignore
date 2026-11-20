@@ -8,13 +8,12 @@ terrane.html
 shots/
 .cache
 
-# The harvested cells live in object storage, not in git: ~382 MB of POI cells
-# and ~288 MB of trail cells. `npm run poi:push` / `npm run data:upload` send them
-# to the bucket; the map reads them from there.
+# POI cells live in object storage, not in git: ~382 MB. `npm run poi:push`
+# sends them to the bucket; the map reads them from there. The rebuilt trail
+# cells are committed so a clean checkout can run the strict geometry gate.
 public/poi/
 public/.poi-staging
 public/.poi-previous
-public/trails/
 
 # Generated at build time from the atlas and the runtime store.
 public/sitemap.xml

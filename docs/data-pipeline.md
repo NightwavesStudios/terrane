@@ -77,10 +77,11 @@ the index is read, so a publish is not hidden behind a cell's one-hour cache.
 `npm run store:check` HEADs every key in the upload manifest and compares the
 recorded byte counts; `--local` compares local object counts instead.
 
-Local mirrors are `public/poi` and `public/trails`. They are gitignored and used
-by the upload scripts. To read one in development, point `VITE_POI_BASE` at the
-dev origin (for example `http://localhost:3000`); `vite.config.ts` deliberately
-does not copy the mirrors into `dist`, so production reads the bucket.
+`public/poi` is a gitignored local mirror; `public/trails` is committed so a
+clean checkout can run the strict geometry gate. Both are used by the upload
+scripts. To read either in development, point `VITE_POI_BASE` at the dev origin
+(for example `http://localhost:3000`); `vite.config.ts` deliberately does not
+copy the mirrors into `dist`, so production reads the bucket.
 
 ### Draw-time duplicate guard
 
@@ -171,7 +172,8 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `src/data/sources.json` | hand-maintained registry | yes |
 | `src/data/wikidata-meta.json` | atlas / reach harvest | yes |
 | `reports/*` | audits and reports | only `reports/coverage.json` |
-| `public/poi`, `public/trails`, `public/coverage.json` | harvest / merge | no |
+| `public/poi`, `public/coverage.json` | harvest / merge | no |
+| `public/trails` | merge | yes — committed for the strict gate |
 | `dist/sitemap.xml`, `dist/robots.txt` | `scripts/gen-seo.mjs` | no |
 
 The manifest and validator use the data files' own dates, never the clock or

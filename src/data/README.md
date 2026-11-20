@@ -32,8 +32,9 @@ manifests and `wikidata-meta.json`, never from the clock or checkout mtimes. The
 validation block contains only the check results, no timestamp.
 
 `trail-stats.json` carries the `quality` block produced from the cells the merge
-just wrote. The cells themselves are gitignored; the validation gate reads the
-recorded quality block, and the monthly data workflow re-measures before upload.
+just wrote. The trail cells are committed under `public/trails`; the validation
+gate reads the recorded quality block, and the monthly data workflow re-measures
+before upload.
 
 `manifest.json` is also uploaded to the cell store so the running page can show
 new counts without a rebuild.
@@ -48,8 +49,8 @@ new counts without a rebuild.
    pair is recorded in `atlas-merges.json` with the absorbed row in `also`.
 4. `byCategory` and the total in the manifest must match the files; the build
    fails otherwise.
-5. Generated reports and local cell mirrors do not belong in git. See the root
-   `.gitignore`.
+5. Generated reports and POI cell mirrors do not belong in git; the rebuilt trail
+   cells are the reproducibility exception. See the root `.gitignore`.
 
 ## Runtime versus bundled
 

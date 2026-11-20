@@ -22,10 +22,10 @@ function seo(): Plugin {
 /**
  * Copy `public/` into `dist/`, except the local cell mirrors.
  *
- * `public/poi` and `public/trails` are gitignored harvest outputs used by the dev
- * server and the upload scripts. Vite would otherwise copy them into every build
- * (~300 MB on a machine that has harvested cells), even though production reads
- * the same cells from the bucket.
+ * `public/poi` is a gitignored harvest output and `public/trails` is committed
+ * verification data; both are used by the dev server and the upload scripts.
+ * Vite would otherwise copy them into every build (~300 MB), even though
+ * production reads the same cells from the bucket.
  */
 function publicAssets(): Plugin {
   return {
