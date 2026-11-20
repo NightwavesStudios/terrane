@@ -2,12 +2,13 @@
 
 Node scripts build the app data and manifest; Python scripts harvest and merge
 open data. `scripts/sources/common.py` is the shared adapter helper, and
-`scripts/lib/` holds the site-origin helper.
+`scripts/lib/` holds the site-origin helper plus the shared destination reader.
 
 ## Build and checks
 
 | Script | Run by | Purpose |
 | --- | --- | --- |
+| `build-place-index.mjs` | `npm run build`, `validate`, `pages` | Compact page records and slugs for every destination. |
 | `build-manifest.mjs` | `npm run build`, `validate` | Derive counts and dates from the data files. |
 | `validate-data.mjs` | `npm run build`, `validate` | Schema, category, manifest and duplicate checks; writes the validation block. |
 | `gen-seo.mjs` | `npm run build` (after Vite) | Absolute `dist/sitemap.xml` and `dist/robots.txt`. |
@@ -26,8 +27,9 @@ open data. `scripts/sources/common.py` is the shared adapter helper, and
 | --- | --- |
 | `build-atlas.py` | Wikidata atlas → `src/data/atlas.json`; updates `wikidata-meta.json`. |
 | `build-atlas-api.py` | Action-API atlas rebuild from entity JSON (atomic); resolves the former seed names without SPARQL. |
-| `build-place-details.mjs` | Wikidata/Commons place details → `src/data/place-details.json`. |
-| `harvest-reach.py` | Wikidata long tail → `reach.json`, `reach-more.json`. |
+| `build-place-details.mjs` | Wikidata/Commons details for every destination → sharded `src/data/place-details/` and a summary. |
+| `build-trail-links.mjs` | Nearest named trails for every destination → sharded `src/data/trail-links/` and a summary. |
+| `harvest-reach.py` | Wikidata long tail → `reach.json`, `reach-more.json`; each row carries its Q id and page slug. |
 | `harvest-poi-bulk.py` | Streaming Geofabrik/pyosmium world POI harvest; resumable and shardable. |
 | `merge-sources.py` | Dedupe and tile points/trails; refuses a truncated trail rebuild. |
 | `poi-upload.sh` | Upload every file in `public/poi` (manual full push). |
@@ -46,3 +48,15 @@ from cached slices).
 
 The one non-stdlib Python dependency is pyosmium; install it with
 `python3 -m pip install -r scripts/requirements.txt`.
+
+## Page refresh
+
+```bash
+npm run pages        # index + details + trail links + manifest + validate
+npm run data:update  # the normal incremental page refresh
+npm run data:refresh # full source harvest, then pages + audit
+```
+
+`build-place-details.mjs` reuses records by Wikidata Q id, so a rerun fetches
+only new destinations. It writes one shard per first slug character and keeps
+sparse records (`{wd}` only) as valid pages.

@@ -9,6 +9,7 @@ import {
 import type { Place } from "../data/places";
 import type { LayerState } from "../components/LayerControl";
 import { cellOf } from "../data/rank";
+import { FIRST_SYMBOL_LAYER } from "./style";
 import bandsFile from "../data/bands.json";
 
 /**
@@ -61,7 +62,7 @@ function radius(scale: number): ExpressionSpecification {
   ] as unknown as ExpressionSpecification;
 }
 
-type ReachFile = { kinds: string[]; near: string[]; items: (number | string)[][] };
+type ReachFile = { kinds: string[]; near: string[]; items: (number | string | null)[][] };
 
 let atlasRows: FeatureRow[] = [];
 let coreRows: FeatureRow[] = [];
@@ -94,6 +95,9 @@ function collection(rows: FeatureRow[]): GeoJSON.FeatureCollection {
         ...(r.region ? { region: r.region } : {}),
         ...(r.country ? { country: r.country } : {}),
         ...(typeof r.tier === "number" ? { tier: r.tier } : {}),
+        ...(r.src ? { src: r.src } : {}),
+        ...(r.srcId ? { srcid: r.srcId } : {}),
+        ...(r.url ? { url: r.url } : {}),
       },
     })),
   };
@@ -242,8 +246,8 @@ export function addDestinations(map: MlMap): void {
   // wherever a village shared the tile. Moving the bands just under the basemap
   // labels gives them placement priority while keeping normal collision, so the
   // six bands still avoid each other instead of stacking.
-  if (map.getLayer("label-country")) {
-    for (const band of LABEL_BANDS) map.moveLayer(`features-label-${band}`, "label-country");
+  if (map.getLayer(FIRST_SYMBOL_LAYER)) {
+    for (const band of LABEL_BANDS) map.moveLayer(`features-label-${band}`, FIRST_SYMBOL_LAYER);
   }
 
   applyFilters(map);
@@ -257,7 +261,7 @@ export function setDestinationCats(map: MlMap, layers: LayerState): void {
 }
 
 /** Replace the atlas half (filters and ranking change it). */
-export function setAtlasRows(map: MlMap, rows: FeatureRow[]): void {
+function setAtlasRows(map: MlMap, rows: FeatureRow[]): void {
   atlasRows = rows;
   push(map);
 }
@@ -335,7 +339,16 @@ const REACH_COHORT: Record<number, ReachCohort> = {
 function rowsFromReach(file: ReachFile): FeatureRow[] {
   const used = new Map<string, number>();
   return file.items.map((row) => {
-    const [lat, lon, kind, tier, name, near] = row as [number, number, number, number, string, number?];
+    const [lat, lon, kind, tier, name, near, wd, slug] = row as [
+      number,
+      number,
+      number,
+      number,
+      string,
+      number | null,
+      string,
+      string,
+    ];
     const cohort = REACH_COHORT[tier] ?? REACH_COHORT[3];
     const key = `${cohort.band}:${cellOf(lat, lon, cohort.cell)}`;
     const seen = (used.get(key) ?? 0) + 1;
@@ -351,6 +364,9 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
       near: typeof near === "number" ? file.near[near] : undefined,
       tier,
       src: "wikidata" as const,
+      srcId: typeof wd === "string" ? wd : undefined,
+      url: typeof wd === "string" ? `https://www.wikidata.org/wiki/${wd}` : undefined,
+      slug: typeof slug === "string" ? slug : undefined,
     };
   });
 }

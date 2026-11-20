@@ -155,7 +155,7 @@ const PARKING_MAX_FEATURES = 120_000;
 
 const MISS_RETRY_MS = 5 * 60_000;
 const ERROR_RETRY_MS = 20_000;
-export const MAPPED_CELL_ZOOM = 6;
+const MAPPED_CELL_ZOOM = 6;
 
 const loaded = new Map<string, Feature<Point>[]>();
 /** Per cell, features split by pin band: a push at z8 walks band 0–1, not 300k rows. */

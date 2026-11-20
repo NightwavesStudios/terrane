@@ -229,13 +229,17 @@
     "checkedCells": 1037
   },
   "details": {
-    "pages": 1213,
-    "described": 1207,
-    "photographed": 1045,
-    "official": 73,
-    "ranges": 598,
-    "protected": 328,
+    "pages": 24474,
+    "described": 23897,
+    "photographed": 20115,
+    "official": 800,
+    "ranges": 7783,
+    "protected": 3282,
     "updated": "2026-11-20"
+  },
+  "trailLinks": {
+    "linked": 11831,
+    "destinations": 24474
   },
   "validation": {
     "ok": true,
@@ -304,6 +308,21 @@
         "name": "reach-more carries only its own tiers",
         "ok": true,
         "detail": "3,4"
+      },
+      {
+        "name": "destination slugs are unique",
+        "ok": true,
+        "detail": "24474 rows"
+      },
+      {
+        "name": "page index covers every destination",
+        "ok": true,
+        "detail": "24474/24474"
+      },
+      {
+        "name": "page index slugs match destinations",
+        "ok": true,
+        "detail": "24474 pages"
       },
       {
         "name": "POI totals add up",
@@ -406,14 +425,24 @@
         "detail": "10 km"
       },
       {
+        "name": "trail links only point at real pages",
+        "ok": true,
+        "detail": "11831 linked pages"
+      },
+      {
+        "name": "trail links cover the destination set",
+        "ok": true,
+        "detail": "24474/24474"
+      },
+      {
         "name": "trail links stay within their radius and cap",
         "ok": true,
-        "detail": "2135 links"
+        "detail": "56505 links"
       },
       {
         "name": "every trail link names a trail",
         "ok": true,
-        "detail": "2135 links"
+        "detail": "56505 links"
       },
       {
         "name": "every source carries licence and attribution metadata",
@@ -423,17 +452,22 @@
       {
         "name": "every destination page has a detail record",
         "ok": true,
-        "detail": "1213/1213"
+        "detail": "24474/24474"
       },
       {
         "name": "place details are well formed",
         "ok": true,
-        "detail": "1213 records"
+        "detail": "24474 records"
       },
       {
         "name": "manifest detail counts match",
         "ok": true,
-        "detail": "{\"pages\":1213,\"described\":1207,\"photographed\":1045,\"official\":73,\"ranges\":598,\"protected\":328}"
+        "detail": "{\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282}"
+      },
+      {
+        "name": "detail summary matches records",
+        "ok": true,
+        "detail": "{\"generated\":\"2026-11-20\",\"source\":\"wikidata\",\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282,\"shards\":28}"
       }
     ]
   }

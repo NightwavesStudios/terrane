@@ -1,14 +1,7 @@
 import atlasRaw from "./atlas.json";
-import { kmBetween } from "../lib/geo";
 
 /** Every place is somewhere you go outside. No cities, no built monuments. */
 export type PlaceType = "peak" | "park" | "landmark";
-
-export const TYPE_LABEL: Record<PlaceType, string> = {
-  peak: "Peak",
-  park: "Park",
-  landmark: "Landmark",
-};
 
 export const TYPE_LABEL_PLURAL: Record<PlaceType, string> = {
   peak: "Peaks",
@@ -82,6 +75,31 @@ function hash(value: string) {
   return Math.abs(h);
 }
 
+const HUE_BY_CAT: Record<string, number> = {
+  peak: 206,
+  volcano: 206,
+  range: 206,
+  park: 143,
+  reserve: 143,
+  island: 143,
+  waterfall: 190,
+  lake: 190,
+  glacier: 190,
+  spring: 190,
+  beach: 34,
+  desert: 34,
+  cave: 220,
+  canyon: 220,
+  valley: 220,
+  landmark: 34,
+};
+
+/** Stable hue for a category, varied by slug so neighbouring places differ. */
+export function hueFor(cat: string, slug: string): number {
+  const base = HUE_BY_CAT[cat] ?? HUE_BY_TYPE.landmark;
+  return (base + (hash(slug) % 34) - 17 + 360) % 360;
+}
+
 const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
   const country = COUNTRY_FIX[row.country] ?? row.country;
   return {
@@ -93,7 +111,7 @@ const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
     lon: row.lon,
     elevation: row.elevation ?? undefined,
     prominence: row.prominence ?? undefined,
-    hue: (HUE_BY_TYPE[row.type] + (hash(row.slug) % 34) - 17 + 360) % 360,
+    hue: hueFor(row.type, row.slug),
     wd: row.wd,
     also: row.also,
   };
@@ -102,45 +120,3 @@ const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
 export const PLACES: Place[] = ATLAS;
 
 export const bySlug = new Map(PLACES.map((p) => [p.slug, p]));
-
-/** How far it is to each activity, in plain words. */
-const ACTIVITY: Record<PlaceType, string> = {
-  peak: "Hiking · scrambling",
-  park: "Walking · wildlife",
-  landmark: "Sightseeing",
-};
-
-export type Around = {
-  radiusKm: number;
-  /** Nearest atlas entries, closest first. */
-  nearest: { place: Place; km: number }[];
-  /** Counts per activity, largest first, empty types dropped. */
-  activities: { type: PlaceType; label: string; count: number }[];
-};
-
-/**
- * What is around a place, computed from the atlas rather than from a trail or POI
- * dataset: one pass over the destination rows, keep what falls inside the radius, group
- * by the activity its type implies, and take the closest few for the list.
- *
- * Deliberately a proxy. There is no route database behind this, so the honest
- * thing to show is "what kinds of place are near, and how near" — not invented
- * trail names or a difficulty for a walk nobody has surveyed here.
- */
-export function aroundPlace(place: Place, radiusKm = 30): Around {
-  const inside: { place: Place; km: number }[] = [];
-  for (const other of PLACES) {
-    if (other.slug === place.slug) continue;
-    const km = kmBetween(place.lat, place.lon, other.lat, other.lon);
-    if (km <= radiusKm) inside.push({ place: other, km });
-  }
-  inside.sort((a, b) => a.km - b.km);
-
-  const counts = new Map<PlaceType, number>();
-  for (const { place: p } of inside) counts.set(p.type, (counts.get(p.type) ?? 0) + 1);
-  const activities = [...counts.entries()]
-    .map(([type, count]) => ({ type, label: ACTIVITY[type], count }))
-    .sort((a, b) => b.count - a.count);
-
-  return { radiusKm, nearest: inside.slice(0, 6), activities };
-}

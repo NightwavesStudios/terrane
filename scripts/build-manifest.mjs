@@ -29,8 +29,9 @@ const poi = read("src/data/poi-stats.json", {});
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
 const registry = read("src/data/sources.json", { sources: [] });
 const wikidataMeta = read("src/data/wikidata-meta.json", {});
-const details = read("src/data/place-details.json", { items: {} });
-const detailRows = Object.values(details.items ?? {});
+const pageMeta = read("src/data/place-index/meta.json", { pages: 0 });
+const detailSummary = read("src/data/place-details-summary.json", {});
+const trailLinkSummary = read("src/data/trail-links-summary.json", {});
 const wikidataUpdated =
   [wikidataMeta.atlas, wikidataMeta.reach, wikidataMeta.reachMore]
     .filter(Boolean)
@@ -106,13 +107,17 @@ const manifest = {
     "OpenStreetMap completeness follows mapping effort. Europe is mapped far more densely than most of Africa, South America and Central Asia; Wikidata is a selection, not a census.",
   trailStats,
   details: {
-    pages: atlas.length,
-    described: detailRows.filter((item) => item.desc).length,
-    photographed: detailRows.filter((item) => item.img?.length).length,
-    official: detailRows.filter((item) => item.site).length,
-    ranges: detailRows.filter((item) => item.range).length,
-    protected: detailRows.filter((item) => item.protected).length,
-    updated: details.generated ?? null,
+    pages: pageMeta.pages ?? destinations,
+    described: detailSummary.described ?? 0,
+    photographed: detailSummary.photographed ?? 0,
+    official: detailSummary.official ?? 0,
+    ranges: detailSummary.ranges ?? 0,
+    protected: detailSummary.protected ?? 0,
+    updated: detailSummary.generated ?? null,
+  },
+  trailLinks: {
+    linked: trailLinkSummary.linkedDestinations ?? 0,
+    destinations: trailLinkSummary.destinations ?? destinations,
   },
   validation: { ok: null, checks: [] },
 };

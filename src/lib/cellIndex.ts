@@ -69,7 +69,7 @@ async function fetchIndex(): Promise<Index | null> {
 }
 
 /** The store's tile list, refreshed at most every ten minutes, or null if unavailable. */
-export function loadCellIndex(): Promise<Index | null> {
+function loadCellIndex(): Promise<Index | null> {
   if (cached && Date.now() - cached.at < TTL_MS) return Promise.resolve(cached);
   if (inflight) return inflight;
   if (!cached && attemptedAt && Date.now() - attemptedAt < TTL_MS) return Promise.resolve(null);

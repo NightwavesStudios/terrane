@@ -3,10 +3,9 @@ import { useEffect, useState } from "react";
 /**
  * The generated half of a destination page.
  *
- * The atlas is bundled and paints immediately; this file arrives as one lazy
- * chunk only on `/place/:slug`. Everything here is optional: a page with no
- * detail record still renders from the atlas, and a failed chunk leaves it
- * exactly as it was.
+ * The page record paints immediately; this file arrives as one lazy shard only
+ * on `/place/:slug`. Everything here is optional: a page with no detail record
+ * still renders from the page index, and a failed shard leaves it as it was.
  */
 
 export type PlaceImage = {
@@ -49,18 +48,31 @@ export type PlaceDetail = {
 };
 
 type DetailsFile = {
-  generated: string;
-  source: string;
+  generated?: string;
+  source?: string;
   items: Record<string, PlaceDetail>;
 };
 
-let filePromise: Promise<DetailsFile | null> | null = null;
+const SHARDS = import.meta.glob("../data/place-details/*.json");
+const cache = new Map<string, Promise<DetailsFile | null>>();
 
-export function loadPlaceDetails(): Promise<DetailsFile | null> {
-  filePromise ??= import("../data/place-details.json")
-    .then((mod) => mod.default as unknown as DetailsFile)
-    .catch(() => null);
-  return filePromise;
+function shardOf(slug: string): string {
+  const first = slug.slice(0, 1).toLowerCase();
+  return /[a-z0-9]/.test(first) ? first : "_";
+}
+
+function loadPlaceDetails(slug: string): Promise<DetailsFile | null> {
+  const path = `../data/place-details/${shardOf(slug)}.json`;
+  const loader = SHARDS[path];
+  if (!loader) return Promise.resolve(null);
+  let pending = cache.get(path);
+  if (!pending) {
+    pending = loader()
+      .then((mod) => (mod as { default: DetailsFile }).default)
+      .catch(() => null);
+    cache.set(path, pending);
+  }
+  return pending;
 }
 
 export function usePlaceDetail(slug: string): PlaceDetail | null {
@@ -69,7 +81,7 @@ export function usePlaceDetail(slug: string): PlaceDetail | null {
   useEffect(() => {
     let alive = true;
     setDetail(null);
-    void loadPlaceDetails().then((file) => {
+    void loadPlaceDetails(slug).then((file) => {
       if (alive) setDetail(file?.items[slug] ?? null);
     });
     return () => {

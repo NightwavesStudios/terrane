@@ -55,15 +55,15 @@ export interface AreaRow {
   zoom: number;
 }
 
-export interface CatalogData {
+interface CatalogData {
   rows: CatalogRow[];
   areas: AreaRow[];
   countries: number;
 }
 
-export type CatalogStatus = "idle" | "loading" | "ready" | "error";
+type CatalogStatus = "idle" | "loading" | "ready" | "error";
 
-export interface CatalogSnapshot extends CatalogData {
+interface CatalogSnapshot extends CatalogData {
   status: CatalogStatus;
   /** "atlas" until the tail and named pins are in, then "full". */
   coverage: "atlas" | "full";
@@ -266,7 +266,7 @@ export function buildCatalog(
   }
 
   for (const feature of tail) {
-    if (!feature.name || feature.slug) continue;
+    if (!feature.name) continue;
     const norm = normalize(feature.name);
     if (!norm) continue;
     if (duplicateNear(buckets, norm, feature.lat, feature.lon)) continue;
@@ -301,7 +301,7 @@ export function buildCatalog(
       region: close?.place.region,
       country: close?.place.country,
       tier: feature.tier ?? 3,
-      hasPage: false,
+      hasPage: Boolean(feature.slug),
       near: close ? { name: close.place.name, km: close.km, slug: close.place.slug } : undefined,
       source: "reach",
     };
@@ -439,13 +439,4 @@ function getSnapshot(): CatalogSnapshot {
 
 export function useCatalog(): CatalogSnapshot {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
-/** For tests and for a caller that only needs the current rows. */
-export function catalogRows(): CatalogRow[] {
-  return snapshot.rows;
-}
-
-export function catalogAreas(): AreaRow[] {
-  return snapshot.areas;
 }

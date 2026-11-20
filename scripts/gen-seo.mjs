@@ -1,5 +1,5 @@
 /**
- * Writes `dist/sitemap.xml` and `dist/robots.txt` from the atlas.
+ * Writes `dist/sitemap.xml` and `dist/robots.txt` from the generated page index.
  *
  * This runs after `vite build` because it writes into the build output, not into
  * `public/`: generated files must not be committed or copied by Vite. A sitemap
@@ -15,18 +15,15 @@ if (!SITE) {
   process.exit(0);
 }
 
-const atlas = JSON.parse(await readFile("src/data/atlas.json", "utf8"));
+const pageIndex = JSON.parse(await readFile("src/data/place-index/slugs.json", "utf8"));
 const manifest = JSON.parse(await readFile("src/data/manifest.json", "utf8"));
-
-const slugs = new Set();
-for (const row of atlas) if (row.slug) slugs.add(row.slug);
+const slugs = Array.isArray(pageIndex.slugs) ? pageIndex.slugs : [];
 
 const lastmod = manifest.days?.osm ?? manifest.days?.wikidata ?? "";
 const urls = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
   { path: "/coverage", priority: "0.4", changefreq: "weekly" },
-  ...[...slugs]
-    .sort()
+  ...slugs
     .map((slug) => ({ path: `/place/${slug}`, priority: "0.6", changefreq: "monthly" })),
 ];
 

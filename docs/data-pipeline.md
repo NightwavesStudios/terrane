@@ -13,7 +13,7 @@ The map draws from four layers of data:
 | --- | --- | --- | ---: | --- |
 | OpenStreetMap via Geofabrik | points | weekly | 9,371,124 | ODbL 1.0 |
 | Wikidata | destinations and descriptions | occasional | 1,213 + 23,261 | CC0 |
-| Wikimedia Commons | photographs | occasional | 1,140 images on 1,045 pages | per file |
+| Wikimedia Commons | photographs | occasional | credited images on destination pages | per file |
 | Recreation.gov RIDB | points | daily | 7,790 | Public domain (US Gov) |
 | US Forest Service sites | points | monthly | 26,534 | Public domain (US Gov) |
 | Bureau of Land Management sites | points | monthly | 694 | Public domain (US Gov) |
@@ -98,22 +98,42 @@ of the 382 MB POI store. Dropping unnamed boards from the cell files would shrin
 both the store and the cell payloads, but it rewrites published objects, so it is
 a separate, approved data job — not part of the map pass.
 
-## Place details
+## Destination pages
+
+Every destination has a page: 1,213 atlas rows plus 23,261 reach rows. Practical
+POIs stay map-only; a campsite or car park is a facility, not a destination page.
+
+`scripts/build-place-index.mjs` (`npm run place:index`) writes compact page
+records and the slug list to `src/data/place-index/`, sharded by the first slug
+character. The map's atlas/reach chunks are unchanged; a page loads only its own
+shard.
 
 `scripts/build-place-details.mjs` (`npm run details`) is an occasional harvest,
 not a build step: its output is committed, so a checkout builds offline. For
-each atlas Q id it reads Wikidata's `schema:description`, P18 images, P856
+every destination Q id it reads Wikidata's `schema:description`, P18 images, P856
 official website, P4552 mountain range, P814 protected area, P2044 elevation,
 P2660 prominence, the English Wikipedia sitelink and P373. Commons `imageinfo`
-adds the thumbnail, the photographer, the licence and the licence URL.
+adds the thumbnail, the photographer, the licence and the licence URL. It reuses
+records by Q id, so a rerun fetches only new pages, and writes one shard per first
+slug character plus `place-details-summary.json`. At the 2026-11-20 harvest that
+was 23,897 descriptions, 20,115 pages with a credited photo and 800 official
+websites across 24,474 pages.
 
 A recorded range or protected area is stored as `range` / `protected`; when there
 is none, the nearest atlas `range` or `park` page within 50 km is stored as
-`nearestRange` / `nearestPark` and labelled "Nearest". The file is a lazy chunk
-on `/place/:slug`. `validate-data.mjs` fails on a missing record, a broken image
-URL, an uncredited image, an unknown association slug or a manifest count that
-does not match. Images are hotlinked, not mirrored: the R2 store is already 676 MB
-of a 1 GB allowance.
+`nearestRange` / `nearestPark` and labelled "Nearest". `validate-data.mjs` fails
+on a missing page or detail record, a duplicate slug, a broken image URL, an
+uncredited image, an unknown association slug or a manifest count that does not
+match. Images are hotlinked, not mirrored: the R2 store is already 676 MB of a
+1 GB allowance.
+
+`scripts/build-trail-links.mjs` (`npm run trail:links`) writes the nearest named
+trails for every destination into sharded `src/data/trail-links/` plus a summary.
+The page loads one trail shard alongside its detail shard.
+
+The normal update is `npm run data:update` (index + incremental details + trail
+links + manifest + validate). `npm run data:refresh` re-harvests the sources
+first. Both are committed-output steps; `npm run build` stays offline.
 
 ## Refresh
 
@@ -127,15 +147,18 @@ Common commands:
 
 ```bash
 npm run atlas          # Wikidata atlas
+npm run place:index    # compact page records and slugs
 npm run details        # Wikidata/Commons place details
-npm run data:refresh   # atlas + reach + world POI + merge + stats + validate
+npm run pages          # index + details + trail links + manifest + validate
+npm run data:update    # incremental page/detail refresh
+npm run data:refresh   # full source harvest, then pages + audit
 npm run poi:world      # world OSM harvest (resumable, sharded in CI)
 npm run poi:merge      # dedupe, tile, validate, swap public/poi
 npm run poi:stats      # src/data/poi-stats.json
 npm run data:merge     # agency adapters → cells
 npm run data:trails    # trails-only merge + strict quality + links + manifest
 npm run trail:quality  # strict geometry gate → reports/trail-quality.{json,md}
-npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links.json
+npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links/
 npm run data:coverage  # reports/coverage.{md,json} + public/coverage.json
 npm run data:upload    # PUT changed cells and manifests
 npm run store:check    # HEAD every stored object; compare counts/bytes
@@ -185,9 +208,10 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | --- | --- | --- |
 | `src/data/atlas.json` | `scripts/build-atlas.py` | yes |
 | `src/data/reach.json`, `reach-more.json` | `scripts/harvest-reach.py` | yes |
-| `src/data/place-details.json` | `scripts/build-place-details.mjs` | yes |
+| `src/data/place-index/` | `scripts/build-place-index.mjs` | yes |
+| `src/data/place-details/`, `place-details-summary.json` | `scripts/build-place-details.mjs` | yes |
 | `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
-| `src/data/trail-links.json` | `scripts/build-trail-links.mjs` | yes |
+| `src/data/trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |
 | `src/data/wikidata-meta.json` | atlas / reach harvest | yes |

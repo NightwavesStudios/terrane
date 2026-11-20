@@ -9,7 +9,8 @@ read what is around it.
 **9,440,520 places in 30 categories**, one model: 24,474 destinations (1,213
 Wikidata atlas rows and a 23,261-row Wikidata long tail), 9,416,046 mapped places
 from OpenStreetMap and agency inventories, and 485,798 trail segments in 1,017 z7
-cells. Coverage is uneven; the [Data page](/coverage) and
+cells. Every one of the 24,474 destinations has a `/place/:slug` page; practical
+POIs remain map-only. Coverage is uneven; the [Data page](/coverage) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md) say exactly where.
 
 > **Facts only.** Place pages show type, high point, country, coordinates and a
@@ -24,6 +25,8 @@ npm run dev        # http://localhost:3000
 npm run build      # data checks + tsc + Vite + SEO → dist/
 npm test           # Vitest: routing, ranking, filters, distances
 npm run check      # typecheck + tests + data validation
+npm run pages      # page index + details + trail links + manifest + validation
+npm run data:update # incremental page/detail refresh for the current destinations
 npm run details    # Wikidata/Commons place details (network; committed output)
 npm run audit      # data audit → reports/ (generated, gitignored)
 npm run clean      # remove dist and other regenerable build output
@@ -76,7 +79,7 @@ src/
   pages/             Home, Place, Saved, Coverage
   components/        header, chips, layers, search, card, ridge art, place/
   map/               MapLibre style, globe component, layers, DEM, contours
-  data/              typed models + generated JSON (atlas, reach, place details, manifest)
+  data/              typed models + generated JSON (atlas, reach, page index, details, trail links, manifest)
   lib/               router, live cell feed, geolocation, distances, filters, meta, saves
 ```
 
@@ -95,9 +98,10 @@ src/
 - **`src/lib/live.ts`** fetches the manifest and coverage report at runtime so a
   harvest changes the counts without a new app build. **`src/lib/cells.ts`** is
   the single cell-store origin.
-- **`src/lib/placeDetails.ts`** loads the one detail chunk lazily; the page paints
-  from the atlas first and fills in descriptions, photos and links when it
-  arrives. **`src/lib/saved.ts`** is the versioned save list, and
+- **`src/lib/placePages.ts`** resolves atlas pages immediately and lazy-loads one
+  page-index shard for reach pages. **`src/lib/placeDetails.ts`** and
+  **`src/lib/trailLinks.ts`** load only the detail/trail shard for that page.
+  **`src/lib/saved.ts`** is the versioned save list, and
   **`src/lib/lastView.ts`** restores the camera behind a place page.
 
 Deeper detail: [architecture](docs/architecture.md),
@@ -116,10 +120,14 @@ endpoints, deduplicated and re-simplified in metres; `npm run trail:quality` is
 the strict geometry gate. The atlas and the famous long tail are bundled; the
 rest of the tail is a lazy chunk.
 
-Place pages are generated from the atlas plus `src/data/place-details.json`:
-Wikidata's one-line description, Commons photographs with their credit and
-licence, official websites, parent ranges and protected areas. `npm run details`
-refreshes it; the file is committed and is not part of `npm run build`.
+Place pages cover every destination, not just the atlas. `src/data/place-index/`
+holds compact page records in slug shards; `src/data/place-details/` holds
+Wikidata descriptions, Commons photographs with credit and licence, official
+websites, parent ranges and protected areas; `src/data/trail-links/` holds the
+nearest named trails. `npm run pages` rebuilds the index, fetches only missing
+detail records, rebuilds trail links and validates; `npm run data:update` is the
+normal incremental command. The generated files are committed and are not part
+of `npm run build`.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -131,7 +139,7 @@ generated and which are source.
 
 ```bash
 npm run typecheck  # tsc -b
-npm test           # 111 tests: router, ranking, filters, distances, camera, catalog, saves
+npm test           # router, ranking, filters, distances, camera, catalog, saves
 npm run validate   # manifest counts, schemas, duplicate rules, coverage
 npm run build      # all of the above + Data checks + Vite build + SEO into dist
 npm run audit      # data density, duplicates and freshness (report only)
@@ -173,13 +181,13 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
   model is resampled; large forms, not gullies.
 - **Zooming is engine-bound.** The globe projection and the hillshade are the
   cost; measurements are in [performance](docs/performance.md).
-- **Photos and descriptions are Wikidata's coverage.** 1,045 of 1,213 pages have
-  a Commons image and 1,207 have a description; the rest show ridge art and no
-  About section. Official websites are sparser still (73 pages).
+- **Photos and descriptions are Wikidata's coverage.** Some pages have a Commons
+  image and description; many reach pages are sparse and show ridge art and no
+  About section. Official websites are sparser still.
 - **Saves are local to one browser.** There is no account and no sync; clearing
   site data removes them.
-- **The 23,261 reach rows have no page.** They keep their map card and nearest
-  destination link.
+- **Practical POIs are map-only.** Campsites, parking, water, toilets and
+  trailheads do not get generated pages; the destination layer does.
 - **Per-page social tags need JavaScript.** The SPA updates the head on route
   change; a crawler that does not execute JavaScript sees the site-level tags.
 - **The data is not one licence.** Code is MIT (`LICENSE`); the data keeps each

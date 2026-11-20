@@ -11,8 +11,17 @@
  * Run after `scripts/merge-sources.py`; a fresh checkout keeps the committed
  * JSON and does not need the 288 MB cell mirror.
  */
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { readDestinations, shardOf } from "./lib/destinations.mjs";
 
 const root = process.cwd();
 const CELL = 7;
@@ -116,12 +125,7 @@ if (existsSync(dir)) {
   }
 }
 
-const destinations = read("src/data/atlas.json", []).map((row) => ({
-  slug: row.slug,
-  name: row.name,
-  lat: row.lat,
-  lon: row.lon,
-}));
+const destinations = readDestinations();
 
 const items = {};
 let linked = 0;
@@ -158,14 +162,35 @@ for (const place of destinations) {
 }
 
 const stats = read("src/data/trail-stats.json", {}) ?? {};
-const payload = {
-  generated: stats.updated ?? new Date().toISOString().slice(0, 10),
-  radiusKm: RADIUS_KM,
-  linkedDestinations: linked,
-  destinations: destinations.length,
-  items,
-};
-writeFileSync(join(root, "src/data/trail-links.json"), `${JSON.stringify(payload)}\n`);
+const generated = stats.updated ?? "unknown";
+const shards = new Map();
+for (const [slug, list] of Object.entries(items)) {
+  const key = shardOf(slug);
+  const shard = shards.get(key) ?? {};
+  shard[slug] = list;
+  shards.set(key, shard);
+}
+
+const outDir = join(root, "src/data/trail-links");
+rmSync(outDir, { recursive: true, force: true });
+mkdirSync(outDir, { recursive: true });
+for (const [key, shard] of [...shards.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  writeFileSync(
+    join(outDir, `${key}.json`),
+    `${JSON.stringify({ generated, radiusKm: RADIUS_KM, items: shard })}\n`,
+  );
+}
+writeFileSync(
+  join(root, "src/data/trail-links-summary.json"),
+  `${JSON.stringify({
+    generated,
+    radiusKm: RADIUS_KM,
+    linkedDestinations: linked,
+    destinations: destinations.length,
+    shards: shards.size,
+  }, null, 2)}\n`,
+);
+rmSync(join(root, "src/data/trail-links.json"), { force: true });
 console.log(
-  `trail links: ${linked}/${destinations.length} destinations · ${Object.values(items).reduce((sum, list) => sum + list.length, 0)} links`,
+  `trail links: ${linked}/${destinations.length} destinations · ${Object.values(items).reduce((sum, list) => sum + list.length, 0)} links · ${shards.size} shards`,
 );

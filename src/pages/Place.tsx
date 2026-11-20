@@ -6,9 +6,7 @@ import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceHero from "../components/place/PlaceHero";
 import PlaceSection from "../components/place/PlaceSection";
 import RelationList from "../components/place/RelationList";
-import { bySlug } from "../data/places";
-import { category, destinationCategory, SOURCE_LABEL } from "../data/features";
-import TRAIL_LINKS from "../data/trail-links.json";
+import { category, SOURCE_LABEL } from "../data/features";
 import { startCatalog, useCatalog, type CatalogRow } from "../lib/catalog";
 import { relatedPlaces } from "../lib/discover";
 import { kmBetween } from "../lib/geo";
@@ -21,18 +19,18 @@ import {
   thumbAt,
   usePlaceDetail,
 } from "../lib/placeDetails";
+import { usePlacePage } from "../lib/placePages";
 import { coordinates, formatKm, placeLine } from "../lib/present";
 import { toggleSaved, useSavedSlugs } from "../lib/saved";
 import { focusZoomFor } from "../map/camera";
 import { navigate } from "../lib/router";
-
-type TrailLink = { name: string; km: number; src: string; difficulty: string };
-const TRAILS = TRAIL_LINKS as { radiusKm: number; items: Record<string, TrailLink[]> };
+import { TRAIL_RADIUS_KM, useTrailLinks } from "../lib/trailLinks";
 
 export default function Place({ slug }: { slug: string }) {
-  const place = bySlug.get(slug);
+  const { place, loading } = usePlacePage(slug);
   const catalog = useCatalog();
   const detail = usePlaceDetail(slug);
+  const trails = useTrailLinks(slug);
   const savedSlugs = useSavedSlugs();
 
   /* The relationships come from the same lazy catalog Discover uses, so the
@@ -41,11 +39,6 @@ export default function Place({ slug }: { slug: string }) {
   useEffect(() => {
     startCatalog();
   }, []);
-
-  const trails = useMemo(
-    () => (place ? TRAILS.items[place.slug] ?? [] : []),
-    [place],
-  );
 
   /* Activities are what is actually around, by category: one count per category
      within 30 km from the full catalog, plus named trails within 10 km. Nothing
@@ -70,6 +63,7 @@ export default function Place({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (!place) {
+      if (loading) return;
       setMeta({
         title: "Place not found — Terrane",
         description: "That place isn’t on the globe.",
@@ -78,12 +72,12 @@ export default function Place({ slug }: { slug: string }) {
       return;
     }
 
-    const cat = category(destinationCategory(place));
+    const cat = category(place.cat);
     const height = place.elevation ?? detail?.elev;
     const where = placeLine(place.region, place.country);
     const description = detail?.desc
       ? sentence(detail.desc)
-      : `${place.name} is a ${cat.one.toLowerCase()} in ${where}${
+      : `${place.name} is a ${cat.one.toLowerCase()}${where ? ` in ${where}` : ""}${
           height ? `, ${height.toLocaleString()} m high` : ""
         }. Coordinates and the places around it.`;
     const image = detail?.img?.[0]
@@ -104,7 +98,9 @@ export default function Place({ slug }: { slug: string }) {
       image,
       jsonLd: {
         "@context": "https://schema.org",
-        "@type": place.type === "peak" ? "Mountain" : "TouristAttraction",
+        "@type": ["peak", "volcano", "range"].includes(place.cat)
+          ? "Mountain"
+          : "TouristAttraction",
         name: place.name,
         description,
         url: `${location.origin}/place/${place.slug}`,
@@ -117,30 +113,38 @@ export default function Place({ slug }: { slug: string }) {
         ...(sameAs.length ? { sameAs } : {}),
       },
     });
-  }, [place, detail, slug]);
+  }, [place, detail, slug, loading]);
 
   if (!place) {
     return (
       <div className="page">
         <Header tone="light" />
         <div className="page-head">
-          <h1 className="page-title">That place isn’t here.</h1>
-          <p className="page-sub">It may have moved, or never existed.</p>
-          <button
-            className="btn btn-dark"
-            onClick={() => navigate(globeHref(readLastView()))}
-          >
-            Back to the globe →
-          </button>
+          <h1 className="page-title">
+            {loading ? "Reading the landscape…" : "That place isn’t here."}
+          </h1>
+          <p className="page-sub">
+            {loading
+              ? "Loading this destination."
+              : "It may have moved, or never existed."}
+          </p>
+          {loading ? null : (
+            <button
+              className="btn btn-dark"
+              onClick={() => navigate(globeHref(readLastView()))}
+            >
+              Back to the globe →
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
-  const cat = category(destinationCategory(place));
+  const cat = category(place.cat);
   const elevation = place.elevation ?? detail?.elev;
   const prominence =
-    place.type === "peak" ? place.prominence ?? detail?.prom : undefined;
+    place.cat === "peak" ? place.prominence ?? detail?.prom : undefined;
   const saved = savedSlugs.has(place.slug);
   const landscape = landscapeRows(detail);
 
@@ -151,7 +155,7 @@ export default function Place({ slug }: { slug: string }) {
       ? [{ k: "Prominence", v: `${prominence.toLocaleString()} m` }]
       : []),
     { k: "Coordinates", v: coordinates(place.lat, place.lon), mono: true },
-    { k: "Where", v: placeLine(place.region, place.country) || place.country },
+    { k: "Where", v: placeLine(place.region, place.country) || place.country || "—" },
   ];
 
   const base = catalog.rows.find((row) => row.pick.slug === place.slug);
@@ -205,7 +209,9 @@ export default function Place({ slug }: { slug: string }) {
         <PlaceHero
           name={place.name}
           alt={`${place.name}, ${cat.one.toLowerCase()}`}
-          eyebrow={`${cat.one} · ${placeLine(place.region, place.country)}`}
+          eyebrow={[cat.one, placeLine(place.region, place.country)]
+            .filter(Boolean)
+            .join(" · ")}
           elevation={elevation}
           hue={place.hue}
           image={detail?.img?.[0]}
@@ -249,7 +255,7 @@ export default function Place({ slug }: { slug: string }) {
             ) : null}
 
             {trails.length > 0 ? (
-              <PlaceSection title="Trails here" note={`within ${TRAILS.radiusKm} km`}>
+              <PlaceSection title="Trails here" note={`within ${TRAIL_RADIUS_KM} km`}>
                 <ol className="around-list">
                   {trails.map((trail) => (
                     <li key={`${trail.name}-${trail.km}`}>

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build `src/data/place-details.json` from Wikidata and Wikimedia Commons.
+ * Build the generated half of every destination page.
  *
- * This is an occasional harvest, not a build step: the output is committed, so a
- * checkout builds offline and two builds of the same commit are identical. Run it
- * after `npm run atlas` when the destination set changes:
+ * This is an occasional harvest, not a build step: the sharded output is
+ * committed, so a checkout builds offline and two builds of the same commit are
+ * identical. Run it after `npm run atlas` or `harvest-reach.py` when the
+ * destination set changes:
  *
  *     npm run details
  *
@@ -14,25 +15,20 @@
  * Images are referenced by their thumbnail URL; nothing is copied into the
  * repository or the cell store.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  destinationMeta,
+  readDestinations,
+  readJson,
+  shardOf,
+} from "./lib/destinations.mjs";
 
-const ROOT = process.cwd();
-const ATLAS = JSON.parse(readFileSync(`${ROOT}/src/data/atlas.json`, "utf8"));
-const META = (() => {
-  try {
-    return JSON.parse(readFileSync(`${ROOT}/src/data/wikidata-meta.json`, "utf8"));
-  } catch {
-    return {};
-  }
-})();
-const OUT = `${ROOT}/src/data/place-details.json`;
-const PRIOR = (() => {
-  try {
-    return JSON.parse(readFileSync(OUT, "utf8")).items ?? {};
-  } catch {
-    return {};
-  }
-})();
+const OUT_DIR = "src/data/place-details";
+const SUMMARY = "src/data/place-details-summary.json";
+const OLD = "src/data/place-details.json";
+const DESTINATIONS = readDestinations();
+const ATLAS = readJson("src/data/atlas.json", []);
 
 const UA = "Terrane/0.1 (place details harvest; https://terrane.app)";
 const BATCH = 50;
@@ -217,8 +213,8 @@ async function getImages(titles) {
           /* The widest thumbnail the file can actually serve; the page caps its
              srcset at this so a small original is never upscaled. */
           max: Number(info.width) || 0,
-          credit: stripHtml(meta.Artist?.value || meta.Credit?.value || "Wikimedia Commons"),
-          licence: stripHtml(meta.LicenseShortName?.value || "See file page"),
+          credit: stripHtml(meta.Artist?.value || meta.Credit?.value || "") || "Wikimedia Commons",
+          licence: stripHtml(meta.LicenseShortName?.value || "") || "See file page",
           licenceUrl: secureUrl(meta.LicenseUrl?.value) || info.descriptionurl,
           page: info.descriptionurl,
         });
@@ -252,28 +248,77 @@ function nearest(rows, base) {
   return best ? { ...best, km: Math.round(best.km * 10) / 10 } : null;
 }
 
-async function main() {
-  console.log(`→ details: ${ATLAS.length} atlas destinations`);
-
-  const byQid = new Map(ATLAS.map((row) => [row.wd, row]));
-  const priorByWd = new Map();
-  for (const item of Object.values(PRIOR)) {
-    if (item?.wd) priorByWd.set(item.wd, item);
+function priorRecords() {
+  const byWd = new Map();
+  const add = (items) => {
+    for (const item of Object.values(items ?? {})) {
+      if (item?.wd) byWd.set(item.wd, item);
+    }
+  };
+  if (existsSync(OLD)) add(readJson(OLD, { items: {} }).items);
+  if (existsSync(OUT_DIR)) {
+    for (const name of readdirSync(OUT_DIR)) {
+      if (name.endsWith(".json")) add(readJson(join(OUT_DIR, name), { items: {} }).items);
+    }
   }
-  const missing = ATLAS.filter((row) => !priorByWd.has(row.wd)).map((row) => row.wd);
+  return byWd;
+}
+
+function writeShards(items) {
+  const generated = destinationMeta();
+  const shards = new Map();
+  for (const [slug, item] of Object.entries(items)) {
+    const key = shardOf(slug);
+    const shard = shards.get(key) ?? {};
+    shard[slug] = item;
+    shards.set(key, shard);
+  }
+
+  rmSync(OUT_DIR, { recursive: true, force: true });
+  mkdirSync(OUT_DIR, { recursive: true });
+  for (const [key, shard] of [...shards.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    writeFileSync(
+      join(OUT_DIR, `${key}.json`),
+      `${JSON.stringify({ generated, source: "wikidata", items: shard })}\n`,
+    );
+  }
+
+  const rows = Object.values(items);
+  const summary = {
+    generated,
+    source: "wikidata",
+    pages: rows.length,
+    described: rows.filter((item) => item.desc).length,
+    photographed: rows.filter((item) => item.img?.length).length,
+    official: rows.filter((item) => item.site).length,
+    ranges: rows.filter((item) => item.range).length,
+    protected: rows.filter((item) => item.protected).length,
+    shards: shards.size,
+  };
+  writeFileSync(SUMMARY, `${JSON.stringify(summary, null, 2)}\n`);
+  if (existsSync(OLD)) rmSync(OLD, { force: true });
+  return summary;
+}
+
+async function main() {
+  console.log(`→ details: ${DESTINATIONS.length} destinations`);
+
+  const priorByWd = priorRecords();
+  const missing = DESTINATIONS.filter((row) => !priorByWd.has(row.wd)).map((row) => row.wd);
   const entities = await getEntities(missing);
   console.log(
-    `  ${entities.size} new Wikidata entities (${ATLAS.length - missing.length} reused by Q id)`,
+    `  ${entities.size} new Wikidata entities (${DESTINATIONS.length - missing.length} reused by Q id)`,
   );
 
   const records = new Map();
   const fileTitles = new Set();
   const assocIds = new Set();
+  const byQid = new Map(DESTINATIONS.map((row) => [row.wd, row]));
 
-  for (const row of ATLAS) {
+  for (const row of DESTINATIONS) {
     const prior = priorByWd.get(row.wd);
     if (prior) {
-      records.set(row.slug, prior);
+      records.set(row.slug, { ...prior, wd: row.wd });
       continue;
     }
     const entity = entities.get(row.wd);
@@ -320,12 +365,12 @@ async function main() {
 
   const ranges = ATLAS.filter((row) => /(?:^|\s)(?:range|ranges|mountains)$/i.test(row.name.trim()));
   const parks = ATLAS.filter((row) => row.type === "park");
-  const atlasSlugs = new Set(ATLAS.map((row) => row.slug));
+  const allSlugs = new Set(DESTINATIONS.map((row) => row.slug));
 
-  function repairAssoc(assoc) {
-    if (!assoc) return null;
-    if (!assoc.slug || atlasSlugs.has(assoc.slug)) return assoc;
-    const { slug: _stale, ...rest } = assoc;
+  function repairAssoc(association) {
+    if (!association) return null;
+    if (!association.slug || allSlugs.has(association.slug)) return association;
+    const { slug: _stale, ...rest } = association;
     return rest;
   }
 
@@ -348,7 +393,7 @@ async function main() {
   let withRange = 0;
   let withProtected = 0;
 
-  for (const row of ATLAS) {
+  for (const row of DESTINATIONS) {
     const record = records.get(row.slug) ?? { wd: row.wd };
     const item = { wd: row.wd };
 
@@ -359,7 +404,13 @@ async function main() {
     if (record.elev != null) item.elev = record.elev;
     if (record.prom != null) item.prom = record.prom;
 
-    if (record.img) item.img = record.img;
+    if (Array.isArray(record.img)) {
+      item.img = record.img.map((img) => ({
+        ...img,
+        credit: String(img?.credit ?? "").trim() || "Wikimedia Commons",
+        licence: String(img?.licence ?? "").trim() || "See file page",
+      }));
+    }
     const rowImages = (record.files ?? [])
       .map((file) => images.get(normalizeTitle(fileTitle(file))))
       .filter(Boolean);
@@ -377,14 +428,10 @@ async function main() {
     if (record.range) item.range = repairAssoc(record.range);
     if (record.protected) item.protected = repairAssoc(record.protected);
     const range = association(record.rangeId);
-    if (range) {
-      item.range = range;
-    }
+    if (range) item.range = range;
     if (item.range) withRange += 1;
     const protectedArea = association(record.protectedId);
-    if (protectedArea) {
-      item.protected = protectedArea;
-    }
+    if (protectedArea) item.protected = protectedArea;
     if (item.protected) withProtected += 1;
 
     /* A recorded parent range or protected area is a claim about the place. A
@@ -408,20 +455,15 @@ async function main() {
     throw new Error("no Wikidata entities were fetched for the new pages");
   }
 
-  const generated = META.atlas ?? META.reach ?? "unknown";
-  writeFileSync(
-    OUT,
-    `${JSON.stringify({ generated, source: "wikidata", items }, null, 0)}\n`,
-  );
-
-  const total = ATLAS.length;
+  const summary = writeShards(items);
+  const total = DESTINATIONS.length;
   const pct = (n) => `${Math.round((n / total) * 100)}%`;
   console.log(
     `details: ${total} pages · ${withDesc} descriptions (${pct(withDesc)}) · ` +
       `${withImage} with a photo (${pct(withImage)}) · ${withSite} official sites (${pct(withSite)}) · ` +
       `${withRange} ranges · ${withProtected} protected areas`,
   );
-  console.log(`wrote ${OUT}`);
+  console.log(`wrote ${OUT_DIR} (${summary.shards} shards) and ${SUMMARY}`);
 }
 
 main().catch((err) => {

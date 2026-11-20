@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-20 — Every destination gets a page
+
+- All 24,474 destinations (1,213 atlas + 23,261 reach) now have a
+  `/place/:slug` page. Practical POIs remain map-only.
+- Reach rows keep their Wikidata Q id and gain stable, collision-safe slugs; the
+  map emits `slug`, `src`, `srcid` and `url`, and reach cards open their page.
+- Added a sharded page index, detail harvest and trail-link harvest keyed by the
+  first slug character. A page loads one shard of each, not the full 24k set.
+- Added `npm run pages`, `npm run data:update` and `npm run data:refresh`; the
+  build and validator run `build-place-index` first and stay offline.
+- Removed dead exports and the unused reach metadata file, and replaced the
+  single `place-details.json` / `trail-links.json` with committed shards.
+
 ## 2026-11-20 — Production cache and data freshness
 
 - The SPA rewrite no longer catches `/assets/*` or `/fonts/*`, so a missing hashed

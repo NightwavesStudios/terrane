@@ -106,7 +106,7 @@ const WORLD_BANDS = {
 };
 
 /** MapLibre mutates the style spec it is given, so each map needs a copy. */
-export const TERRAIN_SOURCE = {
+const TERRAIN_SOURCE = {
   type: "raster-dem" as const,
   /* Every tile comes through the `terranedem` protocol (see ./dem.ts), which
      answers with a real 512 px tile at whatever zoom MapLibre asks for — the
@@ -124,7 +124,7 @@ export function createStyle(): StyleSpecification {
   return structuredClone(MAP_STYLE);
 }
 
-export const MAP_STYLE: StyleSpecification = {
+const MAP_STYLE: StyleSpecification = {
   version: 8,
   name: "Terrane Deep",
   glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",

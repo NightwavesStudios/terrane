@@ -31,11 +31,12 @@ ODbL and the tile provider require.
 
 ## Photographs
 
-`src/data/place-details.json` stores a thumbnail URL, the photographer credit,
-the licence name and the licence URL for each image Commons reports. The page
-links the credit to the file page and the licence to its deed; an image without
-either is not emitted. Thumbnails are loaded from Wikimedia's image hosts at
-request time, not mirrored, so the repository and the R2 bucket do not grow.
+The sharded `src/data/place-details/` files store a thumbnail URL, the
+photographer credit, the licence name and the licence URL for each image Commons
+reports. The page links the credit to the file page and the licence to its deed;
+an image without either is not emitted. Thumbnails are loaded from Wikimedia's
+image hosts at request time, not mirrored, so the repository and the R2 bucket do
+not grow.
 
 ## What the derived cells are
 

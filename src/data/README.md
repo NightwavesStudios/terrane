@@ -7,7 +7,7 @@ which is which before editing.
 
 | File | What it is |
 | --- | --- |
-| `places.ts` | The typed destination model and the four type labels. `PLACES` is the generated atlas; every destination comes from it. |
+| `places.ts` | The typed atlas model and its type labels. `PLACES` is the generated atlas; reach pages use the generated page index. |
 | `categories.json` | The one taxonomy: 16 destination and 13 practical categories, plus trails. |
 | `bands.json` | Dot/label zooms, radius scale, opacity, label size and per-band cell quota. |
 | `sources.json` | Source registry: ids, names, licences, licence links, attribution, terms, endpoints, cadence, expected counts and publishing gates. |
@@ -20,10 +20,11 @@ which is which before editing.
 | `atlas.json` | `scripts/build-atlas.py` |
 | `reach.json`, `reach-more.json` | `scripts/harvest-reach.py` |
 | `wikidata-meta.json` | the two Wikidata harvests |
-| `place-details.json` | `scripts/build-place-details.mjs` |
+| `place-index/` | `scripts/build-place-index.mjs` (page records and slugs) |
+| `place-details/`, `place-details-summary.json` | `scripts/build-place-details.mjs` |
 | `poi-stats.json` | `scripts/poi-stats.mjs` |
 | `trail-stats.json` | `scripts/merge-sources.py`, then `scripts/trail-quality.mjs` |
-| `trail-links.json` | `scripts/build-trail-links.mjs` |
+| `trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` |
 | `manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` |
 
 `manifest.json` is bundled into the app and is also the live-update fallback. It
@@ -47,7 +48,8 @@ new counts without a rebuild.
    pair is recorded in `atlas-merges.json` with the absorbed row in `also`.
 3. `byCategory` and the total in the manifest must match the files; the build
    fails otherwise.
-4. Every atlas page has a detail record; every image has a credit and a licence.
+4. Every destination page has a page record and a detail record; every image has
+   a credit and a licence.
 5. Generated reports and POI cell mirrors do not belong in git, except the
    `reports/coverage.json` / `reports/merge.json` baselines and the rebuilt trail
    cells. See the root `.gitignore`.
@@ -55,7 +57,8 @@ new counts without a rebuild.
 ## Runtime versus bundled
 
 The atlas, famous reach tail, manifest and categories are bundled. The rest of
-the reach tail is a lazy chunk, and `place-details.json` is a separate lazy chunk
-loaded only on `/place/:slug`. Practical pins and trail routes are fetched per
-cell from `src/lib/cells.ts`. A cell that has not loaded cannot be searched; the
-search empty state says so.
+the reach tail is a lazy chunk. A page loads one `place-index/` shard, one
+`place-details/` shard and one `trail-links/` shard for its slug; it never loads
+all 24,474 records. Practical pins and trail routes are fetched per cell from
+`src/lib/cells.ts`. A cell that has not loaded cannot be searched; the search
+empty state says so.

@@ -47,6 +47,9 @@ export default function Saved() {
           <ol className="saved-list">
             {saved.map((item) => {
               const place = bySlug.get(item.slug);
+              const where = place
+                ? placeLine(place.region, place.country)
+                : placeLine(item.region, item.country);
               return (
                 <li key={item.slug} className="saved-row">
                   <button
@@ -56,9 +59,7 @@ export default function Saved() {
                     <span className="saved-name">{item.name}</span>
                     <span className="mono saved-meta">
                       {category(item.cat).one}
-                      {place
-                        ? ` · ${placeLine(place.region, place.country)}`
-                        : " · no longer in the atlas"}
+                      {where ? ` · ${where}` : ""}
                     </span>
                   </button>
                   <span className="mono saved-date">

@@ -16,8 +16,9 @@ it.
     python3 scripts/harvest-reach.py            # full run (~8 min, WDQS is slow)
     python3 scripts/harvest-reach.py --cache    # reuse the responses in /tmp
 
-Writes columnar rows [lat, lon, kind, tier, name, nearIdx?] so the browser
-parses arrows, not 25,000 objects.
+Writes columnar rows [lat, lon, kind, tier, name, nearIdx|null, qid, slug] so the
+browser parses arrows, not 25,000 objects. Every row is a page: the Q id and slug
+are stable keys for the generated page index and detail harvest.
 """
 
 import json
@@ -26,6 +27,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -159,7 +161,8 @@ def parse_point(wkt):
 
 
 def slugify(name):
-    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    s = re.sub(r"[^a-zA-Z0-9]+", "-", s).strip("-").lower()
     return s
 
 
@@ -167,7 +170,7 @@ def main():
     refresh = "--refresh" in sys.argv
     t0 = time.time()
 
-    harvested = {}  # qid -> (links, name, lat, lon, kind)
+    harvested = {}  # qid -> (links, name, lat, lon, kind, qid)
     # One class at a time, widest sitelink bucket first, stopping once there is
     # enough for the cap that class will be trimmed to anyway.
     for kind in KINDS:
@@ -198,7 +201,7 @@ def main():
                     prev = harvested.get(item)
                     if prev and KINDS.index(prev[4]) <= KINDS.index(kind):
                         continue
-                    harvested[item] = (links, name, point[0], point[1], kind)
+                    harvested[item] = (links, name, point[0], point[1], kind, item)
 
     print(f"  {len(harvested)} unique items, {time.time() - t0:.0f}s", flush=True)
 
@@ -235,8 +238,9 @@ def main():
     kept = []
     kept_grid = {}
     per_kind = defaultdict(int)
+    used_slugs = {row["slug"] for row in atlas}
     dropped_atlas = dropped_close = dropped_cap = 0
-    for links, name, lat, lon, kind in items:
+    for links, name, lat, lon, kind, qid in items:
         if too_close(lat, lon, atlas_grid, 1200):
             dropped_atlas += 1
             continue
@@ -247,7 +251,7 @@ def main():
             dropped_cap += 1
             continue
         per_kind[kind] += 1
-        kept.append((links, name, lat, lon, kind))
+        kept.append((links, name, lat, lon, kind, qid))
         add(kept_grid, lat, lon)
 
     print(
@@ -280,12 +284,28 @@ def main():
         return best
 
     rows = []
-    for links, name, lat, lon, kind in kept:
-        row = [round(lat, 4), round(lon, 4), KINDS.index(kind), tier_of(links), name]
+    for links, name, lat, lon, kind, qid in kept:
+        base = slugify(name) or f"place-{qid.lower()}"
+        slug = base
+        if slug in used_slugs:
+            slug = f"{base}-{qid.lower()}"
+        if slug in used_slugs:
+            slug = f"{base}-{qid.lower()}-2"
+        used_slugs.add(slug)
         near = nearest_place(lat, lon)
-        if near and near[0] <= 60000:
-            row.append(near_index[near[1]])
-        rows.append(row)
+        near_idx = near_index[near[1]] if near and near[0] <= 60000 else None
+        rows.append(
+            [
+                round(lat, 4),
+                round(lon, 4),
+                KINDS.index(kind),
+                tier_of(links),
+                name,
+                near_idx,
+                qid,
+                slug,
+            ]
+        )
 
     # ── write ────────────────────────────────────────────────────────────────
     def payload(subset):
@@ -304,9 +324,6 @@ def main():
             json.dump(payload(famous), f, separators=(",", ":"), ensure_ascii=False)
         with open(OUT_MORE, "w") as f:
             json.dump(payload(rest), f, separators=(",", ":"), ensure_ascii=False)
-        # A count the UI can show without importing 23,000 rows.
-        with open("src/data/reach-meta.json", "w") as f:
-            json.dump({"famous": len(famous), "more": len(rest)}, f)
         meta_path = "src/data/wikidata-meta.json"
         try:
             meta = json.load(open(meta_path))

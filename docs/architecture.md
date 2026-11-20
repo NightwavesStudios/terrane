@@ -28,7 +28,9 @@ unknown paths fall through to the globe. There is no router dependency.
 | `src/map/contours.ts` | Client-side marching squares in a blob worker, capped by tiles, levels, segments and time. |
 | `src/map/campIcon.ts` | The camping-kit pictograms drawn into canvases once. |
 | `src/map/camera.ts` | `worldZoom` and `pitchForZoom`, with no MapLibre import so pages can size the opening camera cheaply. |
-| `src/lib/placeDetails.ts` | Lazy detail chunk, thumbnail width cap, description and difficulty formatting. |
+| `src/lib/placePages.ts` | Atlas-immediate / reach-sharded page lookup. |
+| `src/lib/placeDetails.ts` | Lazy detail shard, thumbnail width cap, description and difficulty formatting. |
+| `src/lib/trailLinks.ts` | Lazy per-page trail-link shard. |
 | `src/lib/saved.ts` | Versioned `localStorage` save list, cross-tab updates. |
 | `src/lib/lastView.ts` | The last settled globe camera, for a place page's back link. |
 
@@ -50,8 +52,10 @@ data/sources/*.ndjson      adapters + bulk OSM harvest
         ├─ merge-sources.py ──► public/poi, public/trails ──► upload ──► R2
         │
         ├─ build-atlas.py ─────► src/data/atlas.json
-        ├─ build-place-details.mjs ─► src/data/place-details.json
         ├─ harvest-reach.py ───► src/data/reach.json, reach-more.json
+        ├─ build-place-index.mjs ─► src/data/place-index/
+        ├─ build-place-details.mjs ─► src/data/place-details/
+        ├─ build-trail-links.mjs ─► src/data/trail-links/
         └─ poi-stats.mjs ──────► src/data/poi-stats.json
 
 src/data/*.json ── build-manifest.mjs ──► manifest.json ── validate ──► build
@@ -60,9 +64,9 @@ src/data/*.json ── build-manifest.mjs ──► manifest.json ── validat
                                                     and coverage from the store
 ```
 
-The atlas and famous long tail are bundled. The rest of the reach tail and the
-cell data are lazy. `src/lib/cells.ts` is the one origin for `manifest.json`,
-`coverage.json`, `poi/` and `trails/`.
+The atlas and famous long tail are bundled. The rest of the reach tail, the
+page/detail/trail shards and the cell data are lazy. `src/lib/cells.ts` is the
+one origin for `manifest.json`, `coverage.json`, `poi/` and `trails/`.
 
 ## One model
 
@@ -82,8 +86,8 @@ Himalaya. Provenance (`src`, `quality`) survives but never decides prominence.
 - `localStorage` holds the saved places (`lib/saved.ts`), versioned and capped.
 - `sessionStorage` caches the IP-based home lookup per tab (`lib/locate.ts`) and
   the last globe camera (`lib/lastView.ts`).
-- Module-level caches hold loaded cells, the reach chunks and the detail chunk;
-  teardown resets the map-side ones.
+- Module-level caches hold loaded cells, the reach chunks and one page/detail/trail
+  shard; teardown resets the map-side ones.
 - No account and no server: saves do not follow the reader to another browser.
 
 ## Invariants
@@ -98,8 +102,8 @@ Himalaya. Provenance (`src`, `quality`) survives but never decides prominence.
    must pass before a data job publishes.
 6. Generated files are not committed except the bundled manifest, atlas, reach
    data, place details, stats and the `reports/coverage.json` baseline.
-7. A place page renders from the atlas alone; the detail chunk is optional and a
-   failure leaves the page intact.
+7. A place page renders from the page index; the detail and trail shards are
+   optional and a failure leaves the page intact.
 8. Every detail image carries a credit and a licence; an uncredited image fails
    validation.
 9. A practical pin is pushed once per frame, in its band, and at z8+ only inside

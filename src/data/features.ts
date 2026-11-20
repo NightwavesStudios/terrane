@@ -37,7 +37,7 @@ export interface Category {
 
 export const CATEGORIES = categoriesFile.categories as Category[];
 export const FAMILIES = categoriesFile.families as { id: Family; label: string }[];
-export const CATEGORY_BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
+const CATEGORY_BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
 
 export const DESTINATION_CATS = CATEGORIES.filter((c) => c.family === "destination").map((c) => c.id);
 export const PRACTICAL_CATS = CATEGORIES.filter((c) => c.family === "practical").map((c) => c.id);
@@ -46,9 +46,6 @@ export function category(id: string): Category {
   return CATEGORY_BY_ID.get(id) ?? (CATEGORY_BY_ID.get("landmark") as Category);
 }
 
-export function categoryLabel(id: string): string {
-  return category(id).one;
-}
 
 /** A point as the map stores it. Coordinates are decimal degrees. */
 export interface FeatureRow {
@@ -213,14 +210,18 @@ const NAME_CATEGORY: [RegExp, string][] = [
   [/(?:^|\s)(?:mountains?|peaks?|mount)$/i, "peak"],
 ];
 
-export function destinationCategory(place: Place): string {
-  if (place.type === "peak") return "peak";
-  if (place.type === "park") return "park";
-  const name = place.name.trim().replace(/[.!?]+$/, "");
+export function destinationCategoryFor(type: Place["type"], name: string): string {
+  if (type === "peak") return "peak";
+  if (type === "park") return "park";
+  const clean = name.trim().replace(/[.!?]+$/, "");
   for (const [pattern, cat] of NAME_CATEGORY) {
-    if (pattern.test(name)) return cat;
+    if (pattern.test(clean)) return cat;
   }
-  return PLACE_CAT[place.type] ?? "landmark";
+  return PLACE_CAT[type] ?? "landmark";
+}
+
+export function destinationCategory(place: Place): string {
+  return destinationCategoryFor(place.type, place.name);
 }
 
 /**

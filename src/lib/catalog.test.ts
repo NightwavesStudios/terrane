@@ -31,6 +31,27 @@ describe("buildCatalog", () => {
     expect(data.rows[0].source).toBe("atlas");
   });
 
+  it("keeps a reach row's page slug and exposes it as a page", () => {
+    const data = buildCatalog(
+      [matterhorn],
+      [
+        tail({
+          name: "Sahara",
+          cat: "desert",
+          lat: 23.08,
+          lon: 12.61,
+          slug: "sahara",
+          srcId: "Q6583",
+        }),
+      ],
+      [],
+    );
+    const row = data.rows.find((item) => item.name === "Sahara");
+    expect(row?.pick.slug).toBe("sahara");
+    expect(row?.pick.srcId).toBe("Q6583");
+    expect(row?.hasPage).toBe(true);
+  });
+
   it("keeps two places with the same name when they are far apart", () => {
     const data = buildCatalog(
       [matterhorn],

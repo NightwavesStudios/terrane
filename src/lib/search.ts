@@ -137,7 +137,7 @@ function classify(query: string): { catSets: string[][]; text: string[] } {
   return { catSets, text };
 }
 
-export function parseCoordinates(query: string): { lat: number; lon: number } | null {
+function parseCoordinates(query: string): { lat: number; lon: number } | null {
   const match = query
     .trim()
     .match(/^(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)$/);

@@ -10,11 +10,21 @@
  * 300 million pairs otherwise.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readDestinations } from "./lib/destinations.mjs";
 
 const root = process.cwd();
 const read = (p) => JSON.parse(readFileSync(join(root, p), "utf8"));
+const readShards = (dir) => {
+  const items = {};
+  if (!existsSync(join(root, dir))) return items;
+  for (const name of readdirSync(join(root, dir))) {
+    if (!name.endsWith(".json")) continue;
+    Object.assign(items, read(join(dir, name)).items ?? {});
+  }
+  return items;
+};
 
 const checks = [];
 const check = (name, ok, detail) => checks.push({ name, ok: Boolean(ok), detail });
@@ -43,9 +53,16 @@ if (trailGate.status !== 0) {
 }
 
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
-const trailLinks = read("src/data/trail-links.json", { radiusKm: 0, items: {} });
-const details = read("src/data/place-details.json", { items: {} });
-const detailItems = details.items ?? {};
+const trailLinkSummary = read("src/data/trail-links-summary.json", { radiusKm: 0 });
+const trailLinks = { ...trailLinkSummary, items: readShards("src/data/trail-links") };
+const detailSummary = read("src/data/place-details-summary.json", {});
+const detailItems = readShards("src/data/place-details");
+const pageMeta = read("src/data/place-index/meta.json", { pages: 0 });
+const pageSlugFile = read("src/data/place-index/slugs.json", { slugs: [] });
+const pageSlugs = new Set(pageSlugFile.slugs ?? []);
+const destinationList = readDestinations();
+const destinationCount = destinationList.length;
+const destinationBySlug = new Map(destinationList.map((row) => [row.slug, row]));
 
 const coordOk = (lat, lon) =>
   Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
@@ -95,7 +112,7 @@ for (const [label, file] of [
   const itemsOk = file.items.every(
     (r) =>
       Array.isArray(r) &&
-      r.length >= 5 &&
+      r.length === 8 &&
       Number.isInteger(r[2]) &&
       r[2] >= 0 &&
       r[2] < file.kinds.length &&
@@ -104,6 +121,12 @@ for (const [label, file] of [
       r[3] <= 4 &&
       typeof r[4] === "string" &&
       r[4].length > 0 &&
+      (r[5] === null ||
+        (Number.isInteger(r[5]) && r[5] >= 0 && r[5] < (file.near?.length ?? 0))) &&
+      typeof r[6] === "string" &&
+      /^Q\d+$/.test(r[6]) &&
+      typeof r[7] === "string" &&
+      r[7].length > 0 &&
       coordOk(r[0], r[1]),
   );
   check(`${label} rows are valid`, itemsOk, `${file.items.length} rows`);
@@ -120,6 +143,28 @@ for (const [label, file] of [
     [...tiers].join(","),
   );
 }
+
+const destinationSlugs = [
+  ...atlas.map((row) => row.slug),
+  ...reach.items.map((row) => row[7]),
+  ...reachMore.items.map((row) => row[7]),
+];
+check(
+  "destination slugs are unique",
+  new Set(destinationSlugs).size === destinationSlugs.length,
+  `${destinationSlugs.length} rows`,
+);
+check(
+  "page index covers every destination",
+  pageMeta.pages === destinationCount && pageSlugs.size === destinationCount,
+  `${pageSlugs.size}/${destinationCount}`,
+);
+check(
+  "page index slugs match destinations",
+  destinationList.every((row) => pageSlugs.has(row.slug)) &&
+    [...pageSlugs].every((slug) => destinationBySlug.has(slug)),
+  `${pageSlugs.size} pages`,
+);
 
 /* ── mapped POI stats ── */
 const kindSum = Object.values(stats.byKind).reduce((a, b) => a + b, 0);
@@ -154,8 +199,7 @@ for (const r of [
   if (seen.has(key)) dupes += 1;
   else seen.add(key);
 }
-const destinationRows = atlas.length + reach.items.length + reachMore.items.length;
-const dupeRate = dupes / Math.max(1, destinationRows);
+const dupeRate = dupes / Math.max(1, destinationCount);
 check("cross-source duplicate rate under 1%", dupeRate < 0.01, `${dupes} pairs`);
 
 /* ── hard rule: one place, one row ──
@@ -217,7 +261,7 @@ const mergesApplied = merges.every(
 check("documented merges are applied", mergesApplied, `${merges.length} merges`);
 
 /* ── manifest matches the files ── */
-const destinations = destinationRows;
+const destinations = destinationCount;
 const registry = read("src/data/sources.json", { sources: [] });
 const agencyRecords = (registry.sources ?? [])
   .filter((s) => s.family === "points" && s.id !== "osm")
@@ -285,6 +329,16 @@ check(
   `${trailLinks.radiusKm} km`,
 );
 check(
+  "trail links only point at real pages",
+  Object.keys(trailLinks.items ?? {}).every((slug) => pageSlugs.has(slug)),
+  `${Object.keys(trailLinks.items ?? {}).length} linked pages`,
+);
+check(
+  "trail links cover the destination set",
+  trailLinks.destinations === pageSlugs.size,
+  `${trailLinks.destinations}/${pageSlugs.size}`,
+);
+check(
   "trail links stay within their radius and cap",
   linkRows.every((row) => row.km <= 10.01) &&
     Object.values(trailLinks.items ?? {}).every((rows) => rows.length <= 6),
@@ -309,12 +363,11 @@ check(
    The detail harvest is the only source of photos, descriptions and official
    links. A page without a record, a broken image or an uncredited file is a
    build failure, not a silent blank section. */
-const atlasBySlug = new Map(atlas.map((row) => [row.slug, row]));
 const detailKeys = Object.keys(detailItems);
 check(
   "every destination page has a detail record",
-  detailKeys.length === atlas.length && detailKeys.every((slug) => atlasBySlug.has(slug)),
-  `${detailKeys.length}/${atlas.length}`,
+  detailKeys.length === pageSlugs.size && detailKeys.every((slug) => pageSlugs.has(slug)),
+  `${detailKeys.length}/${pageSlugs.size}`,
 );
 
 const imageHosts = new Set([
@@ -337,7 +390,7 @@ const hostOf = (value) => {
   }
 };
 const detailOk = detailKeys.every((slug) => {
-  const row = atlasBySlug.get(slug);
+  const row = destinationBySlug.get(slug);
   const item = detailItems[slug];
   if (!row || !item || item.wd !== row.wd) return false;
   if (item.desc != null && (typeof item.desc !== "string" || item.desc.length > 320)) {
@@ -378,7 +431,7 @@ const detailOk = detailKeys.every((slug) => {
     const assoc = item[key];
     if (!assoc) continue;
     if (typeof assoc.name !== "string" || assoc.name.length === 0) return false;
-    if (assoc.slug != null && !atlasBySlug.has(assoc.slug)) return false;
+    if (assoc.slug != null && !pageSlugs.has(assoc.slug)) return false;
     if (
       assoc.wiki != null &&
       (!httpsUrl(assoc.wiki) || hostOf(assoc.wiki) !== "en.wikipedia.org")
@@ -392,18 +445,28 @@ const detailOk = detailKeys.every((slug) => {
 check("place details are well formed", detailOk, `${detailKeys.length} records`);
 
 const detailCounts = {
-  pages: atlas.length,
+  pages: pageSlugs.size,
   described: detailKeys.filter((slug) => detailItems[slug].desc).length,
   photographed: detailKeys.filter((slug) => detailItems[slug].img?.length).length,
   official: detailKeys.filter((slug) => detailItems[slug].site).length,
   ranges: detailKeys.filter((slug) => detailItems[slug].range).length,
   protected: detailKeys.filter((slug) => detailItems[slug].protected).length,
 };
-const detailSummary = manifest.details ?? {};
+const manifestDetails = manifest.details ?? {};
 check(
   "manifest detail counts match",
-  Object.entries(detailCounts).every(([key, value]) => detailSummary[key] === value),
+  Object.entries(detailCounts).every(([key, value]) => manifestDetails[key] === value),
   JSON.stringify(detailCounts),
+);
+check(
+  "detail summary matches records",
+  detailSummary.pages === pageSlugs.size &&
+    detailSummary.described === detailCounts.described &&
+    detailSummary.photographed === detailCounts.photographed &&
+    detailSummary.official === detailCounts.official &&
+    detailSummary.ranges === detailCounts.ranges &&
+    detailSummary.protected === detailCounts.protected,
+  JSON.stringify(detailSummary),
 );
 
 const failed = checks.filter((c) => !c.ok);

@@ -24,7 +24,7 @@ const reach = read("src/data/reach.json");
 const reachMore = read("src/data/reach-more.json");
 const stats = read("src/data/poi-stats.json");
 const trailStats = read("src/data/trail-stats.json");
-const trailLinks = read("src/data/trail-links.json");
+const trailLinks = read("src/data/trail-links-summary.json");
 
 /* ── one flat list of destinations, so cross-source duplicates are visible ── */
 const destinations = [
