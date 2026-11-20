@@ -10,6 +10,7 @@ import { cellUrl } from "./cells";
  * bundled manifest stays the first paint and the offline fallback.
  */
 export type Manifest = typeof BUNDLED & {
+  generatedAt?: string;
   sources?: { id: string; name: string; records: number; updated?: string }[];
 };
 
@@ -83,6 +84,35 @@ function isManifest(value: unknown): value is Manifest {
   );
 }
 
+type Dated = { days?: Record<string, string>; generatedAt?: string };
+
+/** The newest harvest day in a manifest, as a UTC timestamp; 0 when absent. */
+export function manifestDay(manifest: Dated): number {
+  let newest = 0;
+  for (const value of Object.values(manifest.days ?? {})) {
+    const at = Date.parse(`${value}T00:00:00Z`);
+    if (Number.isFinite(at) && at > newest) newest = at;
+  }
+  if (!newest && manifest.generatedAt) {
+    const at = Date.parse(manifest.generatedAt);
+    if (Number.isFinite(at)) newest = at;
+  }
+  return newest;
+}
+
+/**
+ * A live manifest may replace the bundled one only when it is not older.
+ *
+ * The cell store can lag a code deploy (or a data job can fail after the site
+ * ships), and blindly accepting its JSON rolls the visible counts back to an
+ * older harvest. The bundled manifest is the newer one in that case.
+ */
+export function newerManifest<T extends Dated>(live: T, bundled: T): T {
+  const liveDay = manifestDay(live);
+  const bundledDay = manifestDay(bundled);
+  return liveDay > 0 && bundledDay > 0 && liveDay < bundledDay ? bundled : live;
+}
+
 function isCoverage(value: unknown): value is Coverage {
   const data = value as Coverage | null;
   return Boolean(data && data.totals && Array.isArray(data.sources));
@@ -93,7 +123,7 @@ function start() {
   started = true;
   void liveJson("manifest.json").then((data) => {
     if (isManifest(data)) {
-      manifest = data;
+      manifest = newerManifest(data, BUNDLED as Manifest);
       emit();
     }
   });

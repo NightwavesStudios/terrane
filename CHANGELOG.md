@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-20 — Production cache and data freshness
+
+- The SPA rewrite no longer catches `/assets/*` or `/fonts/*`, so a missing hashed
+  asset returns 404 instead of `index.html` with a one-year immutable cache.
+- The HTML shell is `no-store` on `/`, `/place/*`, `/saved` and `/coverage`, so a
+  deployment switch cannot leave a browser on an old shell.
+- The live cell-store manifest only replaces the bundled manifest when it is not
+  older; a lagging store can no longer roll the visible counts back.
+
 ## 2026-11-20 — Destination pages, generated only
 
 - Removed the 68 hand-written destinations and their index pipeline. Every
