@@ -33,8 +33,8 @@ validation block contains only the check results, no timestamp.
 
 `trail-stats.json` carries the `quality` block produced from the cells the merge
 just wrote. The trail cells are committed under `public/trails`; the validation
-gate reads the recorded quality block, and the monthly data workflow re-measures
-before upload.
+gate re-runs `trail-quality.mjs --strict` against them, and the monthly data
+workflow re-measures before upload.
 
 `manifest.json` is also uploaded to the cell store so the running page can show
 new counts without a rebuild.

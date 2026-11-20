@@ -9,6 +9,7 @@
  * The duplicate check uses a ~55 m grid hash, not O(n²): 24,000 destinations is
  * 300 million pairs otherwise.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { readCurated } from "./lib/curated.mjs";
 import { join } from "node:path";
@@ -30,6 +31,19 @@ const curated = readCurated();
 const stats = read("src/data/poi-stats.json");
 const manifest = read("src/data/manifest.json");
 const merges = read("src/data/atlas-merges.json");
+
+/* The trail cells are committed, so the build gate can measure them instead of
+   trusting a stale block. The strict script also writes trail-stats.json; read
+   it only after this finishes. */
+const trailGate = spawnSync(process.execPath, ["scripts/trail-quality.mjs", "--strict"], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (trailGate.status !== 0) {
+  console.error("validate: trail-quality --strict failed");
+  process.exit(trailGate.status ?? 1);
+}
+
 const trailStats = read("src/data/trail-stats.json", { segments: 0 });
 const trailLinks = read("src/data/trail-links.json", { radiusKm: 0, items: {} });
 
@@ -236,10 +250,9 @@ check("manifest categories match", manifest.categories === categories.length, `$
 check("trail network has records", (trailStats.segments ?? 0) > 0, `${trailStats.segments ?? 0} segments`);
 
 /* ── trail geometry ──
-   The POI cells are not in the checkout, and re-measuring 317 MB of committed
-   trail cells on every build is too slow. `scripts/trail-quality.mjs` writes
-   this block from the cells the data job just built; the build gate checks the
-   recorded result, not a stale count. */
+   The strict gate above re-measured the committed cells and wrote this block.
+   These checks keep the block internally consistent, including the per-source
+   counts a repository-only checkout can verify without re-reading every cell. */
 const trailQuality = trailStats.quality;
 check("trail quality block is recorded", Boolean(trailQuality), "reports/trail-quality.json");
 if (trailQuality) {

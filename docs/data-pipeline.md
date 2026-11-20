@@ -132,8 +132,9 @@ feeds cannot silently replace the store with a smaller network.
 `scripts/trail-quality.mjs --strict` is the trail gate. It fails on any segment
 outside its z7 tile, a relative chord rate above 0.01%, duplicate geometry above
 0.5%, distance mismatch above 5%, a cell over 12 MB, or invalid coordinates. The
-monthly workflow runs it before upload; `npm run validate` checks the quality
-block recorded in `trail-stats.json` so CI does not need the 317 MB local mirror.
+monthly workflow runs it before upload; `npm run validate` invokes the same
+strict gate against the committed cells, then checks the block it records in
+`trail-stats.json`.
 
 Uploads are uncompressed by default. `node scripts/upload-changed.mjs --gzip`
 (and the Worker's `Content-Encoding` handling) is available for the planned R2
