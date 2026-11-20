@@ -184,8 +184,16 @@ const trailsBySource = Object.fromEntries(
   rows.filter((r) => r.family === "trails").map((r) => [r.id, r.placed]),
 );
 
+/* Keep the report's own date data-derived, like the manifest. A verification
+   run must not dirty the checked-in report just because it happened later. */
+const dataDate =
+  [...Object.values(manifest.days ?? {}), ...rows.map((row) => row.updated), trailStats?.updated]
+    .filter((value) => typeof value === "string" && value)
+    .sort()
+    .at(-1) ?? "1970-01-01";
+
 const report = {
-  generatedAt: new Date().toISOString(),
+  generatedAt: `${dataDate}T00:00:00.000Z`,
   strict,
   definition:
     "Coverage is measured against the union of open sources Terrane ingests, not against a non-existent global census. A missing source, a zero source, an unaccounted row or a stale source is a gap.",

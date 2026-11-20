@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T13:08:28.632Z",
+  "generatedAt": "2026-11-20T00:00:00.000Z",
   "strict": true,
   "definition": "Coverage is measured against the union of open sources Terrane ingests, not against a non-existent global census. A missing source, a zero source, an unaccounted row or a stale source is a gap.",
   "totals": {
