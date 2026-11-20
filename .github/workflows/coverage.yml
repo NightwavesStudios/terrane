@@ -30,7 +30,7 @@ jobs:
       # This job never runs build-manifest, so it must not upload a manifest: the
       # checkout's copy is older than the one the last data job published.
       - run: node scripts/upload-changed.mjs --skip-manifest
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: reports/coverage.md
