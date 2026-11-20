@@ -4,7 +4,6 @@ import {
   DESTINATION_CATS,
   placesToRows,
   registerDestinationPoints,
-  registerDestinationSearch,
   type FeatureRow,
 } from "../data/features";
 import type { Place } from "../data/places";
@@ -70,6 +69,11 @@ let moreRows: FeatureRow[] = [];
 let enabled: string[] = [...DESTINATION_CATS];
 let corePromise: Promise<void> | null = null;
 let morePromise: Promise<void> | null = null;
+/* The map this module is currently drawn on, so a catalog load started from the
+   Discover panel also reaches the globe. Cleared on teardown. */
+let activeMap: MlMap | null = null;
+
+const allRows = (): FeatureRow[] => [...atlasRows, ...coreRows, ...moreRows];
 
 function collection(rows: FeatureRow[]): GeoJSON.FeatureCollection {
   return {
@@ -87,14 +91,22 @@ function collection(rows: FeatureRow[]): GeoJSON.FeatureCollection {
         ...(r.elev ? { elev: r.elev } : {}),
         ...(typeof r.hue === "number" ? { hue: r.hue } : {}),
         ...(r.where ? { where: r.where } : {}),
+        ...(r.region ? { region: r.region } : {}),
+        ...(r.country ? { country: r.country } : {}),
+        ...(typeof r.tier === "number" ? { tier: r.tier } : {}),
       },
     })),
   };
 }
 
-function push(map: MlMap) {
-  const src = map.getSource(SOURCE) as GeoJSONSource | undefined;
-  src?.setData(collection([...atlasRows, ...coreRows, ...moreRows]));
+function push(map: MlMap | null) {
+  if (!map) return;
+  try {
+    const src = map.getSource(SOURCE) as GeoJSONSource | undefined;
+    src?.setData(collection(allRows()));
+  } catch {
+    /* The map was removed while a lazy chunk was in flight. */
+  }
 }
 
 const catFilter = (ids: string[]): ExpressionSpecification =>
@@ -122,6 +134,7 @@ function applyFilters(map: MlMap) {
 
 /** Adds the source and every dot and label band. Idempotent. */
 export function addDestinations(map: MlMap): void {
+  activeMap = map;
   if (map.getSource(SOURCE)) {
     applyFilters(map);
     return;
@@ -254,27 +267,51 @@ export function setAtlasPlaces(map: MlMap, places: Place[]): void {
 }
 
 /** The famous half of the long tail: one chunk, fetched once, after first paint. */
-export async function loadDestinations(map: MlMap): Promise<void> {
-  if (corePromise) return corePromise;
-  corePromise = import("../data/reach.json")
+function loadCoreRows(): Promise<void> {
+  corePromise ??= import("../data/reach.json")
     .then((mod) => {
       coreRows = rowsFromReach(mod.default as unknown as ReachFile);
-      push(map);
+      push(activeMap);
     })
     .catch(() => undefined);
   return corePromise;
 }
 
 /** The tail: fetched once the camera approaches the local bands. */
-export async function loadMoreDestinations(map: MlMap): Promise<void> {
-  if (morePromise) return morePromise;
-  morePromise = import("../data/reach-more.json")
+function loadMoreRows(): Promise<void> {
+  morePromise ??= import("../data/reach-more.json")
     .then((mod) => {
       moreRows = rowsFromReach(mod.default as unknown as ReachFile);
-      push(map);
+      push(activeMap);
     })
     .catch(() => undefined);
   return morePromise;
+}
+
+export function loadDestinations(): Promise<void> {
+  return loadCoreRows();
+}
+
+export function loadMoreDestinations(): Promise<void> {
+  return loadMoreRows();
+}
+
+/**
+ * Every destination row, whether or not a map is mounted.
+ *
+ * Discover and search need the whole 24,540-row set the first time they open,
+ * not the slice a particular camera has happened to load. Both chunks are
+ * already cached modules, so asking here costs one download and the map's
+ * loader re-uses it.
+ */
+export async function ensureDestinationRows(): Promise<FeatureRow[]> {
+  await Promise.all([loadCoreRows(), loadMoreRows()]);
+  return allRows();
+}
+
+/** The map is gone; keep the rows, drop the reference that would push to it. */
+export function resetDestinations(): void {
+  activeMap = null;
 }
 
 /**
@@ -312,11 +349,11 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
       dot: band.dot,
       lz: band.label,
       near: typeof near === "number" ? file.near[near] : undefined,
+      tier,
       src: "wikidata" as const,
     };
   });
 }
 
-/* Search indexes the destinations that have actually loaded. */
-registerDestinationSearch(() => [...atlasRows, ...coreRows, ...moreRows]);
-registerDestinationPoints(() => [...atlasRows, ...coreRows, ...moreRows]);
+/* Discovery reads the same row store the map draws, so the two cannot drift. */
+registerDestinationPoints(allRows);

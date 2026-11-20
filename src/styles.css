@@ -986,7 +986,9 @@ button {
   /* Below the hint/credits row, so the two never collide. */
   top: 182px;
   right: 26px;
-  z-index: 12;
+  /* Above the card and the filter bar: the Discover panel is a fixed child of
+     this stack, so this is the layer the whole surface paints in. */
+  z-index: 16;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -1137,86 +1139,320 @@ button {
   color: rgba(240, 200, 120, 0.75);
 }
 
-.search-veil {
+/* ── discover ────────────────────────────────────────────── */
+/* One panel on the left: search, categories and the three lists a camera can
+   ask for. The map stays visible and interactive on the right. */
+.discover {
+  /* Fixed, not absolute: this sits inside `.map-tools`, and an absolute panel
+     would be positioned from the tools stack rather than the page. */
   position: fixed;
-  inset: 0;
-  z-index: 40;
+  left: 26px;
+  top: 128px;
+  bottom: calc(var(--filters-h, 56px) + 26px);
+  width: 378px;
+  z-index: 15;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 13vh;
-  background: rgba(2, 4, 8, 0.62);
-  backdrop-filter: blur(3px);
-}
-.search-box {
-  width: min(560px, 92vw);
-  background: #070b12;
+  flex-direction: column;
+  background: rgba(6, 10, 17, 0.9);
   border: 1px solid rgba(237, 239, 245, 0.14);
-  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.85);
+  animation: discover-in 0.18s ease both;
 }
-.search-box input {
-  width: 100%;
-  padding: 16px 18px;
-  font: inherit;
-  font-size: 15px;
-  color: #eef2f7;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid rgba(237, 239, 245, 0.1);
-  outline: none;
+@keyframes discover-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.search-box input::placeholder {
-  color: rgba(238, 242, 247, 0.35);
-}
-.search-results {
-  list-style: none;
-  margin: 0;
-  padding: 6px;
-  max-height: 44vh;
-  overflow-y: auto;
-}
-.search-results button {
-  width: 100%;
-  min-height: 48px;
+.discover-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 10px 12px;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  color: #dfe7f0;
-  cursor: pointer;
+  gap: 10px;
+  padding: 8px 8px 4px 16px;
 }
-.search-results button.is-active {
-  background: rgba(87, 240, 178, 0.1);
-}
-.search-name {
-  font-size: 14px;
-}
-.search-meta {
-  font-size: 8.5px;
-  letter-spacing: 0.16em;
+.discover-title {
+  font-size: 9px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(223, 231, 240, 0.45);
+  color: var(--mint);
+}
+.discover-scope {
+  margin-left: auto;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.4);
+}
+.discover-close {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 17px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.55);
+}
+.discover-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.discover-search {
+  padding: 0 12px 6px;
+}
+.discover-search input {
+  width: 100%;
+  padding: 12px 13px;
+  font: inherit;
+  font-size: 14px;
+  color: #eef2f7;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(237, 239, 245, 0.14);
+  border-radius: 9px;
+  outline: none;
+}
+.discover-search input:focus {
+  border-color: rgba(124, 224, 192, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+.discover-search input::placeholder {
+  color: rgba(238, 242, 247, 0.32);
+}
+.discover-cats {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px 10px;
+  border-bottom: 1px solid rgba(237, 239, 245, 0.09);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.discover-cats::-webkit-scrollbar {
+  display: none;
+}
+.discover-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 34px;
+  padding: 5px 10px;
+  border-radius: 100px;
+  border: 1px solid rgba(237, 239, 245, 0.13);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  color: rgba(237, 239, 245, 0.62);
   white-space: nowrap;
 }
-.search-empty {
-  padding: 12px;
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(223, 231, 240, 0.42);
+.discover-cat:hover {
+  border-color: rgba(237, 239, 245, 0.3);
+  color: #fff;
 }
-.search-foot {
-  margin: 0;
-  padding: 10px 14px;
-  border-top: 1px solid rgba(237, 239, 245, 0.08);
+.discover-cat.on {
+  background: rgba(124, 224, 192, 0.15);
+  border-color: rgba(124, 224, 192, 0.45);
+  color: #d8fff2;
+}
+.discover-cat img {
+  display: block;
+  opacity: 0.85;
+}
+.discover-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 6px 10px;
+}
+.discover-section {
+  margin-top: 6px;
+}
+.discover-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px 4px;
+}
+.discover-section-head h2 {
   font-size: 8.5px;
-  letter-spacing: 0.16em;
+  font-weight: 400;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(223, 231, 240, 0.32);
+  color: rgba(124, 224, 192, 0.85);
+}
+.discover-section-note {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.32);
+}
+.discover-list {
+  display: flex;
+  flex-direction: column;
+}
+.discover-row {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+.discover-row:hover,
+.discover-row.is-active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.discover-row-icon {
+  width: 20px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.discover-row-icon--area {
+  font-size: 13px;
+  color: var(--mint);
+}
+.discover-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.discover-row-name {
+  font-size: 13.5px;
+  line-height: 1.25;
+  color: #e8eef5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discover-row-meta {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discover-km {
+  color: rgba(124, 224, 192, 0.75);
+  letter-spacing: 0.04em;
+}
+.discover-empty {
+  padding: 12px 10px 16px;
+  font-size: 8.5px;
+  line-height: 1.7;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.38);
+}
+.discover-more {
+  padding: 8px 10px 4px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.32);
+}
+.discover-foot {
+  margin: 0;
+  padding: 9px 12px;
+  border-top: 1px solid rgba(237, 239, 245, 0.08);
+  font-size: 8px;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.3);
+}
+.discover-foot span {
+  display: block;
+  margin-top: 3px;
+  color: rgba(237, 239, 245, 0.22);
+}
+
+/* Related chips on the place card: same kind, close enough to visit. */
+.pick-related {
+  margin-top: 12px;
+}
+.pick-related-title {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.38);
+}
+.pick-related-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.pick-related-chip {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 100px;
+  border: 1px solid rgba(237, 239, 245, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 10.5px;
+  color: #dfe7f0;
+}
+.pick-related-chip:hover {
+  border-color: rgba(124, 224, 192, 0.45);
+  color: #d8fff2;
+}
+.pick-related-meta {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.42);
+}
+
+@media (max-width: 860px) {
+  .discover {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    top: 74px;
+    bottom: calc(var(--filters-h, 56px) + 12px + env(safe-area-inset-bottom));
+  }
+  .discover-cat {
+    min-height: 44px;
+  }
+  .pick-related-chip {
+    min-height: 44px;
+  }
+  /* The panel is the surface in use; the zoom group and the card step aside. */
+  .home:has(.discover) .globe .maplibregl-ctrl-bottom-left {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .discover {
+    top: 64px;
+  }
+}
+@media (max-height: 620px) {
+  .discover {
+    top: 56px;
+  }
+}
+
+.around-sub {
+  margin-top: 18px;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 
 /* A phone on its side has 390 px of height for the header, the tools, the list

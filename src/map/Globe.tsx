@@ -10,13 +10,15 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol } from "./dem";
-import { focusZoomFor, pitchForZoom, worldZoom } from "./camera";
+import { flyPadding, focusZoomFor, pitchForZoom, readCamera, worldZoom } from "./camera";
+import { shouldShowBootFailure } from "./bootGuard";
 import { createContours, type ContourHandle } from "./contours";
 import {
   DEST_LAYERS,
   addDestinations,
   loadDestinations,
   loadMoreDestinations,
+  resetDestinations,
   setAtlasPlaces,
   setDestinationCats,
 } from "./destinations";
@@ -78,6 +80,8 @@ interface Props {
   places: Place[];
   pick?: Pick | null;
   onPick?: (pick: Pick | null) => void;
+  /** The settled camera, for the Discover panel's nearby lists. */
+  onView?: (view: { lon: number; lat: number; zoom: number }) => void;
   focus?: GlobeFocus | null;
   layers?: LayerState;
 }
@@ -147,29 +151,11 @@ function applyTerrainTo(map: MlMap, layers: LayerState) {
   }
 }
 
-/** A camera in the URL: `?at=lat,lon,zoom`, 3/3/2 decimals. */
-function readCamera(): { center: [number, number]; zoom: number | null } {
-  const raw = new URLSearchParams(window.location.search).get("at");
-  if (raw) {
-    const [lat, lon, zoom] = raw.split(",").map(Number);
-    if (
-      [lat, lon, zoom].every(Number.isFinite) &&
-      Math.abs(lat) <= 85 &&
-      Math.abs(lon) <= 180
-    ) {
-      return {
-        center: [lon, lat],
-        zoom: Math.max(0.4, Math.min(16, zoom)),
-      };
-    }
-  }
-  return { center: [12, 22], zoom: null };
-}
-
 export default function Globe({
   places,
   pick,
   onPick,
+  onView,
   focus,
   layers = DEFAULT_LAYERS,
 }: Props) {
@@ -179,6 +165,7 @@ export default function Globe({
   layersRef.current = layers;
   const map = useRef<MlMap | null>(null);
   const pickRef = useRef(onPick);
+  const viewRef = useRef(onView);
   const booted = useRef(false);
   const dataRef = useRef(places);
   const [ready, setReady] = useState(false);
@@ -188,6 +175,7 @@ export default function Globe({
     new URLSearchParams(window.location.search).get("debug") === "1",
   );
   pickRef.current = onPick;
+  viewRef.current = onView;
   dataRef.current = places;
 
   /* ── init once ─────────────────────────────────────── */
@@ -220,6 +208,18 @@ export default function Globe({
       pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     map.current = map_;
+
+    /* The settled centre and zoom, rounded to ~1 km. Discover recomputes its
+       nearby lists from this, and a sub-kilometre camera jitter is not a new
+       question. */
+    const reportView = () => {
+      const c = map_.getCenter();
+      viewRef.current?.({
+        lon: Number(c.lng.toFixed(2)),
+        lat: Number(c.lat.toFixed(2)),
+        zoom: Number(map_.getZoom().toFixed(2)),
+      });
+    };
 
     /* Wheel and touch rates: the default wheel step was a half screen at a flick.
        Slower on the wheel, quicker on touch, so a trackpad and a phone feel like
@@ -366,7 +366,7 @@ export default function Globe({
 
       /* Two chunks, both after first paint: the famous half of the long tail and
          the practical cells. The atlas dots are already on screen. */
-      const loadCore = () => void loadDestinations(map_).then(() => refreshDuplicates(map_));
+      const loadCore = () => void loadDestinations().then(() => refreshDuplicates(map_));
       const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
       if (!idle) window.setTimeout(loadCore, 1600);
 
@@ -379,6 +379,7 @@ export default function Globe({
           performance.now(),
         );
       }
+      reportView();
       setReady(true);
     };
 
@@ -453,14 +454,36 @@ export default function Globe({
     map_.on("styledata", ensureRuntimeLayers);
     map_.on("moveend", () => {
       writeCamera();
+      reportView();
       if (map_.getZoom() >= 6.6) {
-        void loadMoreDestinations(map_).then(() => refreshDuplicates(map_));
+        void loadMoreDestinations().then(() => refreshDuplicates(map_));
       }
     });
 
-    const guard = window.setTimeout(() => {
-      if (!booted.current) setStalled(true);
-    }, 8000);
+    /* The guard is a diagnosis, not a stopwatch: a suspended/hidden tab does
+       not advance MapLibre's first frame, so elapsed time alone must not accuse
+       it. A visible tab with no style and no rendered tiles still gets the
+       message; a visible tab that becomes ready after a retry does not. */
+    let guardRetry = 0;
+    const checkBoot = () => {
+      if (
+        shouldShowBootFailure({
+          booted: booted.current,
+          styleLoaded: Boolean(map_.isStyleLoaded()),
+          loaded: Boolean(map_.loaded()),
+          hidden: document.visibilityState === "hidden",
+        })
+      ) {
+        setStalled(true);
+      }
+    };
+    const guard = window.setTimeout(checkBoot, 8000);
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      window.clearTimeout(guardRetry);
+      guardRetry = window.setTimeout(checkBoot, 1200);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     map_.on("error", (e) => {
       if (import.meta.env.DEV) console.error("[terrane] map error", e?.error);
@@ -480,8 +503,11 @@ export default function Globe({
       map_.off("styledata", ensureRuntimeLayers);
       resetTrails();
       resetMapped();
+      resetDestinations();
       window.clearTimeout(t);
       window.clearTimeout(guard);
+      window.clearTimeout(guardRetry);
+      document.removeEventListener("visibilitychange", onVisibility);
       contours.current?.destroy();
       contours.current = null;
       booted.current = false;
@@ -556,8 +582,9 @@ export default function Globe({
       pitch: pitchForZoom(zoom),
       duration: 850,
       essential: true,
-      padding:
-        window.innerWidth > 900 ? { right: 380, bottom: 40 } : { bottom: 300 },
+      /* The card is on the left, so the padding is on the left: reserving the
+         opposite side would centre the place exactly under the card. */
+      padding: flyPadding(window.innerWidth),
     });
   }, [pick, ready]);
 

@@ -28,6 +28,48 @@ export function pitchForZoom(zoom: number): number {
 }
 
 /**
+ * Space a selected place must clear.
+ *
+ * Above 860 px the card is a column on the left, so the camera centre moves right
+ * by booking that column as left padding. At and below 860 px the card is a
+ * bottom sheet, so the equivalent reservation is on the bottom. This is the same
+ * breakpoint as the card and Discover sheet in `styles.css`; a wider one left a
+ * 40 px band where the camera used the phone layout over a desktop card.
+ */
+export function flyPadding(width: number): { left: number; bottom: number } {
+  return width > 860 ? { left: 440, bottom: 40 } : { left: 0, bottom: 300 };
+}
+
+/**
+ * A camera in the URL: `?at=lat,lon,zoom`.
+ *
+ * Read here rather than in `Globe.tsx` so the Discover panel can start on the
+ * same centre before the map chunk has arrived. Values outside the Web Mercator
+ * envelope are video-game coordinates, not places, so they fall back to the
+ * world view.
+ */
+export function readCamera(search = window.location.search): {
+  center: [number, number];
+  zoom: number | null;
+} {
+  const raw = new URLSearchParams(search).get("at");
+  if (raw) {
+    const [lat, lon, zoom] = raw.split(",").map(Number);
+    if (
+      [lat, lon, zoom].every(Number.isFinite) &&
+      Math.abs(lat) <= 85 &&
+      Math.abs(lon) <= 180
+    ) {
+      return {
+        center: [lon, lat],
+        zoom: Math.max(0.4, Math.min(16, zoom)),
+      };
+    }
+  }
+  return { center: [12, 22], zoom: null };
+}
+
+/**
  * How close a click should fly for a category.
  *
  * One zoom for every destination meant a national park, a mountain range and a

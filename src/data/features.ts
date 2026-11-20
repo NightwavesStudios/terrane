@@ -1,7 +1,7 @@
 import categoriesFile from "./categories.json";
 import bandsFile from "./bands.json";
 import sourcesFile from "./sources.json";
-import { PLACES, type Place } from "./places";
+import type { Place } from "./places";
 
 const BANDS = (bandsFile as unknown as { bands: { dot: number; label: number }[] }).bands;
 
@@ -70,6 +70,11 @@ export interface FeatureRow {
   hue?: number;
   /** Region or country, for a card eyebrow. */
   where?: string;
+  /** Structured location, when the source recorded it. */
+  region?: string;
+  country?: string;
+  /** Fame cohort from the reach harvest: 1 famous … 4 local. Atlas rows are 0. */
+  tier?: number;
   src?: string;
   srcId?: string;
   url?: string;
@@ -90,6 +95,8 @@ export interface Pick {
   elev?: number;
   hue?: number;
   where?: string;
+  region?: string;
+  country?: string;
   src?: string;
   srcId?: string;
   url?: string;
@@ -115,6 +122,8 @@ export function pickOf(
     elev: typeof props.elev === "number" ? props.elev : undefined,
     hue: typeof props.hue === "number" ? props.hue : undefined,
     where: typeof props.where === "string" ? props.where : undefined,
+    region: typeof props.region === "string" ? props.region : undefined,
+    country: typeof props.country === "string" ? props.country : undefined,
     src: typeof props.src === "string" ? props.src : undefined,
     srcId: typeof props.srcid === "string" ? props.srcid : undefined,
     url: typeof props.url === "string" ? props.url : undefined,
@@ -136,6 +145,8 @@ export function pickOfRow(row: FeatureRow): Pick {
     elev: row.elev,
     hue: row.hue,
     where: row.where,
+    region: row.region,
+    country: row.country,
     src: row.src,
     srcId: row.srcId,
     url: row.url,
@@ -148,7 +159,7 @@ export function pickOfRow(row: FeatureRow): Pick {
 /** A place from the atlas as the one card's input shape. */
 export function pickOfPlace(p: Place): Pick {
   return {
-    cat: PLACE_CAT[p.type] ?? "landmark",
+    cat: destinationCategory(p),
     name: p.name,
     lat: p.lat,
     lon: p.lon,
@@ -156,6 +167,8 @@ export function pickOfPlace(p: Place): Pick {
     elev: p.elevation,
     hue: p.hue,
     where: p.region ?? p.country,
+    region: p.region,
+    country: p.country,
     src: p.editorial ? "editorial" : "atlas",
     srcId: p.wd ?? p.slug,
   };
@@ -169,6 +182,49 @@ const PLACE_CAT: Record<string, string> = {
 };
 
 /**
+ * The specific category behind an atlas row.
+ *
+ * Atlas rows carry four types, not thirty: every waterfall, cave and glacier is
+ * typed `landmark`. That made a category filter for waterfalls skip the 47
+ * atlas falls and label them all "Landmark". The name is the evidence the row
+ * already carries, so a row whose name ends in a feature word joins that
+ * category. Deliberately conservative: only a trailing feature word counts, so
+ * "Falls Creek" does not become a waterfall, and `type` is never rewritten.
+ */
+const NAME_CATEGORY: [RegExp, string][] = [
+  [/(?:^|\s)(?:water)?falls?$/i, "waterfall"],
+  /* The same feature in the languages the atlas actually carries: Icelandic
+     "foss" and "jökull" are why half of Iceland was filed as a landmark. */
+  [/foss$/i, "waterfall"],
+  [/cascades?$/i, "waterfall"],
+  [/wasserfall$/i, "waterfall"],
+  [/(?:^|\s)glaciers?$/i, "glacier"],
+  [/j(?:ö|o)kull$/i, "glacier"],
+  [/(?:^|\s)caves?$/i, "cave"],
+  [/(?:^|\s)volcan(?:o|oes)$/i, "volcano"],
+  [/(?:^|\s)islands?$/i, "island"],
+  [/(?:^|\s)canyons?$/i, "canyon"],
+  [/(?:^|\s)deserts?$/i, "desert"],
+  [/(?:^|\s)beach(?:es)?$/i, "beach"],
+  [/(?:^|\s)valleys?$/i, "valley"],
+  [/(?:^|\s)(?:ranges?|mountains?)$/i, "range"],
+  [/(?:^|\s)lakes?$/i, "lake"],
+  [/(?:^|\s)springs?$/i, "spring"],
+  [/(?:^|\s)parks?$/i, "park"],
+  [/(?:^|\s)(?:mountains?|peaks?|mount)$/i, "peak"],
+];
+
+export function destinationCategory(place: Place): string {
+  if (place.type === "peak") return "peak";
+  if (place.type === "park") return "park";
+  const name = place.name.trim().replace(/[.!?]+$/, "");
+  for (const [pattern, cat] of NAME_CATEGORY) {
+    if (pattern.test(name)) return cat;
+  }
+  return PLACE_CAT[place.type] ?? "landmark";
+}
+
+/**
  * Atlas rows as features. Rank decides the band, not the file it came from: the
  * world band arrives at the planet view, the regional bands as you close in.
  */
@@ -176,7 +232,7 @@ export function placesToRows(places: Place[]): FeatureRow[] {
   return places.map((p) => {
     const band = BANDS[Math.max(0, Math.min(BANDS.length - 1, p.band ?? 2))];
     return {
-      cat: PLACE_CAT[p.type] ?? "landmark",
+      cat: destinationCategory(p),
       name: p.name,
       lat: p.lat,
       lon: p.lon,
@@ -186,6 +242,8 @@ export function placesToRows(places: Place[]): FeatureRow[] {
       elev: p.elevation,
       hue: p.hue,
       where: p.region ?? p.country,
+      region: p.region,
+      country: p.country,
       src: p.editorial ? "editorial" : "atlas",
       srcId: p.wd ?? p.slug,
       url: p.editorial ? undefined : `https://www.wikidata.org/wiki/${p.wd ?? ""}`,
@@ -250,18 +308,13 @@ export const PRACTICAL_ICON = [
   "camp-tent",
 ] as unknown as import("maplibre-gl").ExpressionSpecification;
 
-/* ── search across every category ─────────────────────────────────────────
+/* ── row registries ───────────────────────────────────────────────────────
    The atlas is in the bundle; the Wikidata long tail and the OSM cells arrive
-   as the map loads, so they register the rows worth searching here. A pin that
-   has not been fetched cannot be found, and the empty state says so. */
+   as the map loads. `lib/catalog.ts` reads both to build the one discovery
+   index, so the rows the map already holds are the rows search can see. */
 
-let destinationRows: () => FeatureRow[] = () => [];
 let mappedRows: () => FeatureRow[] = () => [];
 let destinationPoints: () => FeatureRow[] = () => [];
-
-export function registerDestinationSearch(fn: () => FeatureRow[]): void {
-  destinationRows = fn;
-}
 
 export function registerMappedSearch(fn: () => FeatureRow[]): void {
   mappedRows = fn;
@@ -276,54 +329,7 @@ export function getDestinationRows(): FeatureRow[] {
   return destinationPoints();
 }
 
-function score(name: string, term: string): number {
-  const n = name.toLowerCase();
-  if (n === term) return 0;
-  if (n.startsWith(term)) return 1;
-  if (n.includes(term)) return 2;
-  return 9;
-}
-
-export function searchAll(term: string, limit = 8): Pick[] {
-  const q = term.trim().toLowerCase();
-  if (q.length < 2) return [];
-
-  const out: { row: FeatureRow; s: number; order: number }[] = [];
-  for (const p of PLACES) {
-    // A merged place answers to every name that used to be its own row.
-    let s = score(p.name, q);
-    for (const alias of p.also ?? []) {
-      if (alias.name) s = Math.min(s, score(alias.name, q));
-    }
-    if (s === 9) continue;
-    out.push({
-      row: {
-        cat: PLACE_CAT[p.type] ?? "landmark",
-        name: p.name,
-        lat: p.lat,
-        lon: p.lon,
-        slug: p.slug,
-        elev: p.elevation,
-        hue: p.hue,
-        src: p.editorial ? "editorial" : "atlas",
-      },
-      s,
-      order: 0,
-    });
-  }
-  for (const row of destinationRows()) {
-    if (!row.name) continue;
-    const s = score(row.name, q);
-    if (s === 9) continue;
-    out.push({ row, s, order: row.slug ? 1 : 2 });
-  }
-  for (const row of mappedRows()) {
-    if (!row.name) continue;
-    const s = score(row.name, q);
-    if (s === 9) continue;
-    out.push({ row, s, order: 3 });
-  }
-
-  out.sort((a, b) => a.s - b.s || a.order - b.order || (a.row.name ?? "").localeCompare(b.row.name ?? ""));
-  return out.slice(0, limit).map((r) => pickOfRow(r.row));
+/** Named practical pins indexed from the map cells that have arrived. */
+export function getMappedRows(): FeatureRow[] {
+  return mappedRows();
 }

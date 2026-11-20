@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pitchForZoom, worldZoom } from "./camera";
+import { flyPadding, pitchForZoom, worldZoom } from "./camera";
 
 describe("worldZoom", () => {
   it("keeps the opening globe inside the card", () => {
@@ -9,6 +9,19 @@ describe("worldZoom", () => {
 
   it("fits a phone by width", () => {
     expect(worldZoom(390, 844)).toBeLessThan(worldZoom(1280, 800));
+  });
+});
+
+describe("flyPadding", () => {
+  it("reserves the card column on desktop", () => {
+    expect(flyPadding(1281)).toEqual({ left: 440, bottom: 40 });
+    expect(flyPadding(861)).toEqual({ left: 440, bottom: 40 });
+  });
+
+  it("reserves the bottom sheet band on phones, including the breakpoint", () => {
+    expect(flyPadding(860)).toEqual({ left: 0, bottom: 300 });
+    expect(flyPadding(603)).toEqual({ left: 0, bottom: 300 });
+    expect(flyPadding(390)).toEqual({ left: 0, bottom: 300 });
   });
 });
 

@@ -1,8 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { worldZoom } from "../map/camera";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { readCamera, worldZoom } from "../map/camera";
 import type { GlobeFocus } from "../map/Globe";
 import { rankPlaces } from "../data/rank";
 import { pickOfPlace, type Pick } from "../data/features";
+import { ATLAS_CATALOG_ROWS } from "../lib/catalog";
+import { relatedRows } from "../lib/discover";
 
 const Globe = lazy(() => import("../map/Globe"));
 import Header from "../components/Header";
@@ -12,7 +14,7 @@ import LayerControl, {
   DEFAULT_LAYERS,
   type LayerState,
 } from "../components/LayerControl";
-import MapSearch from "../components/MapSearch";
+import Discover from "../components/Discover";
 import FeatureCard from "../components/FeatureCard";
 import { PLACES, bySlug } from "../data/places";
 import { kmBetween } from "../lib/geo";
@@ -21,6 +23,8 @@ import { useHome } from "../lib/locate";
 import { dataDate, useCoverage, useManifest } from "../lib/live";
 
 const WORLD = { lon: 12, lat: 22 };
+
+type View = { lon: number; lat: number; zoom: number };
 
 export default function Home() {
   const [filter, setFilter] = useState<Filter>("all");
@@ -32,6 +36,18 @@ export default function Home() {
   });
   const [focus, setFocus] = useState<GlobeFocus | null>(null);
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
+  /* The settled camera. Discover's nearby lists follow it, but it is only read
+     while the panel is open, so panning never recomputes a closed panel. */
+  const [view, setView] = useState<View>(() => {
+    const camera = readCamera();
+    return {
+      lon: camera.center[0],
+      lat: camera.center[1],
+      zoom: camera.zoom ?? worldZoom(window.innerWidth, window.innerHeight),
+    };
+  });
+  const viewRef = useRef(view);
+  const discoverOpen = useRef(false);
 
   const home = useHome();
   const manifest = useManifest();
@@ -71,6 +87,34 @@ export default function Home() {
       ? kmBetween(pick.lat, pick.lon, nearPlace.lat, nearPlace.lon)
       : null;
 
+  /* Same-kind near neighbours from the bundled atlas: instant, no extra chunk
+     on a map click. Tail relationships live in Discover, where the tail is
+     already loaded. */
+  const related = useMemo(
+    () =>
+      pick
+        ? relatedRows(pick, ATLAS_CATALOG_ROWS, 3).map((item) => item.row.pick)
+        : [],
+    [pick],
+  );
+
+  const onView = useCallback((next: View) => {
+    viewRef.current = next;
+    if (discoverOpen.current) setView(next);
+  }, []);
+
+  const onDiscoverOpenChange = useCallback((open: boolean) => {
+    discoverOpen.current = open;
+    if (open) setView(viewRef.current);
+  }, []);
+
+  const goToArea = useCallback((area: { lon: number; lat: number; zoom: number }) => {
+    setPick(null);
+    setFocus({ ...area, key: Date.now() });
+  }, []);
+
+  const closePick = useCallback(() => setPick(null), []);
+
   /* The filter bar grows and shrinks with the viewport (chips wrap on a narrow
      phone, the scope chip carries a place name), and every other piece of chrome
      has to sit above it. Instead of hard-coding a height per breakpoint, the bar
@@ -81,12 +125,10 @@ export default function Home() {
     const root = document.documentElement.style;
     const measure = () => {
       const bar = document.querySelector(".globe-filters");
-      const toggle = document.querySelector(".layers-toggle");
       if (!bar) return;
       const barBox = bar.getBoundingClientRect();
       const filters = `${Math.round(barBox.height)}px`;
       if (root.getPropertyValue("--filters-h") !== filters) root.setProperty("--filters-h", filters);
-      void toggle;
     };
     measure();
     /* Chips arrive with the scope and the bar re-wraps as they do, so watch it
@@ -141,6 +183,7 @@ export default function Home() {
           places={places}
           pick={pick}
           onPick={setPick}
+          onView={onView}
           focus={focus}
           layers={layers}
         />
@@ -150,8 +193,15 @@ export default function Home() {
       <Header tone="dark" />
 
       <div className="map-tools">
-        <MapSearch onPick={setPick} onOpen={() => setPick(null)} />
-        <LayerControl value={layers} onChange={setLayers} onOpen={() => setPick(null)} />
+        <Discover
+          view={view}
+          pick={pick}
+          onSelect={setPick}
+          onArea={goToArea}
+          onOpen={closePick}
+          onOpenChange={onDiscoverOpenChange}
+        />
+        <LayerControl value={layers} onChange={setLayers} onOpen={closePick} />
       </div>
 
       {/* One map, one count. Every point is a category; nothing here separates
@@ -182,7 +232,9 @@ export default function Home() {
           pick={pick}
           nearPlace={nearPlace}
           nearKm={nearKm}
-          onClose={() => setPick(null)}
+          related={related}
+          onRelated={setPick}
+          onClose={closePick}
           onOpenPlace={(slug) => navigate(`/place/${slug}`)}
         />
       )}

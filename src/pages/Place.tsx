@@ -2,13 +2,25 @@ import { useEffect } from "react";
 import Header from "../components/Header";
 import RidgeArt from "../components/RidgeArt";
 import { TYPE_LABEL, aroundPlace, bySlug } from "../data/places";
-import { SOURCE_LABEL } from "../data/features";
+import { category, SOURCE_LABEL } from "../data/features";
 import TRAIL_LINKS from "../data/trail-links.json";
+import { startCatalog, useCatalog, type CatalogRow } from "../lib/catalog";
+import { relatedPlaces } from "../lib/discover";
+import { coordinates, formatKm, placeLine } from "../lib/present";
+import { focusZoomFor } from "../map/camera";
 import { setMeta } from "../lib/meta";
 import { navigate } from "../lib/router";
 
 export default function Place({ slug }: { slug: string }) {
   const place = bySlug.get(slug);
+  const catalog = useCatalog();
+
+  /* The relationships come from the same lazy catalog Discover uses, so the
+     page gains the long tail after the first paint instead of being frozen to
+     the atlas's nearest six rows. */
+  useEffect(() => {
+    startCatalog();
+  }, []);
 
   useEffect(() => {
     if (!place) {
@@ -20,7 +32,7 @@ export default function Place({ slug }: { slug: string }) {
       return;
     }
     const kind = TYPE_LABEL[place.type].toLowerCase();
-    const where = place.region ? `${place.region}, ${place.country}` : place.country;
+    const where = placeLine(place.region, place.country);
     const height = place.elevation ? `, ${place.elevation.toLocaleString()} m high` : "";
     setMeta({
       title: `${place.name} — Terrane`,
@@ -46,8 +58,40 @@ export default function Place({ slug }: { slug: string }) {
   }
 
   const around = aroundPlace(place);
+  const base = catalog.rows.find((row) => row.pick.slug === place.slug);
+  const relations = base ? relatedPlaces(base, catalog.rows, 6) : null;
+  const seen = new Set<string>();
+  const unique = (items: { row: CatalogRow; km: number }[] = []) =>
+    items.filter(({ row }) => {
+      if (seen.has(row.key)) return false;
+      seen.add(row.key);
+      return true;
+    });
+  const nearby = unique(relations?.nearby);
+  const sameKind = unique(relations?.sameKind);
+  const sameArea = unique(relations?.sameArea);
+  const lesser = unique(relations?.lesser);
   const trails = (TRAIL_LINKS as { items: Record<string, { name: string; km: number; src: string; difficulty: string }[]> })
     .items[place.slug] ?? [];
+
+  const openRow = (row: CatalogRow) => {
+    if (row.pick.slug) navigate(`/place/${row.pick.slug}`);
+    else navigate(`/?at=${row.lat.toFixed(3)},${row.lon.toFixed(3)},${focusZoomFor(row.cat)}`);
+  };
+  const relationList = (items: { row: CatalogRow; km: number }[]) => (
+    <ol className="around-list">
+      {items.map(({ row, km }) => (
+        <li key={row.key}>
+          <button className="around-row" onClick={() => openRow(row)}>
+            <span className="around-name">{row.name}</span>
+            <span className="around-type mono">{category(row.cat).one}</span>
+            <span className="around-km mono">{formatKm(km)}</span>
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+  const kindLabel = base ? category(base.cat).label.toLowerCase() : "";
 
   return (
     <div className="page">
@@ -63,7 +107,9 @@ export default function Place({ slug }: { slug: string }) {
           <div className="place-hero-text">
             <p className="eyebrow">
               {TYPE_LABEL[place.type]}
-              {place.region ? ` · ${place.region}` : ""} · {place.country}
+              {placeLine(place.region, place.country)
+                ? ` · ${placeLine(place.region, place.country)}`
+                : ""}
             </p>
             <h1 className="place-title">{place.name}</h1>
             {place.elevation ? (
@@ -92,8 +138,7 @@ export default function Place({ slug }: { slug: string }) {
               <div className="stat">
                 <span className="mono k">Coordinates</span>
                 <span className="v coord-v">
-                  {Math.abs(place.lat).toFixed(2)}°{place.lat >= 0 ? "N" : "S"}{" "}
-                  {Math.abs(place.lon).toFixed(2)}°{place.lon >= 0 ? "E" : "W"}
+                  {coordinates(place.lat, place.lon)}
                 </span>
               </div>
             </div>
@@ -102,7 +147,7 @@ export default function Place({ slug }: { slug: string }) {
               <div className="around-head">
                 <h2>Around it</h2>
                 <span className="mono around-note">
-                  {around.nearest.length > 0
+                  {nearby.length > 0
                     ? `within ${around.radiusKm} km`
                     : `nothing within ${around.radiusKm} km`}
                 </span>
@@ -119,26 +164,43 @@ export default function Place({ slug }: { slug: string }) {
                 </ul>
               )}
 
-              {around.nearest.length > 0 && (
-                <ol className="around-list">
-                  {around.nearest.map(({ place: p, km }) => (
-                    <li key={p.slug}>
-                      <button
-                        className="around-row"
-                        onClick={() => navigate(`/place/${p.slug}`)}
-                      >
-                        <span className="around-name">{p.name}</span>
-                        <span className="around-type mono">{TYPE_LABEL[p.type]}</span>
-                        <span className="around-km mono">
-                          {km < 10 ? km.toFixed(1) : Math.round(km)} km
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
+              {nearby.length > 0 && (
+                <>
+                  <p className="mono around-sub">Closest destinations</p>
+                  {relationList(nearby)}
+                </>
               )}
-
             </section>
+
+            {sameKind.length > 0 ? (
+              <section className="around">
+                <div className="around-head">
+                  <h2>More {kindLabel} nearby</h2>
+                  <span className="mono around-note">within 300 km</span>
+                </div>
+                {relationList(sameKind)}
+              </section>
+            ) : null}
+
+            {lesser.length > 0 ? (
+              <section className="around">
+                <div className="around-head">
+                  <h2>Lesser known nearby</h2>
+                  <span className="mono around-note">tier 3–4 · within 50 km</span>
+                </div>
+                {relationList(lesser)}
+              </section>
+            ) : null}
+
+            {relations?.areaLabel && sameArea.length > 0 ? (
+              <section className="around">
+                <div className="around-head">
+                  <h2>Elsewhere in {relations.areaLabel}</h2>
+                  <span className="mono around-note">nearest first</span>
+                </div>
+                {relationList(sameArea)}
+              </section>
+            ) : null}
 
             {trails.length > 0 ? (
               <section className="around trails-here">
@@ -156,7 +218,7 @@ export default function Place({ slug }: { slug: string }) {
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
-                        <span className="around-km mono">{trail.km.toFixed(1)} km</span>
+                        <span className="around-km mono">{formatKm(trail.km)}</span>
                       </div>
                     </li>
                   ))}
