@@ -75,43 +75,90 @@ export function readCamera(search = window.location.search): {
  * One zoom for every destination meant a national park, a mountain range and a
  * single summit all landed at 14.2: a park filled the screen with one trailhead
  * and a range was never visible. A park is a place you look at from 9.6, a lake
- * from 11.5, a summit from 13.4; a tent from 14.6. The globe keeps whichever
- * zoom the reader already chose if they are closer than this.
+ * from 11.5, a summit from 13.4; a tent from 14.6.
  */
-export function focusZoomFor(cat: string): number {
-  switch (cat) {
-    case "park":
-    case "reserve":
-    case "range":
-    case "desert":
-    case "island":
-    case "beach":
-      return 9.6;
-    case "lake":
-    case "glacier":
-    case "valley":
-    case "canyon":
-      return 11.5;
-    case "peak":
-    case "volcano":
-    case "waterfall":
-    case "cave":
-    case "spring":
-      return 13.4;
-    case "camp":
-    case "hut":
-    case "caravan":
-      return 14.6;
-    case "shelter":
-    case "pass":
-    case "trailhead":
-    case "view":
-      return 14.2;
-    case "parking":
-      return 15.4;
-    case "trail":
-      return 12.5;
-    default:
-      return 13.2;
-  }
+const FOCUS_ZOOM: Record<string, number> = {
+  park: 9.6,
+  reserve: 9.6,
+  range: 9.6,
+  desert: 9.6,
+  island: 9.6,
+  beach: 9.6,
+  lake: 11.5,
+  glacier: 11.5,
+  valley: 11.5,
+  canyon: 11.5,
+  peak: 13.4,
+  volcano: 13.4,
+  waterfall: 13.4,
+  cave: 13.4,
+  spring: 13.4,
+  camp: 14.6,
+  hut: 14.6,
+  caravan: 14.6,
+  shelter: 14.2,
+  pass: 14.2,
+  trailhead: 14.2,
+  view: 14.2,
+  parking: 15.4,
+  trail: 12.5,
+};
+
+/**
+ * Elevation widens the frame.
+ *
+ * The camera sits 55° over the ground and the terrain is drawn at 1.4×, so a
+ * 4,200 m summit framed at a shoulder's zoom is a wall of its own south face
+ * instead of a peak: the thing being looked at ends up above the top of the
+ * screen and the surrounding valleys never appear. Standing back by about one
+ * zoom level at continental high points keeps the summit and its neighbours in
+ * frame. A 1,200 m ridge is framed exactly as before.
+ */
+export function focusZoomFor(cat: string, elev?: number | null): number {
+  const base = FOCUS_ZOOM[cat] ?? 13.2;
+  if (!elev || elev < 1200) return base;
+  const tall = Math.min(1, (elev - 1200) / 3000);
+  return base - tall * 1.2;
+}
+
+/**
+ * Zoom that fits a ground radius across the viewport.
+ *
+ * A chip keeping the places within 120 km of a visitor cannot fly to a view a
+ * thousand kilometres wide: the list and the camera would be describing
+ * different areas. The radius is a radius, so the frame is its diameter across
+ * the shorter side of the screen.
+ */
+export function radiusZoom(
+  radiusKm: number,
+  lat: number,
+  width: number,
+  height: number,
+): number {
+  const metres = radiusKm * 2000;
+  const px = Math.max(240, Math.min(width, height) * 0.9);
+  /* 156,543 m per pixel at z0 on the equator, narrowed by latitude. */
+  const atZoomZero = 156543 * Math.max(0.15, Math.cos((lat * Math.PI) / 180));
+  return Math.max(3, Math.min(11, Math.log2(atZoomZero / (metres / px))));
+}
+
+/**
+ * The zoom a picked place should land on.
+ *
+ * The frame comes from the category and the elevation, never from the zoom the
+ * reader happened to be at. `Math.max(current, frame)` looked reasonable and was
+ * the reason a click on a park from street level stayed at 16 and showed one
+ * trailhead, while a click on a summit from the planet view jumped eleven levels
+ * in one move. The one case where the reader's zoom is the answer is the place
+ * already under the camera: within 3 km and at least as close as the frame.
+ */
+export function pickZoom(
+  cat: string,
+  elev: number | null | undefined,
+  current: number,
+  km: number,
+): number {
+  const frame = focusZoomFor(cat, elev);
+  if (km <= 3 && current >= frame) return current;
+  return frame;
 }

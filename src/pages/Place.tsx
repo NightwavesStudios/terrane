@@ -173,7 +173,7 @@ export default function Place({ slug }: { slug: string }) {
     if (row.pick.slug) navigate(`/place/${row.pick.slug}`);
     else {
       navigate(
-        `/?at=${row.lat.toFixed(3)},${row.lon.toFixed(3)},${focusZoomFor(row.cat)}`,
+        `/?at=${row.lat.toFixed(3)},${row.lon.toFixed(3)},${focusZoomFor(row.cat, row.pick.elev)}`,
       );
     }
   };

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { readCamera, worldZoom } from "../map/camera";
+import { radiusZoom, readCamera, worldZoom } from "../map/camera";
 import type { GlobeFocus } from "../map/Globe";
 import { rankPlaces } from "../data/rank";
 import { pickOfPlace, type Pick } from "../data/features";
@@ -168,7 +168,13 @@ export default function Home() {
     setFilter(next);
     setPick(null);
     if (next === "home" && home) {
-      setFocus({ lon: home.lon, lat: home.lat, zoom: 5.6, key: Date.now() });
+      /* A radius scope is framed to its own radius, or the list would keep 120 km
+         of places while the camera showed a continent. A scope named after a
+         country keeps the regional view it always used. */
+      const zoom = scope?.radiusKm
+        ? radiusZoom(scope.radiusKm, home.lat, window.innerWidth, window.innerHeight)
+        : 5.6;
+      setFocus({ lon: home.lon, lat: home.lat, zoom, key: Date.now() });
       return;
     }
     setFocus({

@@ -18,14 +18,31 @@ describe("homeScope", () => {
     expect(homeScope(null)).toBeNull();
   });
 
-  it("falls back to the country when the atlas has no region rows", () => {
+  it("labels the chip with the region and keeps the places around it", () => {
+    /* The atlas has no region rows, so "California" matches no name. The IP
+       answer carries coordinates too, so the chip is a local scope around them
+       rather than a country-wide one. */
     const scope = homeScope({
       lat: 37,
       lon: -119,
       region: "California",
       country: "United States",
     });
+    expect(scope?.label).toBe("California");
+    expect(scope?.radiusKm).toBe(120);
+    expect(scope?.test(place({ lat: 37.1, lon: -119.1 }))).toBe(true);
+    expect(scope?.test(place({ lat: 51.5, lon: -0.1 }))).toBe(false);
+  });
+
+  it("falls back to the country when nothing is near the region", () => {
+    const scope = homeScope({
+      lat: 0,
+      lon: 0,
+      region: "California",
+      country: "United States",
+    });
     expect(scope?.label).toBe("United States");
+    expect(scope?.radiusKm).toBeUndefined();
     expect(scope?.test(place({ country: "United States" }))).toBe(true);
     expect(scope?.test(place({ country: "Canada" }))).toBe(false);
   });

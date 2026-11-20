@@ -3,14 +3,16 @@ import { Map as MlMap, NavigationControl, ScaleControl } from "maplibre-gl";
 import type {
   GeoJSONSource,
   HillshadeLayerSpecification,
+  IControl,
   LayerSpecification,
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { createStyle } from "./style";
+import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol } from "./dem";
-import { flyPadding, focusZoomFor, pitchForZoom, readCamera, worldZoom } from "./camera";
+import { flyPadding, pickZoom, pitchForZoom, readCamera, worldZoom } from "./camera";
+import { kmBetween } from "../lib/geo";
 import { shouldShowBootFailure } from "./bootGuard";
 import { createContours, type ContourHandle } from "./contours";
 import {
@@ -76,6 +78,59 @@ export interface GlobeFocus {
   key: number;
 }
 
+/** Where the globe opens, and where the reset button returns it. */
+const WORLD: [number, number] = [12, 22];
+
+/**
+ * The way back.
+ *
+ * A pitched camera over 3D terrain can be left off-centre by a fast wheel
+ * gesture: the centre is still a real coordinate, but it is no longer where the
+ * reader is looking, and nothing on the map undoes that. One button puts the
+ * globe back where it opened — level, at world zoom — instead of asking someone
+ * to fight the camera until it behaves.
+ */
+class ResetControl implements IControl {
+  private map: MlMap | null = null;
+
+  private onClick = () => {
+    const map = this.map;
+    if (!map) return;
+    const canvas = map.getCanvas();
+    map.easeTo({
+      center: WORLD,
+      zoom: worldZoom(
+        canvas.clientWidth || window.innerWidth,
+        canvas.clientHeight || window.innerHeight,
+      ),
+      bearing: 0,
+      pitch: 0,
+      duration: 900,
+      essential: true,
+      padding: { left: 0, top: 0, right: 0, bottom: 0 },
+    });
+  };
+
+  onAdd(map: MlMap) {
+    this.map = map;
+    const group = document.createElement("div");
+    group.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "map-reset";
+    button.title = "Reset the view";
+    button.setAttribute("aria-label", "Reset the view");
+    button.textContent = "↺";
+    button.addEventListener("click", this.onClick);
+    group.appendChild(button);
+    return group;
+  }
+
+  onRemove() {
+    this.map = null;
+  }
+}
+
 interface Props {
   places: Place[];
   pick?: Pick | null;
@@ -98,7 +153,7 @@ const LAYER_GROUPS: Record<string, string[]> = {
   parks: ["park-area", "park-outline"],
   borders: ["boundary-country", "boundary-state", "boundary-disputed"],
   labels: [
-    "label-country",
+    FIRST_SYMBOL_LAYER,
     "label-state",
     "label-city",
     "label-village",
@@ -231,6 +286,7 @@ export default function Globe({
       new NavigationControl({ showCompass: true, showZoom: true, visualizePitch: false }),
       "bottom-left",
     );
+    map_.addControl(new ResetControl(), "bottom-left");
     map_.addControl(new ScaleControl({ maxWidth: 90, unit: "metric" }), "bottom-left");
 
     /* Keyboard pan and zoom need a focusable canvas. */
@@ -252,7 +308,7 @@ export default function Globe({
             source: "relief",
             paint: HILLSHADE_MULTI,
           },
-          map_.getLayer("water") ? "water" : "label-country",
+          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
         );
         if (!map_.getLayer("relief-snow")) {
           map_.addLayer(
@@ -401,19 +457,49 @@ export default function Globe({
       )[0];
     };
 
+    /* The pick's coordinate belongs to the feature, not to the finger: the query
+       is a 10 px box, so a click beside a dot lands kilometres away at world
+       zoom, and the card, the ring and "near X" all read that coordinate. A line
+       has no single coordinate, so it takes the vertex nearest the click — the
+       midpoint used to send a 40 km trail's camera twenty kilometres away. */
+    const nearestVertex = (coords: [number, number][], lon: number, lat: number) => {
+      let best = coords[0];
+      let bestKm = Infinity;
+      for (const coord of coords) {
+        const km = kmBetween(lat, lon, coord[1], coord[0]);
+        if (km < bestKm) {
+          bestKm = km;
+          best = coord;
+        }
+      }
+      return best;
+    };
+
+    const pickCoords = (
+      hit: MapGeoJSONFeature,
+      lon: number,
+      lat: number,
+    ): [number, number] => {
+      const geom = hit.geometry as unknown as {
+        type: string;
+        coordinates: [number, number] | [number, number][] | [number, number][][];
+      };
+      if (geom.type === "Point") return geom.coordinates as [number, number];
+      if (geom.type === "LineString") {
+        const coords = geom.coordinates as [number, number][];
+        return coords.length ? nearestVertex(coords, lon, lat) : [lon, lat];
+      }
+      if (geom.type === "MultiLineString") {
+        const coords = (geom.coordinates as [number, number][][]).flat();
+        return coords.length ? nearestVertex(coords, lon, lat) : [lon, lat];
+      }
+      return [lon, lat];
+    };
+
     map_.on("click", (e) => {
       const hit = pickAt(e.point.x, e.point.y);
       if (!hit) return;
-      const geom = hit.geometry as unknown as {
-        type: string;
-        coordinates: [number, number] | [number, number][];
-      };
-      const [lon, lat] =
-        geom.type === "LineString"
-          ? (geom.coordinates as [number, number][])[
-              Math.floor((geom.coordinates as [number, number][]).length / 2)
-            ]
-          : (geom.coordinates as [number, number]);
+      const [lon, lat] = pickCoords(hit, e.lngLat.lng, e.lngLat.lat);
       pickRef.current?.(pickOf(hit.properties as Record<string, unknown>, lon, lat));
     });
 
@@ -570,9 +656,13 @@ export default function Globe({
     );
 
     if (!pick) return;
-    /* A park is a place you look at from 9.6, a tent from 14.6. If the reader is
-       already closer than the category's frame, keep their zoom. */
-    const zoom = Math.max(map_.getZoom(), focusZoomFor(pick.cat));
+    /* A park is a place you look at from 9.6, a tent from 14.6, and a 4,000 m
+       summit from a step further back than its category alone implies. The
+       reader's own zoom is kept only when the place is already under the camera
+       at least that close — see `pickZoom`. */
+    const centre = map_.getCenter();
+    const km = kmBetween(centre.lat, centre.lng, pick.lat, pick.lon);
+    const zoom = pickZoom(pick.cat, pick.elev, map_.getZoom(), km);
     /* A bounded move. `flyTo` scales its duration with distance and zoom, so a
        click from a wide view zoomed for five seconds and read as a map that
        never stopped; 850 ms is the same destination at a predictable cost. */
