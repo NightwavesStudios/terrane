@@ -4,6 +4,7 @@ import {
   CLIMATE,
   FONTS,
   HALO,
+  HILLSHADE_FINE,
   HILLSHADE_PAINT,
   HYPSOMETRY,
   PALETTE,
@@ -255,11 +256,11 @@ const MAP_STYLE: StyleSpecification = {
           4,
           0.85,
           8,
-          0.8,
+          0.75,
           12,
-          0.85,
+          0.72,
           16,
-          0.8,
+          0.68,
         ],
         resampling: "linear",
         "color-relief-color": elevationRamp,
@@ -276,7 +277,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["==", ["get", "class"], "wood"],
       paint: {
         "fill-color": PALETTE.wood,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.32, 11, 0.22, 14, 0.15],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, 0.46, 11, 0.4, 14, 0.32],
       },
     },
     {
@@ -287,7 +288,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
       paint: {
         "fill-color": PALETTE.grass,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.22, 8, 0.28, 11, 0.22, 14, 0.14],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.4, 11, 0.36, 14, 0.28],
       },
     },
     {
@@ -299,7 +300,7 @@ const MAP_STYLE: StyleSpecification = {
       minzoom: 4,
       paint: {
         "fill-color": PALETTE.farmland,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.14, 9, 0.2, 14, 0.12],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.18, 9, 0.36, 14, 0.3],
       },
     },
     {
@@ -311,7 +312,7 @@ const MAP_STYLE: StyleSpecification = {
       minzoom: 5,
       paint: {
         "fill-color": PALETTE.wetland,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.12, 10, 0.2, 14, 0.24],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.18, 10, 0.3, 14, 0.34],
       },
     },
     {
@@ -323,7 +324,7 @@ const MAP_STYLE: StyleSpecification = {
       minzoom: 6,
       paint: {
         "fill-color": PALETTE.rock,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.14, 11, 0.2, 14, 0.24, 16, 0.28],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.2, 11, 0.34, 14, 0.42, 16, 0.46],
       },
     },
     {
@@ -334,7 +335,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["==", ["get", "class"], "sand"],
       paint: {
         "fill-color": PALETTE.sand,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 6, 0.62, 12, 0.7],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.55, 6, 0.68, 12, 0.76],
       },
     },
     {
@@ -399,12 +400,19 @@ const MAP_STYLE: StyleSpecification = {
       paint: HILLSHADE_PAINT,
     },
     {
+      id: "relief-hillshade-fine",
+      type: "hillshade",
+      source: "relief",
+      minzoom: 10,
+      paint: HILLSHADE_FINE,
+    },
+    {
       id: "relief-snow",
       type: "color-relief",
       source: "relief",
       minzoom: 9,
       paint: {
-        "color-relief-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.55, 12, 0.85, 15, 1],
+        "color-relief-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.25, 12, 0.7, 15, 0.92],
         resampling: "linear",
         "color-relief-color": snowRamp,
       },
@@ -435,21 +443,41 @@ const MAP_STYLE: StyleSpecification = {
         ],
       },
     },
+    /* The shelf a paper chart paints with a graduated blue. It is drawn, not
+       measured: the DEM clamps sea level to 0 m, so there is no bathymetry to
+       ramp. Two symmetric blooms are used rather than a line offset out to sea —
+       a polygon's ring winding decides which side an offset lands on, and half
+       the world's coasts would have had their shelf painted inland. A bloom
+       bleeds both ways, which is also what makes the shore read as shallow water
+       rather than as a knife edge. */
+    {
+      id: "coast-shelf",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "water",
+      filter: ["==", ["get", "class"], "ocean"],
+      maxzoom: 12,
+      paint: {
+        "line-color": PALETTE.shelf,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 6, 4, 12, 8, 24, 12, 40],
+        "line-blur": ["interpolate", ["linear"], ["zoom"], 0, 4, 6, 10, 12, 18],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 4, 0.22, 8, 0.13, 12, 0],
+      },
+    },
     {
       id: "coast-glow",
       type: "line",
       source: "openmaptiles",
       "source-layer": "water",
-      maxzoom: 9,
-      /* A wide, blurred line along the coastline: the shelf a paper chart paints
-         with a graduated blue. It bleeds inland as well as seaward, which is what
-         makes the shore read as shallow water rather than as a knife edge. */
-      filter: ["==", ["get", "class"], "ocean"],
+      maxzoom: 11,
+      /* The bright inner shelf, kept past the regional zooms: a lake or a fjord
+         at z10 still needs its edges lit. */
+      filter: ["in", ["get", "class"], ["literal", ["ocean", "lake"]]],
       paint: {
         "line-color": PALETTE.coastGlow,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 3, 4, 8, 9, 14],
-        "line-blur": ["interpolate", ["linear"], ["zoom"], 0, 3, 6, 6, 9, 10],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.38, 4, 0.26, 8, 0.1, 9, 0],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 3, 4, 7, 8, 11, 11, 15],
+        "line-blur": ["interpolate", ["linear"], ["zoom"], 0, 3, 6, 5, 11, 8],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 4, 0.2, 8, 0.1, 11, 0],
       },
     },
     {
@@ -460,8 +488,35 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["ocean", "lake"]]],
       paint: {
         "line-color": PALETTE.coastLine,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 6, 1, 12, 1.2],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.55, 6, 0.45, 10, 0.3, 14, 0.22],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 6, 1, 12, 1.3, 16, 1.6],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.6, 6, 0.5, 10, 0.42, 14, 0.38],
+      },
+    },
+    {
+      id: "coast-surf",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "water",
+      /* The waterline itself: one bright hairline that says "this is the edge"
+         at every zoom, against a much wider, softer shelf behind it. */
+      filter: ["==", ["get", "class"], "ocean"],
+      paint: {
+        "line-color": PALETTE.surf,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.5, 8, 0.7, 16, 1.1],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.32, 6, 0.26, 12, 0.2, 16, 0.16],
+      },
+    },
+    {
+      id: "waterway-casing",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "waterway",
+      minzoom: 7.5,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": PALETTE.halo,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 7.5, 0.8, 14, 2.6, 16, 3.4],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 8.6, 0.4, 12, 0.24, 16, 0],
       },
     },
     {
@@ -469,11 +524,34 @@ const MAP_STYLE: StyleSpecification = {
       type: "line",
       source: "openmaptiles",
       "source-layer": "waterway",
-      minzoom: 6,
+      minzoom: 7.5,
+      layout: { "line-cap": "round", "line-join": "round" },
+      /* Flowing ink: a lighter core over the casing, widening with the zoom and
+         with the stream's own class, so a river reads as water and a brook as a
+         thread rather than both as the same 1 px line. It starts late enough
+         that the alpine network is not a blue web over the relief. */
       paint: {
-        "line-color": PALETTE.river,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.35, 14, 1.6, 16, 2.4],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 7, 0.65],
+        "line-color": [
+          "match",
+          ["get", "class"],
+          "river",
+          PALETTE.river,
+          "canal",
+          PALETTE.river,
+          PALETTE.lake,
+        ],
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          7.5,
+          ["match", ["get", "class"], "river", 0.4, 0.2],
+          12,
+          ["match", ["get", "class"], "river", 1.2, 0.6],
+          16,
+          ["match", ["get", "class"], "river", 2.4, 1.2],
+        ],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 8.5, 0.55, 12, 0.72, 16, 0.88],
       },
     },
 
@@ -558,8 +636,52 @@ const MAP_STYLE: StyleSpecification = {
       },
     },
 
+    /* Buildings and the working townscape: texture at detail zooms, gone at the
+       scales where a settlement is a dot. */
+    {
+      id: "landuse-commercial",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "landuse",
+      minzoom: 11,
+      filter: ["in", ["get", "class"], ["literal", ["commercial", "industrial", "retail"]]],
+      paint: {
+        "fill-color": PALETTE.residential,
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 13, 0.28, 16, 0.38],
+      },
+    },
+    {
+      id: "building",
+      type: "fill",
+      source: "openmaptiles",
+      "source-layer": "building",
+      minzoom: 13.4,
+      paint: {
+        "fill-color": PALETTE.building,
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 13.4, 0, 14, 0.3, 16, 0.44],
+        "fill-outline-color": "rgba(9, 14, 18, 0.35)",
+      },
+    },
+
     /* ── roads: built, cased, neutral ──────────────────────────────────── */
 
+    {
+      id: "road-glow",
+      type: "line",
+      source: "openmaptiles",
+      "source-layer": "transportation",
+      minzoom: 7,
+      /* A soft halo on the fast network only: structure over a dark relief
+         without turning every lane into a light source. */
+      filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary"]]],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": PALETTE.roadGlow,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 7, 2, 12, 6, 16, 10],
+        "line-blur": ["interpolate", ["linear"], ["zoom"], 7, 2, 16, 5],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 7, 0, 8.5, 0.14, 13, 0.1, 16, 0.06],
+      },
+    },
     {
       id: "road-casing",
       type: "line",
@@ -889,11 +1011,11 @@ const MAP_STYLE: StyleSpecification = {
         "text-padding": 7,
       },
       paint: {
-        "text-color": PALETTE.label,
+        "text-color": PALETTE.labelTown,
         "text-halo-color": PALETTE.space,
         "text-halo-width": 1.2,
         "text-halo-blur": 0.6,
-        "text-opacity": 0.6,
+        "text-opacity": 0.68,
       },
     },
     {
@@ -912,11 +1034,11 @@ const MAP_STYLE: StyleSpecification = {
         "text-padding": 7,
       },
       paint: {
-        "text-color": PALETTE.label,
+        "text-color": PALETTE.labelVillage,
         "text-halo-color": PALETTE.space,
         "text-halo-width": 1.1,
         "text-halo-blur": 0.6,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 9.6, 0, 10.3, 0.55],
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 9.6, 0, 10.3, 0.62],
       },
     },
     {

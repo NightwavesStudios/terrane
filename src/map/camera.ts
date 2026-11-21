@@ -22,22 +22,67 @@ export function worldZoom(width: number, height: number) {
   return Math.max(0.6, Math.min(2.2, fit));
 }
 
-/** Camera tilt for a zoom: level at planet scale, oblique over ranges. */
+/** A linear ramp through [zoom, value] stops; flat outside the ends. */
+function ramp(zoom: number, stops: [number, number][]): number {
+  if (zoom <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i += 1) {
+    const [z0, v0] = stops[i - 1];
+    const [z1, v1] = stops[i];
+    if (zoom <= z1) return v0 + ((zoom - z0) / (z1 - z0)) * (v1 - v0);
+  }
+  return stops[stops.length - 1][1];
+}
+
+/**
+ * Camera tilt for a zoom: level at planet scale, oblique over ranges.
+ *
+ * The earlier curve — `(z - 1.9) * 13` — only reached 40° at z5, so the views
+ * where a range is small enough to see whole were also the views where it was
+ * seen face-on. Relief has to be oblique before it is large: 30° by z4, 48° by
+ * z6 and the full 58° from z13.
+ */
 export function pitchForZoom(zoom: number): number {
-  return Math.max(0, Math.min(55, (zoom - 1.9) * 13));
+  return ramp(zoom, [
+    [2.2, 0],
+    [4, 30],
+    [6, 48],
+    [8, 55],
+    [13, 58],
+  ]);
+}
+
+/**
+ * How tall the mesh is drawn, as a multiple of the terrain slider.
+ *
+ * Exaggeration was a single number for every camera, and at 1.4 a 4 000 m range
+ * seen whole is a bump on a 400 km frame — the reason the globe read flat until
+ * the mountains filled the screen. The wider the camera, the more the height has
+ * to be stretched to read at all; close in, the real shape is legible and more
+ * exaggeration only makes spikes. The layer slider multiplies this.
+ */
+export function terrainExaggeration(zoom: number): number {
+  return ramp(zoom, [
+    [0, 2.8],
+    [3, 2.6],
+    [6, 2.1],
+    [9, 1.6],
+    [12, 1.35],
+    [14, 1.25],
+  ]);
 }
 
 /**
  * Space a selected place must clear.
  *
- * Above 860 px the card is a column on the left, so the camera centre moves right
- * by booking that column as left padding. At and below 860 px the card is a
- * bottom sheet, so the equivalent reservation is on the bottom. This is the same
- * breakpoint as the card and Discover sheet in `styles.css`; a wider one left a
- * 40 px band where the camera used the phone layout over a desktop card.
+ * This is the fallback for callers that cannot measure the card (the route
+ * framing, a map with no card). The globe itself measures the live card, so the
+ * reservation matches what is actually on screen.
+ *
+ * The breakpoint is 900 px, the same one `PickSheet` uses to decide whether the
+ * card is a bottom sheet or a desktop column.
  */
 export function flyPadding(width: number): { left: number; bottom: number } {
-  return width > 860 ? { left: 440, bottom: 40 } : { left: 0, bottom: 300 };
+  return width > 900 ? { left: 440, bottom: 40 } : { left: 0, bottom: 300 };
 }
 
 /**
@@ -145,20 +190,20 @@ export function radiusZoom(
 /**
  * The zoom a picked place should land on.
  *
- * The frame comes from the category and the elevation, never from the zoom the
- * reader happened to be at. `Math.max(current, frame)` looked reasonable and was
- * the reason a click on a park from street level stayed at 16 and showed one
- * trailhead, while a click on a summit from the planet view jumped eleven levels
- * in one move. The one case where the reader's zoom is the answer is the place
- * already under the camera: within 3 km and at least as close as the frame.
+ * Far away, the frame comes from the category and the elevation, never from the
+ * zoom the reader happened to be at: a park clicked from street level has to
+ * pull back to 9.6 or it is one trailhead. But a place already under the camera
+ * (within 3 km) takes a step *in* from where the reader is — the earlier rule
+ * kept the current zoom in that case, which made clicking a nearby pin a literal
+ * no-op.
  */
-export function pickZoom(
+export function focusFor(
   cat: string,
   elev: number | null | undefined,
   current: number,
   km: number,
 ): number {
   const frame = focusZoomFor(cat, elev);
-  if (km <= 3 && current >= frame) return current;
-  return frame;
+  const target = km <= 3 ? Math.max(frame, current + 1.4) : frame;
+  return Math.max(3, Math.min(16, target));
 }

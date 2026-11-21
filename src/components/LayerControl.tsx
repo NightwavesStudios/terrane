@@ -310,7 +310,7 @@ export default function LayerControl({
                   <span className="layers-label">{row.label}</span>
                   {row.key === "terrain" ? (
                     <span className="layers-note mono">
-                      {value.terrain ? `${value.exaggeration.toFixed(1)}× height` : "flat"}
+                      {value.terrain ? `${value.exaggeration.toFixed(1)}× · taller when wide` : "flat"}
                     </span>
                   ) : null}
                 </span>

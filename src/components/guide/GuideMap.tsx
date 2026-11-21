@@ -9,6 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { guideKind, type GuideExperience } from "../../data/guide";
 import { createStyle } from "../../map/style";
 import { installDemProtocol } from "../../map/dem";
+import { attachTerrain } from "../../map/detailTerrain";
 
 /**
  * A small, flat map of one Experience and its recorded neighbours.
@@ -48,6 +49,14 @@ export default function GuideMap({
       ],
       fitBoundsOptions: { padding: 48, maxZoom: 10, animate: false },
       attributionControl: false,
+      maxPitch: 68,
+    });
+
+    /* The globe's 3D treatment: one mesh, and a camera that tilts with the zoom
+       instead of staying level over the range. */
+    let detachTerrain = () => {};
+    map.once("load", () => {
+      detachTerrain = attachTerrain(map);
     });
 
     if (import.meta.env.DEV) {
@@ -83,13 +92,23 @@ export default function GuideMap({
       element.style.setProperty("--pin", guideKind(guide.kind).colour);
       element.title = place.name;
       element.setAttribute("aria-label", place.name);
-      element.addEventListener("click", () => onSelectRef.current(place.slug));
+      element.addEventListener("click", () => {
+        onSelectRef.current(place.slug);
+        /* A click on a pin is a request to look at that pin: recentre and step
+           in, rather than only highlighting it in a list off to the side. */
+        map.easeTo({
+          center: [place.lon, place.lat],
+          zoom: Math.max(map.getZoom(), 12),
+          duration: 700,
+        });
+      });
       new Marker({ element }).setLngLat([place.lon, place.lat]).addTo(map);
       created.set(place.slug, element);
     }
 
     return () => {
       created.clear();
+      detachTerrain();
       map.remove();
     };
   }, [guide]);

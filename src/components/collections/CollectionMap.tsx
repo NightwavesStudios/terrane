@@ -9,14 +9,15 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { guideKind, type GuideCatalogRow } from "../../data/guide";
 import { createStyle } from "../../map/style";
 import { installDemProtocol } from "../../map/dem";
+import { attachTerrain } from "../../map/detailTerrain";
 
 /**
  * The Collection map: a small, flat view of the Experiences in one wide group.
  *
- * It reuses the app's basemap but none of the globe's runtime machinery — no 3D
- * mesh, hillshade, DEM protocol, contours or practical layers. Each member is
- * one DOM marker at its Experience centre; there is no connecting line, because
- * a Collection is not a route and drawing one would invent it.
+ * It reuses the app's basemap and the globe's 3D treatment — the same relief
+ * source, mesh and zoom-to-pitch curve — but none of its runtime layers. Each
+ * member is one DOM marker at its Experience centre; there is no connecting line,
+ * because a Collection is not a route and drawing one would invent it.
  */
 export default function CollectionMap({
   experiences,
@@ -52,6 +53,12 @@ export default function CollectionMap({
       bounds,
       fitBoundsOptions: { padding: 48, maxZoom: 8, animate: false },
       attributionControl: false,
+      maxPitch: 68,
+    });
+
+    let detachTerrain = () => {};
+    map.once("load", () => {
+      detachTerrain = attachTerrain(map);
     });
 
     if (import.meta.env.DEV) {
@@ -78,13 +85,22 @@ export default function CollectionMap({
       element.title = experience.name;
       element.dataset.experienceSlug = experience.slug;
       element.setAttribute("aria-label", experience.name);
-      element.addEventListener("click", () => onSelectRef.current(experience.slug));
+      element.addEventListener("click", () => {
+        onSelectRef.current(experience.slug);
+        /* Same rule as the globe: the clicked point comes to the centre. */
+        map.easeTo({
+          center: [experience.lon, experience.lat],
+          zoom: Math.max(map.getZoom(), 9.5),
+          duration: 700,
+        });
+      });
       new Marker({ element }).setLngLat([experience.lon, experience.lat]).addTo(map);
       created.set(experience.slug, element);
     }
 
     return () => {
       created.clear();
+      detachTerrain();
       map.remove();
     };
   }, [experiences]);

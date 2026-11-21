@@ -9,7 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol } from "./dem";
-import { flyPadding, pickZoom, pitchForZoom, readCamera, worldZoom } from "./camera";
+import { focusFor, pitchForZoom, readCamera, terrainExaggeration, worldZoom } from "./camera";
 import { kmBetween } from "../lib/geo";
 import { shouldShowBootFailure } from "./bootGuard";
 import { createContours, type ContourHandle } from "./contours";
@@ -128,7 +128,7 @@ const LAYER_GROUPS: Record<string, string[]> = {
   contours: ["contours-minor", "contours-major"],
   contourLabels: ["contours-label"],
   trails: ["trails-casing", "trails-path", "trails-label", ...TRAIL_LAYERS],
-  roads: ["road-casing", "road-minor", "road-major", "road-highway"],
+  roads: ["road-glow", "road-casing", "road-minor", "road-major", "road-highway"],
   parks: ["park-area", "park-outline"],
   borders: ["boundary-country", "boundary-state", "boundary-disputed"],
   labels: [
@@ -171,19 +171,40 @@ const EMPTY = { type: "FeatureCollection" as const, features: [] };
 function applyTerrainTo(map: MlMap, layers: LayerState) {
   if (!map.getSource("relief")) return;
   const on = Boolean(map.getTerrain());
+  /* The slider is the height at detail zoom; the zoom ramp is what makes the
+     same mesh read at planet scale. Keeping the slider's 1.4 as neutral means
+     its number still means "× real height" where the real shape is legible. */
+  const exaggeration = layers.exaggeration * (terrainExaggeration(map.getZoom()) / 1.4);
 
   if (layers.terrain && !on) {
-    map.setTerrain({ source: "relief", exaggeration: layers.exaggeration });
+    map.setTerrain({ source: "relief", exaggeration });
     return;
   }
   if (!layers.terrain && on) {
     map.setTerrain(null);
     return;
   }
-  if (layers.terrain && map.terrain && Math.abs(map.terrain.exaggeration - layers.exaggeration) > 0.001) {
-    map.terrain.exaggeration = layers.exaggeration;
+  if (layers.terrain && map.terrain && Math.abs(map.terrain.exaggeration - exaggeration) > 0.01) {
+    map.terrain.exaggeration = exaggeration;
     map.triggerRepaint();
   }
+}
+
+/**
+ * The space the place card is actually using.
+ *
+ * A fixed 440 px reservation was booked on every flight, card or no card, and on
+ * a phone it is the wrong edge entirely: `PickSheet` makes the card a bottom
+ * sheet under 900 px. Measuring the live card means the clicked point lands in
+ * the middle of the free area at every width.
+ */
+function pickPadding(): { left: number; bottom: number } {
+  const card = document.querySelector<HTMLElement>(".pick");
+  if (!card) return { left: 0, bottom: 0 };
+  const box = card.getBoundingClientRect();
+  if (!box.width || !box.height) return { left: 0, bottom: 0 };
+  if (window.innerWidth > 900) return { left: Math.round(box.right + 20), bottom: 40 };
+  return { left: 0, bottom: Math.max(0, Math.round(window.innerHeight - box.top + 12)) };
 }
 
 export default function Globe({
@@ -232,7 +253,7 @@ export default function Globe({
       attributionControl: false,
       dragRotate: true,
       pitchWithRotate: false,
-      maxPitch: 65,
+      maxPitch: 68,
       fadeDuration: 260,
       refreshExpiredTiles: false,
       maxTileCacheSize: 48,
@@ -249,11 +270,20 @@ export default function Globe({
        question. */
     const reportView = () => {
       const c = map_.getCenter();
+      const zoom = Number(map_.getZoom().toFixed(2));
       viewRef.current?.({
         lon: Number(c.lng.toFixed(2)),
         lat: Number(c.lat.toFixed(2)),
-        zoom: Number(map_.getZoom().toFixed(2)),
+        zoom,
       });
+      /* Past the regional zooms the chrome is sitting on top of actual terrain:
+         the stylesheet fades the running heads and the credits back, and deepens
+         the top scrim so the navigation stays legible over a busy surface. */
+      const home = holder.current?.closest(".home");
+      if (home) {
+        const depth = zoom >= 8.5 ? "close" : "far";
+        if (home.getAttribute("data-depth") !== depth) home.setAttribute("data-depth", depth);
+      }
     };
 
     /* Wheel and touch rates: the default wheel step was a half screen at a flick.
@@ -483,6 +513,8 @@ export default function Globe({
     map_.on("moveend", () => {
       writeCamera();
       reportView();
+      /* Exaggeration follows the camera; the mesh is never re-created. */
+      applyTerrain();
       if (map_.getZoom() >= 6.6) {
         void loadMoreDestinations().then(() => refreshDuplicates(map_));
       }
@@ -540,6 +572,7 @@ export default function Globe({
       contours.current?.destroy();
       contours.current = null;
       booted.current = false;
+      holder.current?.closest(".home")?.removeAttribute("data-depth");
       map_.remove();
       map.current = null;
       setReady(false);
@@ -556,6 +589,7 @@ export default function Globe({
 
     setVisible("elevation-tint", layers.relief);
     setVisible("relief-hillshade", layers.relief && layers.hillshade);
+    setVisible("relief-hillshade-fine", layers.relief && layers.hillshade);
     setVisible("relief-snow", layers.relief && layers.snow);
     for (const [key, ids] of Object.entries(LAYER_GROUPS)) {
       const on = Boolean(layers[key as keyof LayerState]);
@@ -583,8 +617,10 @@ export default function Globe({
   useEffect(() => {
     const map_ = map.current;
     if (!map_ || !ready) return;
-    /* A route is drawn by its own layer, from its own shard, and framed to its
-       bounds there; a selection ring at one stop would be the wrong shape. */
+    /* A route is drawn by its own layer, from its own shard; a selection ring at
+       one stop would be the wrong shape. The camera still lands on the stop — an
+       earlier pass skipped it for beacons, so clicking one framed the whole route
+       instead of the point under the pointer. */
     const isExperience = pick?.cat === "experience";
     const src = map_.getSource("pick") as GeoJSONSource | undefined;
     src?.setData(
@@ -602,14 +638,17 @@ export default function Globe({
         : EMPTY,
     );
 
-    if (!pick || isExperience) return;
+    if (!pick) return;
     /* A park is a place you look at from 9.6, a tent from 14.6, and a 4,000 m
-       summit from a step further back than its category alone implies. The
-       reader's own zoom is kept only when the place is already under the camera
-       at least that close — see `pickZoom`. */
+       summit from a step further back than its category alone implies. A place
+       already under the camera steps in instead of holding still — see
+       `focusFor`. A beacon has no single frame of its own, so it takes the same
+       step in, never wider than 13.5 so the route's shape stays in view. */
     const centre = map_.getCenter();
     const km = kmBetween(centre.lat, centre.lng, pick.lat, pick.lon);
-    const zoom = pickZoom(pick.cat, pick.elev, map_.getZoom(), km);
+    const zoom = isExperience
+      ? Math.max(10, Math.min(13.5, map_.getZoom() + 1.4))
+      : focusFor(pick.cat, pick.elev, map_.getZoom(), km);
     /* A bounded move. `flyTo` scales its duration with distance and zoom, so a
        click from a wide view zoomed for five seconds and read as a map that
        never stopped; 850 ms is the same destination at a predictable cost. */
@@ -619,9 +658,9 @@ export default function Globe({
       pitch: pitchForZoom(zoom),
       duration: 850,
       essential: true,
-      /* The card is on the left, so the padding is on the left: reserving the
-         opposite side would centre the place exactly under the card. */
-      padding: flyPadding(window.innerWidth),
+      /* Reserve exactly the card's footprint, so the point is centred in what
+         the reader can actually see. */
+      padding: pickPadding(),
     });
   }, [pick, ready]);
 

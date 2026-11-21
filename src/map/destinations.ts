@@ -182,7 +182,7 @@ export function addDestinations(map: MlMap): void {
       minzoom: isFirst ? 0 : b.dot,
       filter: ["all", ["==", ["get", "dot"], b.dot], catFilter(enabled)],
       paint: {
-        "circle-color": PALETTE.white,
+        "circle-color": PALETTE.dot,
         "circle-radius": radius(b.scale * 0.85),
         "circle-opacity": [
           "interpolate",

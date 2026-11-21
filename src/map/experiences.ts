@@ -12,7 +12,6 @@ import {
   type GuideExperience,
 } from "../data/guide";
 import { loadGuide, loadGuideCatalog } from "../lib/guide";
-import { flyPadding } from "./camera";
 import { FONTS, PALETTE } from "./theme";
 
 /**
@@ -21,8 +20,13 @@ import { FONTS, PALETTE } from "./theme";
  * These are the destinations in the editorial catalogue, not collections and not
  * every destination in the database. One beacon per Experience, in its kind's
  * colour, added above the pins. Selecting one draws the destination and its
- * recorded neighbours as neutral markers and frames their bounds; there is no
- * line between them and no order, because an Experience is a place, not a route.
+ * recorded neighbours as neutral markers; there is no line between them and no
+ * order, because an Experience is a place, not a route.
+ *
+ * The layer does not move the camera. It used to `fitBounds` the whole group once
+ * the shard landed, which overrode the click and left the reader looking at the
+ * group rather than at the beacon they had just hit; the globe owns the camera,
+ * and every pick lands on its own coordinate.
  *
  * The catalogue is ~180 rows and arrives once. The full record is a per-slug
  * shard, so clicking one downloads only that page's data.
@@ -291,20 +295,8 @@ export function showExperience(map: MlMap, slug: string | null): void {
       pushPlaces(map);
       refreshPlaceVisibility(map);
 
-      const [west, south, east, north] = guide.bounds;
-      if ([west, south, east, north].every(Number.isFinite) && east > west && north > south) {
-        map.fitBounds(
-          [
-            [west, south],
-            [east, north],
-          ],
-          {
-            padding: flyPadding(typeof window === "undefined" ? 1280 : window.innerWidth),
-            maxZoom: 10,
-            duration: 900,
-          },
-        );
-      }
+      /* The markers are on screen; the camera is where the click put it. */
+      map.triggerRepaint();
     })
     .catch(() => undefined);
 }

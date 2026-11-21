@@ -13,27 +13,35 @@ import type { HillshadeLayerSpecification } from "maplibre-gl";
 export const PALETTE = {
   space: "#05070c",
 
-  /* Water: ocean deepest, lakes one step up, rivers lightest. */
-  ocean: "#06202f",
-  lake: "#082a3b",
-  river: "#0d3b4d",
-  coastGlow: "#57a9bd",
-  coastLine: "#4f93a8",
+  /* Water: ocean deepest, lakes one step up, rivers lightest. Teal rather than
+     navy, because every other colour on this map is warm and a blue-black sea
+     read as a hole in the planet. */
+  ocean: "#0a2f42",
+  lake: "#0f4157",
+  river: "#2a7d92",
+  /* The drawn shelf: a broad bloom just outside the shore, then the surf line. */
+  shelf: "#2f7f92",
+  coastGlow: "#6fc9d4",
+  coastLine: "#4f9fb2",
+  surf: "#cfeeee",
 
-  /* Land cover. Kept translucent in the style so the relief reads through. */
-  wood: "#14352a",
-  grass: "#5b6531",
-  farmland: "#4e5730",
-  wetland: "#1f4a46",
-  residential: "#2b3a4e",
-  quarry: "#4a453c",
-  rock: "#5a4c3a",
-  sand: "#c6a474",
-  ice: "#e6eef0",
-  snow: "#eef4f6",
+  /* Land cover: distinct hues, not one green family. Kept translucent in the
+     style so the relief reads through, but opaque enough at detail zooms to tell
+     a forest from a meadow from a harvested field. */
+  wood: "#1c4d3a",
+  grass: "#54682d",
+  farmland: "#7a7336",
+  wetland: "#2a5a5e",
+  residential: "#3a4757",
+  quarry: "#5d5646",
+  rock: "#6b5c45",
+  sand: "#cbaa7c",
+  ice: "#dce9ee",
+  snow: "#eef6f8",
+  building: "#6a6153",
 
-  parkFill: "#2f5a3c",
-  parkLine: "#7fbf93",
+  parkFill: "#2f5f3f",
+  parkLine: "#86c79c",
 
   /* Ink. Borders are cartographic linework, not a UI accent. */
   boundary: "#6f8fa3",
@@ -41,13 +49,16 @@ export const PALETTE = {
   boundaryState: "#5a7a8c",
   boundaryDisputed: "#8f7a58",
 
-  roadCasing: "#060b11",
-  road: "#44525e",
-  roadHighway: "#4d5c69",
+  roadCasing: "#071018",
+  road: "#50616e",
+  roadHighway: "#63758a",
+  roadGlow: "#a9c3d4",
   trail: "#c79a5f",
   trailStep: "#e0c08a",
 
   label: "#dbe9f3",
+  labelTown: "#e8ddc6",
+  labelVillage: "#cfdfe9",
   labelCountry: "#a8c1d1",
   labelState: "#7f9aab",
   labelWater: "#7fb0c6",
@@ -56,6 +67,9 @@ export const PALETTE = {
   labelPeak: "#d7e5ee",
   halo: "#04070c",
   white: "#f4fbff",
+  /* Beacon cores: warm cream, so a screen of pins reads as lit stations rather
+     than white noise over a dark relief. */
+  dot: "#f7eeda",
   contour: "#dcefe6",
 } as const;
 
@@ -88,26 +102,26 @@ export const CLIMATE: [number, string][] = [
 /**
  * Hypsometric tint: elevation as colour, from the DEM, at every zoom.
  *
- * Below 700 m this is fully transparent, so the climate bands stay the lowland
- * colour — a warm band there would paint the Netherlands as a desert. From the
- * foothills it thickens into warm stone and then snow, which is what makes the
- * Himalaya, the Andes and the Alps read as high ground at the zooms where
- * contour lines are still too dense to draw, and at planet scale where there is
- * no landcover at all.
+ * It starts in the low foothills — 150 m, barely a wash — so mid-altitude
+ * country stops reading as "green until it is white", and thickens through warm
+ * ochre and stone into snow. At planet scale this is most of the land colour;
+ * close in, landcover keeps the valleys and the tint owns bare high ground.
  *
  * It sits above the latitude bands and below landcover, so forests still keep
  * their green where OSM maps them and only bare high ground is tinted.
  */
 export const HYPSOMETRY: [number, string][] = [
   [0, "rgba(90, 105, 80, 0)"],
-  [700, "rgba(120, 120, 80, 0)"],
-  [1200, "rgba(150, 138, 108, 0.14)"],
-  [1800, "rgba(156, 144, 116, 0.3)"],
-  [2500, "rgba(168, 158, 138, 0.46)"],
-  [3200, "rgba(184, 178, 164, 0.62)"],
-  [3800, "rgba(206, 204, 196, 0.74)"],
-  [4500, "rgba(230, 235, 235, 0.85)"],
-  [5600, "rgba(248, 252, 253, 0.92)"],
+  [150, "rgba(122, 132, 86, 0.05)"],
+  [400, "rgba(150, 148, 96, 0.12)"],
+  [800, "rgba(172, 156, 112, 0.22)"],
+  [1400, "rgba(178, 158, 122, 0.34)"],
+  [2000, "rgba(180, 166, 146, 0.46)"],
+  [2600, "rgba(186, 180, 168, 0.58)"],
+  [3200, "rgba(198, 196, 190, 0.7)"],
+  [3800, "rgba(216, 218, 214, 0.8)"],
+  [4500, "rgba(234, 240, 240, 0.88)"],
+  [5600, "rgba(248, 252, 253, 0.94)"],
 ];
 
 /**
@@ -123,12 +137,12 @@ export const HYPSOMETRY: [number, string][] = [
  * without painting the Norwegian fjords at sea level.
  */
 export const SNOW_TINT: [number, string][] = [
-  [2600, "rgba(228, 238, 241, 0)"],
-  [3200, "rgba(231, 240, 243, 0.12)"],
-  [3800, "rgba(236, 244, 247, 0.28)"],
-  [4400, "rgba(244, 249, 251, 0.45)"],
-  [5000, "rgba(250, 253, 254, 0.58)"],
-  [5800, "rgba(253, 254, 255, 0.66)"],
+  [3000, "rgba(228, 238, 241, 0)"],
+  [3400, "rgba(231, 240, 243, 0.28)"],
+  [3800, "rgba(236, 244, 247, 0.52)"],
+  [4400, "rgba(244, 249, 251, 0.74)"],
+  [5000, "rgba(250, 253, 254, 0.85)"],
+  [5800, "rgba(253, 254, 255, 0.9)"],
 ];
 
 /**
@@ -166,21 +180,51 @@ export const HILLSHADE_PAINT = {
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": [315, 45, 225, 135],
   "hillshade-illumination-altitude": [45, 30, 45, 30],
-  "hillshade-highlight-color": ["#a6b184", "#8f9c74", "#87946d", "#8f9c74"],
-  "hillshade-shadow-color": ["#030c0a", "#06140f", "#05100c", "#06140f"],
+  "hillshade-highlight-color": ["#d0c9a0", "#a8b58a", "#9db07f", "#a8b58a"],
+  "hillshade-shadow-color": ["#02090b", "#04100d", "#030d0b", "#04100d"],
+  "hillshade-accent-color": "#0a2a24",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
     0,
-    0.7,
+    0.9,
     4,
-    0.95,
+    1.2,
     8,
-    0.9,
+    1.15,
     12,
-    0.9,
+    1.05,
     16,
-    0.85,
+    0.95,
+  ],
+} as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;
+
+/**
+ * The second light, close in.
+ *
+ * The broad pass above is tuned for a range seen whole: its exaggeration rounds
+ * off the small ridges that make a valley floor legible at z12–16. This pass is
+ * declared from z10 with a fraction of the exaggeration and a much lower-contrast
+ * pair of colours, so it adds micro-shading to the near field without darkening
+ * the whole map twice.
+ */
+export const HILLSHADE_FINE = {
+  "hillshade-method": "multidirectional",
+  "hillshade-illumination-anchor": "map",
+  "hillshade-illumination-direction": [315, 135],
+  "hillshade-illumination-altitude": [60, 45],
+  "hillshade-highlight-color": ["#c9ccb2", "#9aab90"],
+  "hillshade-shadow-color": ["#06140f", "#0a1a15"],
+  "hillshade-exaggeration": [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    10,
+    0.2,
+    14,
+    0.32,
+    16,
+    0.38,
   ],
 } as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;

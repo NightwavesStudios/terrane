@@ -201,7 +201,7 @@ describe("experience map wiring", () => {
     ]);
   });
 
-  it("shows and frames the selected destination's neighbours", async () => {
+  it("shows the selected destination's neighbours without moving the camera", async () => {
     const map = fakeMap();
     addExperiences(map as never, DEFAULT_LAYERS);
     await loadGuideCatalog();
@@ -209,14 +209,17 @@ describe("experience map wiring", () => {
     const slug = map.sources.get("experiences")?.data.features[0].properties?.slug as string;
 
     showExperience(map as never, slug);
-    for (let i = 0; i < 40 && !map.fitted; i += 1) {
+    for (let i = 0; i < 40; i += 1) {
+      if ((map.sources.get("experience-places")?.data.features ?? []).length > 1) break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
 
     const places = map.sources.get("experience-places")?.data.features ?? [];
     expect(places.length).toBeGreaterThan(1);
     expect(map.layout.get("experience-places:visibility")).toBe("visible");
-    expect(map.fitted).not.toBeNull();
+    /* The globe owns the camera: selecting a beacon must not fitBounds over the
+       group and pull the reader away from the point they clicked. */
+    expect(map.fitted).toBeNull();
   });
 });
 
