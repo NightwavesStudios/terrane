@@ -533,6 +533,11 @@
         "name": "catalog rows match their records",
         "ok": true,
         "detail": "titles, categories, counts"
+      },
+      {
+        "name": "the sitemap covers the experience index and every route",
+        "ok": true,
+        "detail": "25076 urls · 599 experiences"
       }
     ]
   }

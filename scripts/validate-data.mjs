@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readDestinations } from "./lib/destinations.mjs";
+import { sitemapPaths } from "./lib/sitemap.mjs";
 
 const root = process.cwd();
 const read = (p) => JSON.parse(readFileSync(join(root, p), "utf8"));
@@ -646,6 +647,25 @@ check(
     );
   }),
   "titles, categories, counts",
+);
+
+/* The sitemap is build output, so this cannot inspect the file `gen-seo` will
+   write later. It checks the same shared URL builder instead: the section index,
+   every generated route, and the place pages must all be present, and the count
+   must match the sources rather than a number someone remembered. */
+const sitemapUrls = sitemapPaths({
+  slugs: pageSlugFile.slugs ?? [],
+  experiences: experienceCatalog.items ?? [],
+});
+const sitemapSet = new Set(sitemapUrls.map((entry) => entry.path));
+check(
+  "the sitemap covers the experience index and every route",
+  sitemapSet.has("/experiences") &&
+    experienceRows.every((row) => sitemapSet.has(`/experiences/${row.slug}`)) &&
+    sitemapUrls.length ===
+      3 + experienceRows.length + (pageSlugFile.slugs ?? []).length &&
+    new Set(sitemapUrls.map((entry) => entry.path)).size === sitemapUrls.length,
+  `${sitemapUrls.length} urls · ${experienceRows.length} experiences`,
 );
 
 const failed = checks.filter((c) => !c.ok);

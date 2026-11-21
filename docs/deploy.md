@@ -41,7 +41,7 @@ bundled one; otherwise the bundled counts win.
 
 | Name | Required | What it does |
 | --- | --- | --- |
-| `SITE_URL` | no | Absolute canonical, `og:url`, `og:image` and sitemap, e.g. `https://terrane.app`. Falls back to `https://$VERCEL_PROJECT_PRODUCTION_URL`, so a deploy works without it. |
+| `SITE_URL` | no | Absolute canonical, `og:url`, `og:image` and sitemap, e.g. `https://terrane.app`. Falls back to `https://$VERCEL_PROJECT_PRODUCTION_URL`, so a deploy works without it; a build with neither writes the sitemap against the documented placeholder origin so the file is never missing. |
 | `VITE_POI_BASE` | no | The cell-store origin. Defaults to the published preview store in `src/lib/cells.ts`. Inlined at build time; changing it needs a redeploy. |
 
 Neither is a secret. Do not put a GitHub token or the store's upload token in a

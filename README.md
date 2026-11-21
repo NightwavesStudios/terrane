@@ -162,10 +162,13 @@ every push to `main` and every pull request, and uploads `dist`. The data
 workflows are separate and never deploy the site. There is deliberately no
 linter; `tsc` with `noUnused*` is the static gate.
 
-The build writes `dist/sitemap.xml` and `dist/robots.txt` only when the public
-origin is known (`SITE_URL`, or Vercel's `VERCEL_PROJECT_PRODUCTION_URL`).
-Generated reports are not committed; `reports/coverage.json` is the one kept
-baseline for the strict coverage gate.
+The build always writes `dist/sitemap.xml` and `dist/robots.txt`: absolute URLs
+use `SITE_URL` (or Vercel's production hostname) when set, and the documented
+placeholder origin when it is not, so a plain local build still produces the full
+route set rather than no file. The sitemap is generated from the page index and
+the experience catalog, and `npm run validate` fails if the experience index or
+any route is missing from it. Generated reports are not committed;
+`reports/coverage.json` is the one kept baseline for the strict coverage gate.
 
 ## Deploy
 

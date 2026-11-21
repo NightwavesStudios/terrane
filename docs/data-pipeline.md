@@ -251,7 +251,7 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `reports/*` | audits and reports | only `reports/coverage.json` and `reports/merge.json` |
 | `public/poi`, `public/coverage.json` | harvest / merge | no |
 | `public/trails` | merge | yes — committed for the strict gate |
-| `dist/sitemap.xml`, `dist/robots.txt` | `scripts/gen-seo.mjs` | no |
+| `dist/sitemap.xml`, `dist/robots.txt` | `scripts/gen-seo.mjs` | no — always written, placeholder origin without `SITE_URL` |
 
 The manifest and validator use the data files' own dates, never the clock or
 checkout mtimes, so the same commit builds the same manifest. `src/data/README.md`
