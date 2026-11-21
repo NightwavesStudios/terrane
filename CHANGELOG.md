@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-11-21 — A phone paints in half the time, and the atlas gets out of the way
+
+- The entry no longer drags the map's style module into first paint.
+  `lib/catalog.ts` imported `map/destinations` at the top, `destinations.ts`
+  imports `map/style.ts`, and the shared chunk carrying the style also carried
+  MapLibre — so `<head>` preloaded 1.07 MB before the entry on every route.
+  `startCatalog()` now imports that module when Discover first opens.
+- The 202 kB atlas is its own chunk. `loadAtlas()` fetches it on the first idle,
+  `PLACES`/`bySlug` are filled in place, `useAtlas()` re-runs the lists derived
+  from them, the catalog rebuilds its atlas index when the rows land, a
+  `?place=` deep link is applied when they arrive, and Saved and the place
+  resolver work from stored records until then.
+- `vite.config.ts` emits a modulepreload for the map chunk at the end of the
+  body, so the map download overlaps React's first render instead of following
+  it — without sitting in front of first paint.
+- Measured on a production build at 390×844, 4× CPU, 1.2 MB/s + 80 ms, cold
+  cache, five runs, median, against `9c811ce` built in the same session:
+  first contentful paint **2 384 → 1 288 ms (−46 %)** and entry JS
+  **499.6 → 305.8 kB (−39 %)**. The map canvas went 2 695 → 2 453 ms (−9 %).
+- The canvas did not follow because it cannot mount before MapLibre arrives: the
+  map chunk is 1 067 kB and 1 058 kB of that is MapLibre itself. Hitting the
+  −30 % target there means serving those bytes compressed (283 kB gzipped, as
+  any real host would) or replacing the map engine — not moving app code.
+- Function checked on the dev server after the deferral: 9 316 atlas points and
+  408 beacons render at world zoom, and the dock still hides the pins for
+  Experiences and the beacons for a kind.
+
 ## 2026-11-21 — The dock decides what the map shows; the map stops freezing
 
 - The map dock leads with **Experiences**, and the strip is exclusive: picking

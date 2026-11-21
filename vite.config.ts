@@ -1,5 +1,5 @@
-import { cpSync } from "node:fs";
-import { relative } from "node:path";
+import { cpSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { siteUrl } from "./scripts/lib/site-url.mjs";
@@ -40,8 +40,45 @@ function publicAssets(): Plugin {
   };
 }
 
+/**
+ * Start the map chunk downloading as soon as the document is parsed.
+ *
+ * The map is a lazy chunk, so the browser only discovers MapLibre after the
+ * entry has executed and called `import("./map/Globe")`. That is one full
+ * round trip plus a megabyte of waiting behind the entry. A modulepreload at
+ * the end of the body asks for it while the entry is still arriving, without
+ * putting it in front of first paint the way a head preload did: the entry and
+ * the stylesheet are still requested first, so the shell paints, and the map’s
+ * megabyte is already in flight by the time React asks for it.
+ *
+ * The file name is hashed, so this reads the written build and finds the chunk
+ * that carries MapLibre rather than guessing at a name.
+ */
+function mapPreload(): Plugin {
+  return {
+    name: "terrane-map-preload",
+    apply: "build",
+    closeBundle() {
+      const dir = join("dist", "assets");
+      const candidates = readdirSync(dir)
+        .filter((file) => file.endsWith(".js"))
+        .map((file) => join(dir, file))
+        .filter((path) => readFileSync(path, "utf8").includes("maplibregl"))
+        .sort((a, b) => statSync(b).size - statSync(a).size);
+      const mapChunk = candidates[0];
+      if (!mapChunk) return;
+      const htmlPath = join("dist", "index.html");
+      const html = readFileSync(htmlPath, "utf8");
+      const file = mapChunk.split(/[\\/]/).pop()!;
+      if (html.includes(`assets/${file}`)) return;
+      const tag = `    <link rel="modulepreload" crossorigin href="/assets/${file}" />\n`;
+      writeFileSync(htmlPath, html.replace("  </body>", tag + "  </body>"));
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), seo(), publicAssets()],
+  plugins: [react(), seo(), publicAssets(), mapPreload()],
   server: {
     port: 3000,
   },

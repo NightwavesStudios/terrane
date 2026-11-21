@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { PLACES } from "../../data/places";
+import { PLACES, useAtlas } from "../../data/places";
 import { revealRowItem, useScrollRow } from "../../lib/useScrollRow";
 
 /**
@@ -47,6 +47,8 @@ export default function CatalogControls({
 }) {
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
+  /* The atlas lands after the shell; its version re-runs the options memo. */
+  const atlas = useAtlas();
   const listId = useId();
   const row = useScrollRow();
   const activeRef = useRef<HTMLButtonElement | null>(null);
@@ -62,7 +64,7 @@ export default function CatalogControls({
         `${place.name} ${place.country} ${place.region ?? ""}`.toLowerCase();
       return bits.every((bit) => haystack.includes(bit));
     }).slice(0, 8);
-  }, [nearTerm]);
+  }, [nearTerm, atlas]);
 
   useEffect(() => {
     setCursor(0);

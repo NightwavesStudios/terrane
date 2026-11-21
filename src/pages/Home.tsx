@@ -3,7 +3,7 @@ import { radiusZoom, readCamera, worldZoom } from "../map/camera";
 import type { GlobeFocus } from "../map/Globe";
 import { rankPlaces } from "../data/rank";
 import { pickOfPlace, type Pick } from "../data/features";
-import { ATLAS_CATALOG_ROWS } from "../lib/catalog";
+import { atlasCatalogRows } from "../lib/catalog";
 import { relatedRows } from "../lib/discover";
 
 const Globe = lazy(() => import("../map/Globe"));
@@ -17,7 +17,7 @@ import LayerControl, {
 import Discover from "../components/Discover";
 import FeatureCard from "../components/FeatureCard";
 import ExperiencePickCard from "../components/experiences/ExperiencePickCard";
-import { PLACES, bySlug } from "../data/places";
+import { PLACES, bySlug, useAtlas } from "../data/places";
 import { guidePick, loadGuideCatalog } from "../lib/guide";
 import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
@@ -79,12 +79,25 @@ export default function Home() {
   const coverage = useCoverage();
   const updated = dataDate(manifest);
   const stale = Boolean(coverage?.gaps?.stale?.length);
-  const scope = useMemo(() => homeScope(home), [home]);
+  /* The atlas is its own chunk now, so every list derived from it has to say so:
+     the version is 0 until the rows arrive and 1 after, which re-runs the memos
+     below once instead of leaving them built against an empty array. */
+  const atlas = useAtlas();
+  const scope = useMemo(() => homeScope(home), [home, atlas]);
 
   const places = useMemo(
     () => rankPlaces(PLACES.filter((p) => matches(p, filter, scope))),
-    [filter, scope],
+    [filter, scope, atlas],
   );
+
+  /* A `?place=` deep link resolves from the atlas; if the atlas is still in
+     flight, pick it up as soon as it lands instead of losing the selection. */
+  useEffect(() => {
+    if (!atlas) return;
+    const slug = new URLSearchParams(window.location.search).get("place");
+    const place = slug ? bySlug.get(slug) : undefined;
+    if (place) setPick((current) => current ?? pickOfPlace(place));
+  }, [atlas]);
 
   /* The dock picks what the map is mainly showing, not just which dots the atlas
      list keeps. A destination kind hides the curated Experiences layer and the
@@ -119,7 +132,7 @@ export default function Home() {
       }
     }
     return bestKm <= 60 ? best : undefined;
-  }, [pick]);
+  }, [pick, atlas]);
 
   const nearKm =
     nearPlace && pick
@@ -132,9 +145,9 @@ export default function Home() {
   const related = useMemo(
     () =>
       pick
-        ? relatedRows(pick, ATLAS_CATALOG_ROWS, 3).map((item) => item.row.pick)
+        ? relatedRows(pick, atlasCatalogRows(), 3).map((item) => item.row.pick)
         : [],
-    [pick],
+    [pick, atlas],
   );
 
   const onView = useCallback((next: View) => {

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { PLACES, type Place } from "../data/places";
+import { PLACES, subscribeAtlas, type Place } from "../data/places";
 import {
   destinationCategory,
   getMappedRows,
@@ -7,7 +7,6 @@ import {
   type FeatureRow,
   type Pick,
 } from "../data/features";
-import { ensureDestinationRows } from "../map/destinations";
 import { kmBetween } from "./geo";
 import { normalize } from "./text";
 
@@ -362,16 +361,18 @@ export function buildCatalog(
 
 /* ── the lazy store ─────────────────────────────────────────────────────── */
 
-const ATLAS_ONLY = buildCatalog(PLACES, [], []);
+let atlasOnly = buildCatalog(PLACES, [], []);
 
-/** The bundled atlas index, available before the tail is fetched. */
-export const ATLAS_CATALOG_ROWS: CatalogRow[] = ATLAS_ONLY.rows;
+/** The atlas index, empty until the deferred atlas chunk arrives. */
+export function atlasCatalogRows(): CatalogRow[] {
+  return atlasOnly.rows;
+}
 
 let snapshot: CatalogSnapshot = {
-  ...ATLAS_ONLY,
+  ...atlasOnly,
   status: "idle",
   coverage: "atlas",
-  total: ATLAS_ONLY.rows.length,
+  total: atlasOnly.rows.length,
 };
 let started = false;
 let loading = false;
@@ -382,6 +383,20 @@ const listeners = new Set<() => void>();
 function emit(): void {
   listeners.forEach((listener) => listener());
 }
+
+/* The atlas arrives after the map shell. Rebuild the atlas-only index then, so
+   Discover and the related lists are populated without a second request. */
+subscribeAtlas(() => {
+  atlasOnly = buildCatalog(PLACES, [], []);
+  if (snapshot.coverage !== "atlas") return;
+  snapshot = {
+    ...atlasOnly,
+    status: snapshot.status === "loading" ? "loading" : "idle",
+    coverage: "atlas",
+    total: atlasOnly.rows.length,
+  };
+  emit();
+});
 
 function rebuild(tail: FeatureRow[], pois: FeatureRow[], status: CatalogStatus): void {
   const data = buildCatalog(PLACES, tail, pois);
@@ -407,7 +422,12 @@ export function startCatalog(): void {
   loading = true;
   snapshot = { ...snapshot, status: "loading" };
   emit();
-  void ensureDestinationRows()
+  /* Imported here, not at the top: `destinations` builds the map style, and a
+     static edge to it put the whole 1 MB map chunk — MapLibre included — in
+     front of first paint on every route. The tail is only wanted when Discover
+     opens, which is the first call to this function. */
+  void import("../map/destinations")
+    .then((mod) => mod.ensureDestinationRows())
     .then((tail) => rebuild(tail, getMappedRows(), "ready"))
     .catch(() => rebuild([], getMappedRows(), "error"))
     .finally(() => {

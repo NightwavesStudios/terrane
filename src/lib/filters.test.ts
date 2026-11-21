@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { homeScope, matches } from "./filters";
-import type { Place } from "../data/places";
+import { loadAtlas, type Place } from "../data/places";
+
+/* The atlas is its own chunk now; a scope label is derived from its rows, so
+   the data has to be in before the expectations below mean anything. */
+beforeAll(async () => {
+  await loadAtlas();
+});
 
 const place = (over: Partial<Place>): Place => ({
   slug: "x",

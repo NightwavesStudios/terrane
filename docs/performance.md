@@ -461,3 +461,58 @@ that the map is not frozen once it appears.
 For contrast, the development server on the same profile reported
 `__terraneReadyMs` ≈ 6.0 s across 85 module requests. That is a dev-server
 number and not comparable with a production build.
+
+## Deferred atlas and the map chunk, 2026-11-21 (second pass)
+
+The first pass cut main-thread blocking but left first paint tied to the entry's
+modulepreload graph: `lib/catalog.ts` imported `map/destinations` at the top,
+`destinations.ts` imports `map/style.ts`, and the shared chunk that carried the
+style also carried MapLibre. So `<head>` preloaded **1.07 MB** before the entry
+on every route, and that was the 2.2 s first paint.
+
+What changed:
+
+- `startCatalog()` imports `map/destinations` when Discover first opens, so the
+  entry no longer reaches `style.ts` and MapLibre is no longer preloaded with
+  the shell.
+- The 202 kB atlas is its own chunk (`data/places.ts` → `loadAtlas()`, called on
+  first idle in `main.tsx`). `PLACES`/`bySlug` are filled in place, `useAtlas()`
+  re-runs the lists derived from them, and `catalog.ts` rebuilds its atlas index
+  when the rows land.
+- `vite.config.ts` emits a `modulepreload` for the map chunk at the end of
+  `<body>`: the megabyte is in flight while React renders, but it is not in
+  front of first paint.
+
+Protocol, unchanged from the pass above: production build, static file server
+(`python3 -m http.server`), 390×844, CDP CPU throttling 4×, 1.2 MB/s + 80 ms,
+cold cache before every run, five runs, median. The baseline is `9c811ce`,
+built from a clean worktree in the same session and served the same way.
+
+| Measure | `9c811ce` | this build | change |
+| --- | ---: | ---: | ---: |
+| first contentful paint | 2 384 ms | **1 288 ms** | −46 % |
+| map canvas in the DOM | 2 695 ms | 2 453 ms | −9 % |
+| entry JS (raw) | 499.6 kB | **305.8 kB** | −39 % |
+
+### Why the canvas did not follow
+
+The canvas cannot exist before `maplibre-gl` has been parsed and constructed, and
+that chunk is 1 066 880 B — of which 1 058 059 B is MapLibre's own minified
+bundle (`maplibre-gl.js` 5.24.1). On this profile the map chunk alone is ~0.9 s
+of transfer, and 4× CPU adds a few hundred milliseconds of parse and WebGL init
+(the last measured canvas was style-end + 218 ms).
+
+A zero-byte entry would still put the canvas at roughly 1.6–1.9 s here, so the
+30 % target (−566 ms) is not reachable by moving application code: it needs bytes
+the map engine owns. The realistic options are to serve the assets compressed
+(what any production host does — the map chunk is 283 kB gzipped, 240 kB brotli,
+against 1 067 kB here), or to replace MapLibre, which is a product decision
+rather than a build one.
+
+### Function after the deferral
+
+On the dev server at 390×844: `querySourceFeatures("features")` returns 9 316
+atlas points at world zoom once the deferred chunk lands (2 845 before the tiles
+fill in), the experiences source holds 408 beacons, and dock exclusivity still
+reads on the live filters — Experiences filters the pins to `__none__`, Peaks
+filters the beacons to `__none__`, All destinations restores both.

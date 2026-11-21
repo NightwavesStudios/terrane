@@ -1,4 +1,4 @@
-import atlasRaw from "./atlas.json";
+import { useSyncExternalStore } from "react";
 
 /** Every place is somewhere you go outside. No cities, no built monuments. */
 export type PlaceType = "peak" | "park" | "landmark";
@@ -100,7 +100,7 @@ export function hueFor(cat: string, slug: string): number {
   return (base + (hash(slug) % 34) - 17 + 360) % 360;
 }
 
-const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
+function toPlace(row: AtlasRow): Place {
   const country = COUNTRY_FIX[row.country] ?? row.country;
   return {
     slug: row.slug,
@@ -115,8 +115,58 @@ const ATLAS: Place[] = (atlasRaw as AtlasRow[]).map((row) => {
     wd: row.wd,
     also: row.also,
   };
-});
+}
 
-export const PLACES: Place[] = ATLAS;
+/* ── the deferred atlas ────────────────────────────────────
+   The rows are 200 kB and nothing on the first screen needs them: at world zoom
+   the globe paints before any atlas point is legible. Kept as their own chunk,
+   fetched once the shell is up, they stop delaying first paint and the map's
+   own chunk on a slow connection.
 
-export const bySlug = new Map(PLACES.map((p) => [p.slug, p]));
+   `PLACES` and `bySlug` are filled in place rather than replaced, so every
+   synchronous reader keeps its shape. A reader that renders a list subscribes
+   with `useAtlas()` and re-renders once, when the rows arrive. */
+export const PLACES: Place[] = [];
+export const bySlug = new Map<string, Place>();
+
+let atlasReadyFlag = false;
+let atlasVersion = 0;
+let atlasLoad: Promise<Place[]> | null = null;
+const atlasListeners = new Set<() => void>();
+
+/** Load the atlas once. Called after the first screen, never at import time. */
+export function loadAtlas(): Promise<Place[]> {
+  if (atlasLoad) return atlasLoad;
+  atlasLoad = import("./atlas.json").then((mod) => {
+    const rows = (mod.default as AtlasRow[]).map(toPlace);
+    PLACES.length = 0;
+    PLACES.push(...rows);
+    bySlug.clear();
+    for (const place of rows) bySlug.set(place.slug, place);
+    atlasReadyFlag = true;
+    atlasVersion += 1;
+    for (const listener of [...atlasListeners]) listener();
+    return rows;
+  });
+  return atlasLoad;
+}
+
+export function atlasReady(): boolean {
+  return atlasReadyFlag;
+}
+
+export function subscribeAtlas(listener: () => void): () => void {
+  atlasListeners.add(listener);
+  return () => {
+    atlasListeners.delete(listener);
+  };
+}
+
+/** 0 until the atlas arrives, then 1. Use it as a memo dependency. */
+export function useAtlas(): number {
+  return useSyncExternalStore(
+    subscribeAtlas,
+    () => atlasVersion,
+    () => atlasVersion,
+  );
+}

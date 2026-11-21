@@ -3,7 +3,7 @@ import Header from "../components/Header";
 import StateNotice from "../components/StateNotice";
 import { category } from "../data/features";
 import { guideKind } from "../data/guide";
-import { bySlug } from "../data/places";
+import { bySlug, loadAtlas, useAtlas } from "../data/places";
 import { setMeta } from "../lib/meta";
 import { placeLine } from "../lib/present";
 import { navigate } from "../lib/router";
@@ -39,6 +39,13 @@ export default function Saved() {
   const [undo, setUndo] = useState<Undo | null>(null);
 
   const total = places.length + experiences.length;
+
+  /* A saved place's region and country come from the atlas when it has landed;
+     until then the stored record's own fields are the whole answer. */
+  useAtlas();
+  useEffect(() => {
+    void loadAtlas();
+  }, []);
 
   useEffect(() => {
     setMeta({
