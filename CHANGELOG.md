@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-11-21 — One navigation, one dock, one set of states
+
+- Added `src/components/nav.ts`: the header and the phone tab bar now read one
+  table of four destinations, and a place page belongs to Discover. Before, a
+  place page highlighted no tab at all in the header.
+- Renamed the map surface to **Discover** everywhere — the tab, the panel and
+  the back link — instead of a Globe tab opening a Discover panel.
+- Rebuilt the map's bottom bar as one dock: the visitor's own location is pinned
+  first and never scrolls away, the destination kinds follow it in a row that
+  scrolls by drag, swipe, trackpad or arrow key, and the strip never wraps, so
+  `--filters-h` stops changing when a region name arrives. Under 620 px the strip
+  and the tab bar share one edge and one width instead of floating as two pills
+  of different sizes; the tablet strip matches the tab bar's width.
+- Added `useScrollRow` (drag, edge fades, roving arrow keys) to the map dock and
+  both catalogue chip rows, so a horizontal row is no longer a dead end for a
+  mouse.
+- Experiences and Collections share `CatalogControls`: one search field, one
+  nearby-place combobox replacing a 1,213-option `<datalist>`, one chip row and
+  one clear-filters action.
+- Added `StateNotice` for loading, empty and error states, and used it for the
+  lazy-route fallback (previously an empty div), both catalogues and the empty
+  library.
+- Place and Experience pages showed two differently labelled save controls; the
+  hero owns the save now, and `BackLink`/`SaveButton` share the pattern.
+- Saved is a real library: filter by kind, sort by recent or A–Z, multi-select
+  and bulk remove, and a 7-second undo instead of an irreversible click.
+- Layers gained an in-panel filter and a reset, and open from the dock's “All
+  categories” chip.
+- Accessibility and polish: `:focus-visible` on every interactive element (there
+  was none outside the map canvas and two inputs), `role="listbox"`/`option`
+  with `aria-activedescendant` in Discover, named z-index and motion tokens, a
+  route fade, and raised contrast on the small mono chrome.
+
 ## 2026-11-21 — Experiences become curated destinations; Collections are separate
 
 - Split the product into four tabs with distinct jobs: **Globe** (the full POI
