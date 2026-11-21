@@ -641,12 +641,79 @@ check(
       record &&
       row.title === record.title &&
       row.category === record.category &&
+      row.difficulty === record.difficulty &&
       row.stopCount === record.stops.length &&
       row.distanceKm === record.distanceKm &&
       row.days === record.days
     );
   }),
   "titles, categories, counts",
+);
+
+/* The routes are walked, so the grade, the day plan and the named trails are
+   part of the record's contract, not decoration. */
+const difficultyIds = new Set(["easy", "moderate", "hard"]);
+check(
+  "experience difficulty uses the three grades",
+  experienceRows.every(
+    (row) =>
+      difficultyIds.has(row.difficulty) &&
+      typeof row.difficultyBasis === "string" &&
+      row.difficultyBasis.length > 0,
+  ) &&
+    [...difficultyIds].every((id) =>
+      experienceRows.some((row) => row.difficulty === id),
+    ),
+  JSON.stringify(
+    experienceRows.reduce((out, row) => {
+      out[row.difficulty] = (out[row.difficulty] ?? 0) + 1;
+      return out;
+    }, {}),
+  ),
+);
+check(
+  "every experience has a walking itinerary that covers its stops",
+  experienceRows.every(
+    (row) =>
+      Array.isArray(row.itinerary) &&
+      row.itinerary.length === row.days &&
+      row.itinerary.length > 0 &&
+      row.itinerary.every(
+        (day, position) =>
+          day.day === position + 1 &&
+          day.stopFrom >= 1 &&
+          day.stopTo <= row.stops.length &&
+          day.stopTo >= day.stopFrom &&
+          day.km >= 0 &&
+          day.hours >= 0 &&
+          typeof day.fromName === "string" &&
+          day.fromName.length > 0 &&
+          typeof day.toName === "string" &&
+          day.toName.length > 0 &&
+          Array.isArray(day.trails) &&
+          day.trails.every(
+            (trail) =>
+              typeof trail.name === "string" &&
+              trail.name.length > 0 &&
+              trail.stop >= day.stopFrom &&
+              trail.stop <= day.stopTo,
+          ),
+      ) &&
+      row.itinerary[0].stopFrom === 1 &&
+      row.itinerary[row.itinerary.length - 1].stopTo === row.stops.length &&
+      Math.abs(
+        row.itinerary.reduce((sum, day) => sum + day.km, 0) - row.distanceKm,
+      ) <=
+        Math.max(0.5, row.distanceKm * 0.01),
+  ),
+  `${experienceRows.reduce((sum, row) => sum + row.days, 0)} walking days`,
+);
+check(
+  "experience titles name the ground, not a template",
+  experienceRows.every(
+    (row) => !/^(a weekend in|peaks of|hiking |camping around|exploring )/i.test(row.title),
+  ),
+  "no category prefixes",
 );
 
 /* The sitemap is build output, so this cannot inspect the file `gen-seo` will

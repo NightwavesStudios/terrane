@@ -26,7 +26,7 @@ which is which before editing.
 | `poi-stats.json` | `scripts/poi-stats.mjs` |
 | `trail-stats.json` | `scripts/merge-sources.py`, then `scripts/trail-quality.mjs` |
 | `trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` |
-| `experience-index/` | `scripts/build-experiences.mjs` (catalog, shards, meta) |
+| `experience-index/` | `scripts/build-experiences.mjs` (catalog, shards, meta; each route records its walking days, difficulty and nearest named trails) |
 | `manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` |
 
 `manifest.json` is bundled into the app and is also the live-update fallback. It

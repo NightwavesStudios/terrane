@@ -64,6 +64,45 @@ export interface ExperienceTrail {
   src?: string;
 }
 
+export type ExperienceDifficulty = "easy" | "moderate" | "hard";
+
+export const EXPERIENCE_DIFFICULTIES: {
+  id: ExperienceDifficulty;
+  label: string;
+}[] = [
+  { id: "easy", label: "Easy" },
+  { id: "moderate", label: "Moderate" },
+  { id: "hard", label: "Hard" },
+];
+
+/** A trail named for a walking day, at the stop it runs nearest. */
+export interface ExperienceDayTrail {
+  name: string;
+  km: number;
+  stop: number;
+  difficulty?: string;
+}
+
+/**
+ * One walking day.
+ *
+ * Boundaries can fall mid-leg, so `fromName`/`toName` are either a stop or a
+ * distance past the last stop ("Gresvatnet +4 km"). `stopFrom`/`stopTo` are the
+ * 1-based stop indices the day covers, which is what the map and trails use.
+ */
+export interface ExperienceDay {
+  day: number;
+  fromName: string;
+  toName: string;
+  stopFrom: number;
+  stopTo: number;
+  km: number;
+  hours: number;
+  ascentM: number;
+  highPoint?: number;
+  trails: ExperienceDayTrail[];
+}
+
 export interface ExperienceStop {
   slug: string;
   name: string;
@@ -74,6 +113,8 @@ export interface ExperienceStop {
   index: number;
   /** Straight-line distance from the previous stop; 0 for the first. */
   legKm: number;
+  /** Recorded climb from the previous stop, where both have an elevation. */
+  ascentM?: number;
   elevation?: number;
   country?: string;
   region?: string;
@@ -109,10 +150,18 @@ export interface Experience {
   hue: number;
   /** Straight-line sum of the legs between stops. */
   distanceKm: number;
+  /** Recorded climb along the route. */
+  ascentM: number;
+  difficulty: ExperienceDifficulty;
+  /** The thresholds behind the grade, printed with it. */
+  difficultyBasis: string;
+  /** Walking time, Naismith's rule plus a pause at each stop. */
   durationHours: number;
   /** The model behind the estimate, printed beside it. */
   durationBasis: string;
   days: number;
+  /** The walking plan, one entry per day. */
+  itinerary: ExperienceDay[];
   stops: ExperienceStop[];
   photos: ExperiencePhoto[];
   stats: ExperienceStats;
@@ -131,6 +180,10 @@ export interface ExperienceCatalogRow {
   lon: number;
   stopCount: number;
   distanceKm: number;
+  difficulty: ExperienceDifficulty;
+  /** The longest walking day on the route. */
+  maxDayKm: number;
+  ascentM: number;
   durationHours: number;
   days: number;
   hue: number;

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-21 — Experiences are walked, graded and named after the ground
+
+- Experiences are now planned on foot: walking days split long legs by
+  Naismith's rule, each day states km and miles, hours, climb and high point, and
+  the route carries a difficulty grade with the thresholds printed beside it.
+- Each walking day names the recorded trail nearest its stops, and the page
+  attaches the nearest mapped campsite, hut or shelter from the cell store.
+- Route titles are the protected area, range or anchor name ("Okstindan", "Monte
+  Rosa Massif") instead of category templates ("Camping around…").
+- The catalogue gains a difficulty filter and a place filter: pick a peak, park or
+  town and see routes within 150 km, ordered by distance.
+- Validation now rejects a missing day plan, a day set that does not cover the
+  stops, a missing difficulty grade, or a templated title.
+
 ## 2026-11-20 — Every destination gets a page
 
 - All 24,474 destinations (1,213 atlas + 23,261 reach) now have a

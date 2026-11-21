@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
@@ -6,12 +6,13 @@ import RidgeArt from "../components/RidgeArt";
 import ExperiencePois from "../components/experiences/ExperiencePois";
 import { category } from "../data/features";
 import { experienceCategory } from "../data/experiences";
-import { useExperiencePois } from "../lib/experiencePois";
+import { nearestStays, useExperiencePois } from "../lib/experiencePois";
 import {
+  difficultyLabel,
   durationLabel,
   experienceWhere,
+  formatKmMiles,
   nearbyExperiences,
-  straightLineLabel,
   useExperience,
   useExperienceCatalog,
 } from "../lib/experiences";
@@ -40,6 +41,10 @@ export default function Experience({ slug }: { slug: string }) {
   const catalog = useExperienceCatalog();
   const savedSlugs = useSavedExperienceSlugs();
   const pois = useExperiencePois(experience?.bounds ?? null);
+  const stays = useMemo(
+    () => nearestStays(experience?.stops ?? [], pois.pois),
+    [experience, pois.pois],
+  );
   const [active, setActive] = useState<string | null>(null);
   const [heroFailed, setHeroFailed] = useState(false);
 
@@ -147,14 +152,28 @@ export default function Experience({ slug }: { slug: string }) {
     });
   }
 
+  const longestDay = Math.max(...experience.itinerary.map((day) => day.km));
   const facts: Fact[] = [
     { k: "Category", v: cat.one },
+    { k: "Difficulty", v: difficultyLabel(experience.difficulty) },
     { k: "Stops", v: `${experience.stats.stops}` },
-    { k: "Between stops", v: straightLineLabel(experience.distanceKm) },
     {
-      k: "Estimate",
+      k: "Between stops",
+      v: `${formatKmMiles(experience.distanceKm)} straight line`,
+    },
+    {
+      k: "On foot",
       v: durationLabel(experience.durationHours, experience.days),
     },
+    { k: "Longest day", v: formatKmMiles(longestDay) },
+    ...(experience.ascentM > 0
+      ? [
+          {
+            k: "Total climb",
+            v: `${experience.ascentM.toLocaleString("en-US")} m`,
+          },
+        ]
+      : []),
     ...(experience.stats.elevationMax
       ? [{ k: "High point", v: `${experience.stats.elevationMax.toLocaleString("en-US")} m` }]
       : []),
@@ -170,6 +189,7 @@ export default function Experience({ slug }: { slug: string }) {
       slug: experience.slug,
       title: experience.title,
       category: experience.category,
+      difficulty: experience.difficulty,
       stopCount: experience.stats.stops,
       days: experience.days,
       country: experience.country,
@@ -220,8 +240,9 @@ export default function Experience({ slug }: { slug: string }) {
             </p>
             <h1 className="place-title">{experience.title}</h1>
             <p className="place-tagline">
-              {experience.stats.stops} stops · {formatKm(experience.distanceKm)} between
-              stops · {durationLabel(experience.durationHours, experience.days)}
+              {experience.stats.stops} stops · {formatKmMiles(experience.distanceKm)}{" "}
+              between stops · {durationLabel(experience.durationHours, experience.days)} on
+              foot
             </p>
           </div>
 
@@ -257,8 +278,62 @@ export default function Experience({ slug }: { slug: string }) {
               ))}
             </PlaceSection>
 
-            <PlaceSection
-              title="Map"
+                        <PlaceSection
+              title="Itinerary"
+              note={`${experience.days} walking day${experience.days === 1 ? "" : "s"} · ${difficultyLabel(experience.difficulty)}`}
+            >
+              <ol className="exp-days">
+                {experience.itinerary.map((day) => {
+                  const stop = experience.stops[day.stopTo - 1];
+                  const stay = stop ? stays.get(stop.slug) : undefined;
+                  return (
+                    <li className="exp-day" key={day.day}>
+                      <div className="exp-day-head">
+                        <span className="mono exp-day-n">Day {day.day}</span>
+                        <span className="exp-day-route">
+                          {day.fromName} → {day.toName}
+                        </span>
+                      </div>
+                      <p className="mono exp-day-meta">
+                        {[
+                          formatKmMiles(day.km),
+                          `${day.hours} h walking`,
+                          day.ascentM > 0 ? `${day.ascentM.toLocaleString("en-US")} m up` : "",
+                          day.highPoint
+                            ? `high point ${day.highPoint.toLocaleString("en-US")} m`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {day.trails.length > 0 ? (
+                        <p className="exp-day-trails">
+                          <span className="mono exp-day-label">Trails</span>{" "}
+                          {day.trails
+                            .map(
+                              (trail) =>
+                                `${trail.name} (${formatKm(trail.km)} from stop ${trail.stop})`,
+                            )
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                      {stay ? (
+                        <p className="mono exp-day-stay">
+                          Stay: {stay.poi.name} · {formatKm(stay.km)} from {stop.name}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="mono exp-note">
+                {experience.durationBasis} {experience.difficultyBasis} Trail and
+                campsite names come from recorded data; check them before relying on
+                them.
+              </p>
+            </PlaceSection>
+
+            <PlaceSection title="Map"
               note={`${experience.stops.length} stops · straight-line route`}
             >
               <Suspense
@@ -411,8 +486,9 @@ export default function Experience({ slug }: { slug: string }) {
                 {saved ? "Saved ✓" : "Save this experience"}
               </button>
               <p className="mono exp-aside-note">
+                {difficultyLabel(experience.difficulty)} — {experience.difficultyBasis}{" "}
                 {experience.durationBasis} Distance is straight-line between stops,
-                not road or trail distance.
+                not trail distance.
               </p>
               <p className="mono exp-aside-note">
                 Generated from {experience.stats.stops} destinations and their

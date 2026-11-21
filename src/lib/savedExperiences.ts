@@ -13,6 +13,7 @@ export type SavedExperience = {
   slug: string;
   title: string;
   category: string;
+  difficulty?: string;
   stopCount: number;
   days: number;
   country?: string;

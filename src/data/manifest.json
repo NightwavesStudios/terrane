@@ -535,6 +535,21 @@
         "detail": "titles, categories, counts"
       },
       {
+        "name": "experience difficulty uses the three grades",
+        "ok": true,
+        "detail": "{\"moderate\":392,\"hard\":196,\"easy\":11}"
+      },
+      {
+        "name": "every experience has a walking itinerary that covers its stops",
+        "ok": true,
+        "detail": "3466 walking days"
+      },
+      {
+        "name": "experience titles name the ground, not a template",
+        "ok": true,
+        "detail": "no category prefixes"
+      },
+      {
         "name": "the sitemap covers the experience index and every route",
         "ok": true,
         "detail": "25076 urls · 599 experiences"

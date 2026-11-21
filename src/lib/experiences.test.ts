@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { ExperienceCatalogRow } from "../data/experiences";
 import {
+  difficultyLabel,
   durationLabel,
   filterExperiences,
+  formatKmMiles,
+  kilometresFrom,
   matchedStop,
   nearbyExperiences,
   straightLineLabel,
+  type ExperienceNear,
 } from "./experiences";
 
 const row = (
@@ -16,6 +20,9 @@ const row = (
   lon: 8,
   stopCount: 4,
   distanceKm: 40,
+  maxDayKm: 14,
+  ascentM: 420,
+  difficulty: "moderate",
   durationHours: 9,
   days: 2,
   hue: 200,
@@ -41,6 +48,8 @@ const rows: ExperienceCatalogRow[] = [
     region: "Alberta",
     lat: 53,
     lon: -118,
+    difficulty: "easy",
+    maxDayKm: 9,
     stopNames: ["Maligne Lake", "Pyramid Mountain"],
   }),
   row({
@@ -51,6 +60,8 @@ const rows: ExperienceCatalogRow[] = [
     region: "Oregon",
     lat: 44.2,
     lon: -121.8,
+    difficulty: "hard",
+    maxDayKm: 23.5,
     stopNames: ["Mount Hood", "Three Sisters"],
   }),
 ];
@@ -91,6 +102,52 @@ describe("filterExperiences", () => {
   it("returns nothing for an unknown term", () => {
     expect(filterExperiences(rows, { query: "kerguelen" })).toEqual([]);
   });
+
+  it("filters by walking difficulty", () => {
+    expect(filterExperiences(rows, { difficulty: "easy" })).toEqual([rows[1]]);
+    expect(filterExperiences(rows, { difficulty: "hard" })).toEqual([rows[2]]);
+    expect(filterExperiences(rows, { difficulty: "moderate" })).toEqual([rows[0]]);
+  });
+
+  it("combines difficulty with a category and a query", () => {
+    expect(filterExperiences(rows, { difficulty: "hard", category: "hiking" })).toEqual([
+      rows[2],
+    ]);
+    expect(filterExperiences(rows, { difficulty: "easy", query: "hood" })).toEqual(
+      [],
+    );
+  });
+});
+
+describe("place search", () => {
+  const near: ExperienceNear = { lat: 46.4, lon: 7.9, label: "Bernese Alps" };
+
+  it("keeps routes within the radius and orders them by distance", () => {
+    const result = filterExperiences(rows, { near });
+    expect(result.map((item) => item.slug)).toEqual(["peaks-of-bernese-alps"]);
+    expect(kilometresFrom(rows[0], near)).toBeLessThan(1);
+  });
+
+  it("drops everything outside the radius", () => {
+    const far: ExperienceNear = { lat: -40, lon: 100, label: "Indian Ocean" };
+    expect(filterExperiences(rows, { near: far })).toEqual([]);
+  });
+
+  it("still ranks a query match first inside a place", () => {
+    const wider: ExperienceNear = { lat: 46.4, lon: 7.9, label: "Bernese Alps" };
+    const close = row({
+      slug: "close-by",
+      title: "Aletsch Glacier",
+      lat: 46.45,
+      lon: 7.95,
+      stopNames: ["Aletschhorn"],
+    });
+    const result = filterExperiences([...rows, close], {
+      near: wider,
+      query: "eiger",
+    });
+    expect(result.map((item) => item.slug)).toEqual(["peaks-of-bernese-alps"]);
+  });
 });
 
 describe("matchedStop", () => {
@@ -111,6 +168,17 @@ describe("labels", () => {
   it("labels the distance as a straight line", () => {
     expect(straightLineLabel(0.4)).toBe("400 m straight line");
     expect(straightLineLabel(42.4)).toBe("42 km straight line");
+  });
+
+  it("gives a walking audience miles beside kilometres", () => {
+    expect(formatKmMiles(42.4)).toBe("42 km (26 mi)");
+    expect(formatKmMiles(0.4)).toBe("400 m (0 mi)");
+  });
+
+  it("names the three walking grades", () => {
+    expect(difficultyLabel("easy")).toBe("Easy");
+    expect(difficultyLabel("moderate")).toBe("Moderate");
+    expect(difficultyLabel("hard")).toBe("Hard");
   });
 });
 

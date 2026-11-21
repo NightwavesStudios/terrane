@@ -3,6 +3,7 @@ import type {
   Experience,
   ExperienceCatalogRow,
   ExperienceCategoryId,
+  ExperienceDifficulty,
 } from "../data/experiences";
 import { kmBetween } from "./geo";
 import { formatKm } from "./present";
@@ -138,21 +139,63 @@ function scoreRow(row: ExperienceCatalogRow, term: string): number {
   return score;
 }
 
+/** How far from a chosen place a route still counts as "near". */
+export const NEAR_RADIUS_KM = 150;
+
+export type ExperienceNear = { lat: number; lon: number; label: string };
+
+export type ExperienceFilter = {
+  query?: string;
+  category?: ExperienceCategoryId | null;
+  difficulty?: ExperienceDifficulty | null;
+  near?: ExperienceNear | null;
+};
+
+/** Straight-line kilometres from a place to a route's centre. */
+export function kilometresFrom(
+  row: Pick<ExperienceCatalogRow, "lat" | "lon">,
+  near: ExperienceNear,
+): number {
+  return kmBetween(near.lat, near.lon, row.lat, row.lon);
+}
+
+/**
+ * Filter and order the catalogue.
+ *
+ * Category and difficulty narrow the pool; a query scores titles, regions and
+ * stop names; a chosen place keeps routes within `NEAR_RADIUS_KM` and orders
+ * them by distance. A query inside a place still ranks matches first, with
+ * distance breaking ties.
+ */
 export function filterExperiences(
   rows: ExperienceCatalogRow[],
-  options: { query?: string; category?: ExperienceCategoryId | null } = {},
+  options: ExperienceFilter = {},
 ): ExperienceCatalogRow[] {
   const term = normalize((options.query ?? "").trim());
   const category = options.category ?? null;
-  const pool = category ? rows.filter((row) => row.category === category) : rows;
-  if (!term) return pool;
+  const difficulty = options.difficulty ?? null;
+  const near = options.near ?? null;
 
-  return pool
-    .map((row) => ({ row, score: scoreRow(row, term) }))
-    .filter((item) => item.score > 0)
+  let pool = rows;
+  if (category) pool = pool.filter((row) => row.category === category);
+  if (difficulty) pool = pool.filter((row) => row.difficulty === difficulty);
+  if (near) {
+    pool = pool.filter((row) => kilometresFrom(row, near) <= NEAR_RADIUS_KM);
+  }
+  if (!term && !near) return pool;
+
+  const scored = pool.map((row) => ({
+    row,
+    score: term ? scoreRow(row, term) : 0,
+    km: near ? kilometresFrom(row, near) : 0,
+  }));
+
+  return scored
+    .filter((item) => !term || item.score > 0)
     .sort(
       (a, b) =>
-        b.score - a.score ||
+        (term ? b.score - a.score : 0) ||
+        a.km - b.km ||
         a.row.title.localeCompare(b.row.title) ||
         a.row.slug.localeCompare(b.row.slug),
     )
@@ -167,6 +210,20 @@ export function matchedStop(
   const term = normalize(query.trim());
   if (!term) return undefined;
   return row.stopNames.find((name) => normalize(name).includes(term));
+}
+
+export function difficultyLabel(id: ExperienceDifficulty): string {
+  return id === "easy" ? "Easy" : id === "moderate" ? "Moderate" : "Hard";
+}
+
+/** Kilometres in miles, rounded — the page gives both for a walking audience. */
+export function kmAsMiles(km: number): number {
+  return Math.round(km * 0.621371);
+}
+
+/** "12 km (7 mi)" — distance with its mile equivalent. */
+export function formatKmMiles(km: number): string {
+  return `${formatKm(km)} (${kmAsMiles(km).toLocaleString("en-US")} mi)`;
 }
 
 export function durationLabel(hours: number, days: number): string {

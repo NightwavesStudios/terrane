@@ -301,27 +301,244 @@ export function distanceOf(stops) {
   );
 }
 
-const DWELL_HOURS = {
-  weekend: 1.5,
-  mountain: 2,
-  hiking: 2.5,
-  camping: 1.5,
-  park: 2,
-};
+/* ── walking model ────────────────────────────────────────────────
+   These routes are walked. Naismith's rule is the standard estimate: flat pace
+   plus a climb allowance. The distances are still straight lines between stops,
+   so the result is a floor for the ground, and every surface states that. */
 
-/** A stated model, not a claim: road speed for straight-line legs plus dwell. */
-export function durationFor(category, distanceKm, stopCount) {
-  const dwell = DWELL_HOURS[category] ?? 2;
-  const hours = distanceKm / 45 + stopCount * dwell;
+export const WALK_KMH = 4.5;
+export const ASCENT_M_PER_HOUR = 600;
+const DAY_HOURS = 6;
+const DAY_MAX_KM = 20;
+const STOP_PAUSE_HOURS = 0.5;
+
+/** Walking hours for a leg, including its climb. */
+export function walkHours(km, ascentM = 0) {
+  return km / WALK_KMH + ascentM / ASCENT_M_PER_HOUR;
+}
+
+/** Ascent from one stop to the next, where both record an elevation. */
+export function ascentBetween(previous, stop) {
+  if (!Number.isFinite(previous?.elev) || !Number.isFinite(stop?.elev)) return 0;
+  return Math.max(0, stop.elev - previous.elev);
+}
+
+/**
+ * Split the route into walking days.
+ *
+ * Stops are not evenly spaced: a leg can be 40 km, which is two days of walking
+ * with a night somewhere in between. So days are cut by walking time along the
+ * line, splitting a long leg proportionally instead of pretending it is one day.
+ * Each day records its start and end names (a stop, or "between A and B"), its
+ * km, hours and climb, the stops it reaches, and the last stop reached — the
+ * place to look for a bed that night.
+ */
+export function itineraryFor(stops) {
+  const cumulative = [0];
+  for (let i = 1; i < stops.length; i += 1) {
+    cumulative.push(round(cumulative[i - 1] + stops[i].legKm, 3));
+  }
+  const totalKm = cumulative[cumulative.length - 1] ?? 0;
+  const nameAt = (km) => {
+    for (let i = 0; i < stops.length; i += 1) {
+      if (Math.abs(cumulative[i] - km) <= 0.3) return stops[i].name;
+    }
+    if (km <= 0) return stops[0].name;
+    if (km >= totalKm) return stops[stops.length - 1].name;
+    for (let i = 1; i < stops.length; i += 1) {
+      if (km < cumulative[i]) {
+        /* A night mid-leg is stated by distance from the last stop, which is
+           more useful than "between X and Y" repeated on consecutive days. */
+        return `${stops[i - 1].name} +${Math.round(km - cumulative[i - 1])} km`;
+      }
+    }
+    return stops[stops.length - 1].name;
+  };
+
+  const stopAt = (km) => {
+    let last = 0;
+    for (let i = 0; i < stops.length; i += 1) {
+      if (cumulative[i] <= km + 0.05) last = i + 1;
+    }
+    return last;
+  };
+
+  const days = [];
+  let startKm = 0;
+  let km = 0;
+  let hours = 0;
+  let ascentM = 0;
+
+  const close = (endKm) => {
+    const stopFrom = stopAt(startKm);
+    const stopTo = Math.max(stopFrom, stopAt(endKm));
+    let highPoint;
+    for (let i = stopFrom; i <= stopTo && i <= stops.length; i += 1) {
+      const elev = stops[i - 1]?.elev;
+      if (Number.isFinite(elev)) highPoint = Math.max(highPoint ?? elev, elev);
+    }
+    days.push({
+      day: days.length + 1,
+      fromName: nameAt(startKm),
+      toName: nameAt(endKm),
+      stopFrom,
+      stopTo,
+      km: round(km, 1),
+      hours: round(hours, 1),
+      ascentM: Math.round(ascentM),
+      ...(highPoint == null ? {} : { highPoint: Math.round(highPoint) }),
+    });
+    startKm = endKm;
+    km = 0;
+    hours = 0;
+    ascentM = 0;
+  };
+
+  for (let i = 1; i < stops.length; i += 1) {
+    const legKm = stops[i].legKm;
+    const legAscent = ascentBetween(stops[i - 1], stops[i]);
+    const legHours = walkHours(legKm, legAscent);
+    if (legKm <= 0.01) continue;
+
+    let consumed = 0;
+    const hoursPerKm = legHours / legKm;
+    while (consumed < legKm - 0.01) {
+      const kmRoom = DAY_MAX_KM - km;
+      const hourRoom = DAY_HOURS - hours;
+      const take = Math.min(
+        legKm - consumed,
+        kmRoom,
+        hoursPerKm > 0 ? hourRoom / hoursPerKm : kmRoom,
+      );
+
+      if (take <= 0.05) {
+        if (km > 0.05 || hours > 0.05) {
+          close(cumulative[i - 1] + consumed);
+          continue;
+        }
+        /* A leg so steep that one hour of climb covers almost no ground: no
+           day size can split it, so it is walked as a single day. Without this
+           the loop closes empty days forever. */
+        const forced = legKm - consumed;
+        km += forced;
+        hours += forced * hoursPerKm;
+        ascentM += (legAscent * forced) / legKm;
+        consumed = legKm;
+        close(cumulative[i]);
+        break;
+      }
+
+      km += take;
+      hours += take * hoursPerKm;
+      ascentM += (legAscent * take) / legKm;
+      consumed += take;
+
+      if (
+        consumed < legKm - 0.01 &&
+        (DAY_MAX_KM - km <= 0.05 || DAY_HOURS - hours <= 0.05)
+      ) {
+        close(cumulative[i - 1] + consumed);
+      }
+    }
+  }
+
+  close(totalKm);
+  return days.length > 0
+    ? days
+    : [
+        {
+          day: 1,
+          fromName: stops[0]?.name ?? "",
+          toName: stops[0]?.name ?? "",
+          stopFrom: 1,
+          stopTo: 1,
+          km: 0,
+          hours: 0,
+          ascentM: 0,
+        },
+      ];
+}
+
+/** Total walking time, the per-day plan and the ascent the route accumulates. */
+export function walkingModel(stops) {
+  const itinerary = itineraryFor(stops);
+  const walking = itinerary.reduce((sum, day) => sum + day.hours, 0);
+  const ascentM = itinerary.reduce((sum, day) => sum + day.ascentM, 0);
+  const hours = round(
+    Math.round((walking + stops.length * STOP_PAUSE_HOURS) * 2) / 2,
+    1,
+  );
+  return { itinerary, hours, days: itinerary.length, ascentM };
+}
+
+/**
+ * Difficulty from the daily shape, not from the category.
+ *
+ * The thresholds are stated on the page so the grade is auditable: a route is
+ * only "hard" because a recorded day is long, climbs a lot, or reaches high
+ * ground. Straight-line distance understates the ground, so the grade is a
+ * floor in the same way the estimate is.
+ */
+export function difficultyFor(itinerary, stops) {
+  const maxDayKm = Math.max(...itinerary.map((day) => day.km), 0);
+  const maxDayAscent = Math.max(...itinerary.map((day) => day.ascentM), 0);
+  const elevations = stops
+    .map((stop) => stop.elev)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const highPoint = elevations.length ? Math.max(...elevations) : 0;
+
+  let level = "moderate";
+  if (maxDayKm <= 14 && maxDayAscent <= 300 && highPoint <= 1500) level = "easy";
+  if (maxDayKm > 22 || maxDayAscent > 800 || highPoint > 3000) level = "hard";
+
   return {
-    hours: round(Math.round(hours * 2) / 2, 1),
-    days: Math.max(1, Math.min(6, Math.ceil(hours / 8))),
+    level,
+    maxDayKm: round(maxDayKm, 1),
+    maxDayAscent,
+    highPoint: highPoint > 0 ? highPoint : null,
   };
 }
 
-export function durationBasis(category) {
-  const dwell = DWELL_HOURS[category] ?? 2;
-  return `Travel at 45 km/h along straight-line stop distances, plus ${dwell} h at each stop.`;
+export function difficultyBasis(level) {
+  return (
+    {
+      easy: "Easy: days of up to 14 km and 300 m of ascent, staying below 1,500 m.",
+      moderate:
+        "Moderate: days of up to 22 km and 800 m of ascent, staying below 3,000 m.",
+      hard: "Hard: more than 22 km or 800 m of ascent in a day, or ground above 3,000 m.",
+    }[level] ?? ""
+  );
+}
+
+export function walkingBasis() {
+  return `On foot: Naismith's rule at ${WALK_KMH} km/h plus 1 h per ${ASCENT_M_PER_HOUR} m of ascent, on straight-line stop distances, plus ${STOP_PAUSE_HOURS * 60} min at each stop.`;
+}
+
+/** The closest recorded trail at each of a day's stops, deduplicated by name. */
+export function trailsForDay(day, stops) {
+  const out = [];
+  const seen = new Set();
+  const first = Math.max(1, day.stopFrom);
+  const last = Math.min(stops.length, Math.max(day.stopTo, first));
+  for (let index = first; index <= last; index += 1) {
+    const stop = stops[index - 1];
+    const nearest = [...(stop.trails ?? stop.trailLinks ?? [])]
+      .filter((trail) => trail?.name)
+      .sort(
+        (a, b) => (a.km ?? 0) - (b.km ?? 0) || a.name.localeCompare(b.name),
+      )[0];
+    if (!nearest) continue;
+    const key = nearest.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      name: nearest.name,
+      km: nearest.km,
+      stop: index,
+      ...(nearest.difficulty ? { difficulty: nearest.difficulty } : {}),
+    });
+  }
+  return out.slice(0, 3);
 }
 
 /**
@@ -353,16 +570,21 @@ export function formatList(values) {
   return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
+/**
+ * A route is named after the ground it crosses, not after the category.
+ *
+ * The category already has a badge, a filter and a sentence; prefixing every
+ * title with "Camping around" or "A weekend in" made 599 routes read like one
+ * template. The most specific recorded name — protected area, then range, then
+ * the anchor destination — is the title, and the caller disambiguates duplicates
+ * with the region or country.
+ */
 export function titleFor(category, members, anchor) {
-  const label = labelFor(anchor);
-  const peaks = members.filter((member) => PEAK_CATS.has(member.cat)).length;
-  if (category === "mountain") {
-    return peaks >= 2 ? `Peaks of ${label}` : `Mountain country around ${anchor.name}`;
-  }
-  if (category === "hiking") return `Hiking ${label}`;
-  if (category === "camping") return `Camping around ${label}`;
-  if (category === "park") return `Exploring ${label}`;
-  return `A weekend in ${label}`;
+  return (
+    specificAreaName(anchor.protectedArea) ||
+    anchor.range?.name ||
+    anchor.name
+  );
 }
 
 export function slugify(value) {
@@ -385,18 +607,39 @@ export function describeExperience({
   stops,
   distanceKm,
   duration,
+  difficulty,
+  itinerary,
   label,
 }) {
-  const names = members.map((member) => member.name);
-  const n = members.length;
-  const intro =
-    category === "weekend"
-      ? `A weekend around ${label}, linking ${n} destinations: ${formatList(names)}.`
-      : `${
-          duration.days === 1 ? "A day" : `A ${duration.days}-day`
-        } ${CATEGORY_NOUN[category] ?? "route"} through ${label}, linking ${n} destinations: ${formatList(names)}.`;
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  const dayText = duration.days === 1 ? "One day" : `${duration.days} days`;
+  const summary = `${dayText} on foot across ${label}, from ${first.name} to ${last.name}: ${stops.length} stops, ${distanceKm} km apart in a straight line.`;
 
   const parts = [];
+
+  /* The trails, by name, at the stop they are nearest. This is the most concrete
+     thing the committed data can say about which path to take. */
+  const trailLines = [];
+  for (const stop of stops) {
+    const nearest = [...(stop.trails ?? stop.trailLinks ?? [])]
+      .filter((trail) => trail?.name)
+      .sort(
+        (a, b) => (a.km ?? 0) - (b.km ?? 0) || a.name.localeCompare(b.name),
+      )[0];
+    if (nearest) {
+      trailLines.push(`${nearest.name} (${nearest.km} km from ${stop.name})`);
+    }
+  }
+  if (trailLines.length > 0) {
+    parts.push(
+      `Recorded trails nearest the stops: ${formatList(trailLines.slice(0, 4))}${
+        trailLines.length > 4 ? `, and ${trailLines.length - 4} more` : ""
+      }.`,
+    );
+  } else {
+    parts.push("No named trail is recorded within 10 km of these stops.");
+  }
   const elevations = members
     .filter((member) => Number.isFinite(member.elev) && member.elev > 0)
     .sort((a, b) => a.elev - b.elev);
@@ -412,17 +655,6 @@ export function describeExperience({
     );
   }
 
-  const trailCount = members.reduce(
-    (sum, member) => sum + member.trailLinks.length,
-    0,
-  );
-  const trailStops = members.filter((member) => member.trailLinks.length > 0).length;
-  if (trailStops > 0) {
-    parts.push(
-      `Named trails lie within 10 km of ${trailStops} of the ${n} stops${trailCount > 0 ? ` (${trailCount} in total)` : ""}.`,
-    );
-  }
-
   const protectedNames = new Map();
   for (const member of members) {
     const name = specificAreaName(member.protectedArea);
@@ -435,28 +667,26 @@ export function describeExperience({
     parts.push(`${shared[1]} stops are recorded inside ${shared[0]}.`);
   }
 
-  const longest = stops
-    .slice(1)
-    .sort((a, b) => b.legKm - a.legKm || a.index - b.index)[0];
+  const longest = [...itinerary].sort(
+    (a, b) => b.km - a.km || a.day - b.day,
+  )[0];
+  const climb = [...itinerary].sort(
+    (a, b) => b.ascentM - a.ascentM || a.day - b.day,
+  )[0];
   parts.push(
-    `The stops are ${distanceKm} km apart in a straight line${
-      longest ? `, with the longest leg ${longest.legKm} km` : ""
-    }.`,
+    `${difficultyBasis(difficulty.level)}${
+      longest ? ` The longest day is ${longest.km} km` : ""
+    }${climb && climb.ascentM > 0 ? `, with up to ${climb.ascentM} m of ascent` : ""}.`,
+  );
+  parts.push(
+    `Distances are straight lines between stops, not trail distance; ${distanceKm} km in total.`,
   );
 
   if (category === "camping") {
     parts.push(
-      "Mapped campsites and huts around these stops are listed from OpenStreetMap cells on this page.",
+      "Campsites and huts near each stop come from OpenStreetMap cells and are listed on this page.",
     );
   }
 
-  return { summary: intro, description: [intro, parts.join(" ")] };
+  return { summary, description: [summary, parts.join(" ")] };
 }
-
-const CATEGORY_NOUN = {
-  mountain: "mountain route",
-  hiking: "hiking route",
-  camping: "camping route",
-  park: "park route",
-  weekend: "weekend",
-};

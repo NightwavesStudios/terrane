@@ -19,13 +19,14 @@ import { join } from "node:path";
 import { destinationMeta, readDestinations, shardOf } from "./lib/destinations.mjs";
 import {
   CATEGORY_IDS,
+  ascentBetween,
   buildCandidates,
   classifyCluster,
   createIndex,
   describeExperience,
+  difficultyBasis as difficultyBasisText,
+  difficultyFor,
   distanceOf,
-  durationBasis,
-  durationFor,
   expandCluster,
   experienceHue,
   labelFor,
@@ -33,6 +34,9 @@ import {
   slugify,
   spanKm,
   titleFor,
+  trailsForDay,
+  walkingBasis,
+  walkingModel,
 } from "./lib/experiences.mjs";
 
 const root = process.cwd();
@@ -86,11 +90,16 @@ function titledFor(category, members, anchor) {
   const base = titleFor(category, members, anchor);
   let title = base;
   if (usedTitles.has(title)) {
-    const withAnchor = `${base} — ${anchor.name}`.slice(0, 120);
-    title = withAnchor;
+    /* Two different routes can share a range or a park name. The region or
+       country is the factual qualifier; the anchor name is the last resort. */
+    const qualifier =
+      [anchor.region, anchor.country].find(
+        (value) => value && value !== base,
+      ) ?? anchor.name;
+    title = `${base}, ${qualifier}`.slice(0, 120);
     let n = 2;
     while (usedTitles.has(title)) {
-      title = `${withAnchor} (${n})`;
+      title = `${base}, ${qualifier} (${n})`;
       n += 1;
     }
   }
@@ -142,7 +151,8 @@ function buildRecord(seed, members, category) {
   const stops = orderStops(members);
   const anchor = stops[0];
   const distanceKm = distanceOf(stops);
-  const duration = durationFor(category, distanceKm, stops.length);
+  const model = walkingModel(stops);
+  const difficulty = difficultyFor(model.itinerary, stops);
   const gallery = galleryFor(members);
   const title = titledFor(category, members, anchor);
   const slug = uniqueSlug(title);
@@ -152,7 +162,9 @@ function buildRecord(seed, members, category) {
     members,
     stops,
     distanceKm,
-    duration,
+    duration: model,
+    difficulty,
+    itinerary: model.itinerary,
     label,
   });
 
@@ -186,10 +198,17 @@ function buildRecord(seed, members, category) {
     ],
     hue: experienceHue(category, slug),
     distanceKm,
-    durationHours: duration.hours,
-    durationBasis: durationBasis(category),
-    days: duration.days,
-    stops: stops.map((stop) => ({
+    ascentM: model.ascentM,
+    difficulty: difficulty.level,
+    difficultyBasis: difficultyBasisText(difficulty.level),
+    durationHours: model.hours,
+    durationBasis: walkingBasis(),
+    days: model.days,
+    itinerary: model.itinerary.map((day) => ({
+      ...day,
+      trails: trailsForDay(day, stops),
+    })),
+    stops: stops.map((stop, position) => ({
       slug: stop.slug,
       name: stop.name,
       cat: stop.cat,
@@ -197,6 +216,9 @@ function buildRecord(seed, members, category) {
       lon: stop.lon,
       index: stop.index,
       legKm: stop.legKm,
+      ...(position > 0 && ascentBetween(stops[position - 1], stop) > 0
+        ? { ascentM: Math.round(ascentBetween(stops[position - 1], stop)) }
+        : {}),
       ...(Number.isFinite(stop.elev) && stop.elev > 0
         ? { elevation: Math.round(stop.elev) }
         : {}),
@@ -244,8 +266,11 @@ function buildRecord(seed, members, category) {
     lon: record.center.lon,
     stopCount: stops.length,
     distanceKm,
-    durationHours: duration.hours,
-    days: duration.days,
+    difficulty: difficulty.level,
+    maxDayKm: difficulty.maxDayKm,
+    ascentM: model.ascentM,
+    durationHours: model.hours,
+    days: model.days,
     hue: record.hue,
     ...(gallery[0]
       ? {
@@ -424,6 +449,10 @@ writeFileSync(
       generated: generatedDate,
       total: records.length,
       byCategory,
+      byDifficulty: records.reduce((out, record) => {
+        out[record.difficulty] = (out[record.difficulty] ?? 0) + 1;
+        return out;
+      }, {}),
       stops: records.reduce((sum, record) => sum + record.stops.length, 0),
       countries: new Set(records.map((record) => record.country).filter(Boolean)).size,
       shards: shards.size,

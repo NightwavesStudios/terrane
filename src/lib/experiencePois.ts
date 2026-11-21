@@ -121,6 +121,35 @@ async function loadCell(path: string): Promise<ExperiencePoi[]> {
   return pending;
 }
 
+/**
+ * The nearest mapped bed for each stop: a campsite, hut or shelter.
+ *
+ * These are OpenStreetMap rows, not generated facts, so a route can say "there
+ * is a hut 1.2 km from this stop" without pretending the generator knows it. A
+ * stop with nothing within `maxKm` simply gets no entry.
+ */
+export function nearestStays(
+  stops: { slug: string; lat: number; lon: number }[],
+  pois: ExperiencePoi[],
+  maxKm = 6,
+): Map<string, { poi: ExperiencePoi; km: number }> {
+  const beds = pois.filter(
+    (poi) => poi.cat === "camp" || poi.cat === "hut" || poi.cat === "shelter",
+  );
+  const out = new Map<string, { poi: ExperiencePoi; km: number }>();
+  if (beds.length === 0) return out;
+  for (const stop of stops) {
+    let best: { poi: ExperiencePoi; km: number } | null = null;
+    for (const poi of beds) {
+      const km = kmBetween(stop.lat, stop.lon, poi.lat, poi.lon);
+      if (km > maxKm) continue;
+      if (!best || km < best.km) best = { poi, km };
+    }
+    if (best) out.set(stop.slug, { poi: best.poi, km: best.km });
+  }
+  return out;
+}
+
 export function useExperiencePois(
   bounds: [number, number, number, number] | null | undefined,
 ): { pois: ExperiencePoi[]; status: "idle" | "loading" | "ready" | "error" } {

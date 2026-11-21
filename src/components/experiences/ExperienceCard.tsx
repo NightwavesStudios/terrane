@@ -4,7 +4,15 @@ import {
   experienceCategory,
   type ExperienceCatalogRow,
 } from "../../data/experiences";
-import { durationLabel, experienceWhere, matchedStop } from "../../lib/experiences";
+import {
+  difficultyLabel,
+  durationLabel,
+  experienceWhere,
+  formatKmMiles,
+  kilometresFrom,
+  matchedStop,
+  type ExperienceNear,
+} from "../../lib/experiences";
 import { thumbAt } from "../../lib/placeDetails";
 import { formatKm } from "../../lib/present";
 import { navigate } from "../../lib/router";
@@ -21,11 +29,13 @@ import { navigate } from "../../lib/router";
 export default function ExperienceCard({
   row,
   query,
+  near,
   saved,
   onToggleSave,
 }: {
   row: ExperienceCatalogRow;
   query?: string;
+  near?: ExperienceNear | null;
   saved: boolean;
   onToggleSave: () => void;
 }) {
@@ -60,6 +70,9 @@ export default function ExperienceCard({
             <RidgeArt hue={row.hue} className="exp-card-art-svg" />
           )}
           <span className="exp-card-badge mono">{category.one}</span>
+          <span className={`exp-card-diff exp-card-diff--${row.difficulty}`}>
+            {difficultyLabel(row.difficulty)}
+          </span>
           {photo ? (
             <span className="exp-card-credit mono">
               {photo.credit} · {photo.licence}
@@ -72,10 +85,18 @@ export default function ExperienceCard({
           <span className="mono exp-card-stats">
             {[
               `${row.stopCount} stops`,
-              formatKm(row.distanceKm),
+              formatKmMiles(row.distanceKm),
               durationLabel(row.durationHours, row.days),
             ].join(" · ")}
           </span>
+          <span className="mono exp-card-day">
+            Up to {formatKmMiles(row.maxDayKm)} a day
+          </span>
+          {near ? (
+            <span className="mono exp-card-near">
+              {formatKm(kilometresFrom(row, near))} from {near.label}
+            </span>
+          ) : null}
           {match ? (
             <span className="mono exp-card-match">Includes {match}</span>
           ) : null}

@@ -51,8 +51,8 @@ it needs a rebuild, not a restart.
 | `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. |
 | `/?place=<slug>` | `Home` | The globe with a place pre-selected and flown to. |
 | `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
-| `/experiences` | `Experiences` | Generated route catalogue: search by title, stop, region or country; filter by the five categories; save. |
-| `/experiences/:slug` | `Experience` | One generated route: interactive map, ordered stops, trails, practical places from the cell store, photographs and save. |
+| `/experiences` | `Experiences` | Generated walking-route catalogue: search by title, stop, region or country, or filter to routes near a named place; filter by the five categories and by walking difficulty; save. |
+| `/experiences/:slug` | `Experience` | One generated route: walking-day itinerary with distances in km and miles, named trails and OSM stays, difficulty, interactive map, ordered stops, practical places from the cell store, photographs and save. |
 | `/saved` | `Saved` | The destinations and experiences saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
@@ -136,9 +136,13 @@ without the network.
 `src/data/experience-index/` is the generated route set: a compact `catalog.json`
 for the list and search, one first-character shard per route, and `meta.json`.
 `scripts/build-experiences.mjs` clusters the destination records and writes it;
-`npm run experiences` runs only that step. Practical campsites, huts and
-trailheads are deliberately not baked in — the experience page reads them from
-the cell store, where their OpenStreetMap coverage can be credited and caveated.
+`npm run experiences` runs only that step. Each route is walked: the generator
+splits it into days by Naismith's rule, grades it easy/moderate/hard from the
+longest day, the climb and the high point, and names the recorded trail nearest
+each stop. Practical campsites, huts and trailheads are deliberately not baked
+in — the experience page reads them from the cell store, where their
+OpenStreetMap coverage can be credited and caveated, and attaches the nearest
+mapped bed to each walking day.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -201,11 +205,14 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 - **Experiences are generated, not curated.** Each destination belongs to at most
   one generated route, and there are no hand-written itineraries yet. The record's
   `source` field is the hook for them.
-- **Experience distances are straight lines and durations are estimates.** The
-  model is printed beside the number; neither is a road or trail measurement.
+- **Experience distances are straight lines and walking times are estimates.**
+  Days follow Naismith's rule on those straight-line legs, so both the day plan
+  and the difficulty grade are a floor for the ground, never a trail survey. The
+  model is printed beside every number.
 - **Practical stops on an experience are OSM coverage.** The generated route
   knows destinations and named trails; campsites, huts and trailheads come from
-  the cell store and inherit its uneven coverage.
+  the cell store and inherit its uneven coverage. A day with no mapped bed within
+  6 km simply shows none.
 - **Saves are local to one browser.** There is no account and no sync; clearing
   site data removes them.
 - **Practical POIs are map-only.** Campsites, parking, water, toilets and

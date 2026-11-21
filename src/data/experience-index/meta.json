@@ -8,9 +8,14 @@
     "park": 137,
     "weekend": 71
   },
+  "byDifficulty": {
+    "moderate": 392,
+    "hard": 196,
+    "easy": 11
+  },
   "stops": 3605,
   "countries": 109,
-  "shards": 6,
+  "shards": 26,
   "clusters": {
     "total": 4011,
     "byCategory": {

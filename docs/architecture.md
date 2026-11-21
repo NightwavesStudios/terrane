@@ -23,6 +23,15 @@ adds `components/experiences/ExperienceMap.tsx`, a flat MapLibre builder that
 reuses `map/style.ts` but none of the globe's runtime layers, and
 `lib/experiencePois.ts`, which fetches the z6 cells covering the route's bounds.
 
+The route is stored walked: `itinerary` holds one entry per walking day (split by
+Naismith's rule, so a long leg can span several days), `difficulty` is graded
+from the longest day, the climb and the high point, and each day carries the
+recorded trails nearest its stops. `nearestStays` in `lib/experiencePois.ts`
+attaches the nearest mapped campsite, hut or shelter to a stop once the cells
+arrive. The catalogue filters on category, difficulty, free text and a chosen
+place within 150 km (`filterExperiences`), all pure functions in
+`lib/experiences.ts`.
+
 ## Map
 
 | File | Responsibility |

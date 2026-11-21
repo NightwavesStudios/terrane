@@ -132,6 +132,10 @@ export default function Saved() {
                     <span className="mono saved-meta">
                       {[
                         experienceCategory(item.category).one,
+                        item.difficulty
+                          ? item.difficulty.charAt(0).toUpperCase() +
+                            item.difficulty.slice(1)
+                          : "",
                         placeLine(item.region, item.country),
                         `${item.stopCount} stops`,
                       ]
