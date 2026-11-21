@@ -1,3 +1,4 @@
+import PickSheet from "../PickSheet";
 import RidgeArt from "../RidgeArt";
 import { guideKind } from "../../data/guide";
 import type { Pick } from "../../data/features";
@@ -32,10 +33,7 @@ export default function ExperiencePickCard({
   const where = placeLine(pick.region, pick.country);
 
   return (
-    <aside className="pick pick--experience" aria-live="polite">
-      <button className="pick-close" onClick={onClose} aria-label="Close Experience card">
-        ×
-      </button>
+    <PickSheet className="pick pick--experience" label={pick.name} onClose={onClose}>
       <div className="pick-art pick-art--experience">
         <RidgeArt hue={pick.hue ?? 206} className="pick-art-svg" />
         <span className="exp-pick-badge mono">{kind.one}</span>
@@ -72,6 +70,6 @@ export default function ExperiencePickCard({
           </button>
         </div>
       </div>
-    </aside>
+    </PickSheet>
   );
 }

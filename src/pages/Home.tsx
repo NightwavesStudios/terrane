@@ -237,8 +237,9 @@ export default function Home() {
           the atlas rows from the reach tail, because the map does not. */}
       <p className="globe-hint mono">
         {manifest.totals.all.toLocaleString("en-US")} places · {manifest.categories}{" "}
-        categories · {manifest.countries.mapped} countries · updated {updated} · drag
-        to spin, click a point
+        categories · {manifest.countries.mapped} countries · updated {updated}
+        <span className="hint-input hint-input--mouse"> · drag to spin, click a point</span>
+        <span className="hint-input hint-input--touch"> · drag to spin, tap a point</span>
         {stale ? <span className="stale-badge"> · stale source</span> : null}
       </p>
       <p className="globe-credits mono">
@@ -257,9 +258,11 @@ export default function Home() {
       </div>
 
       {pick?.cat === "experience" && pick.slug ? (
-        <ExperiencePickCard pick={pick} onClose={closePick} />
+        <ExperiencePickCard key={pick.slug} pick={pick} onClose={closePick} />
       ) : pick ? (
         <FeatureCard
+          /* A new pick is a new sheet: the minimised state belongs to the card */
+          key={pick.slug ?? `${pick.lat}:${pick.lon}`}
           pick={pick}
           nearPlace={nearPlace}
           nearKm={nearKm}

@@ -1,11 +1,17 @@
 {
+  "id": "/",
   "name": "Terrane",
   "short_name": "Terrane",
   "description": "A globe of places worth going outside for.",
+  "lang": "en",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#05070c",
   "theme_color": "#05070c",
+  "categories": ["travel", "navigation", "lifestyle"],
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png" }

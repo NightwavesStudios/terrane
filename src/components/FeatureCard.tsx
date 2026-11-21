@@ -1,3 +1,4 @@
+import PickSheet from "./PickSheet";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { SOURCE_LABEL, category, sourceLicence, type Pick } from "../data/features";
 import type { Place } from "../data/places";
@@ -43,10 +44,11 @@ export default function FeatureCard({
   const facts = pickFacts(pick, near);
 
   return (
-    <aside className={`pick pick--feature${pick.slug ? "" : " pick--pin"}`} aria-live="polite">
-      <button className="pick-close" onClick={onClose} aria-label="Close place card">
-        ×
-      </button>
+    <PickSheet
+      className={`pick pick--feature${pick.slug ? "" : " pick--pin"}`}
+      label={title}
+      onClose={onClose}
+    >
       <div className={`pick-art${pick.slug ? "" : " pick-art--kit"}`}>
         {typeof pick.hue === "number" ? (
           <RidgeArt hue={pick.hue} className="pick-art-svg" />
@@ -150,6 +152,6 @@ export default function FeatureCard({
           ) : null}
         </div>
       </div>
-    </aside>
+    </PickSheet>
   );
 }
