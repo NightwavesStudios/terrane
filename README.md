@@ -15,7 +15,8 @@ POIs remain map-only. Coverage is uneven; the [Data page](/coverage) and
 
 > **Facts only.** Place pages show type, high point, country, coordinates and a
 > Wikidata description, with a credited Commons photograph where one exists.
-> There are no accounts and no trip planner; saves stay in the browser.
+> Experiences are generated from that geography, not hand-written; there are no
+> accounts and the saves stay in the browser.
 
 ## Quick start
 
@@ -50,7 +51,9 @@ it needs a rebuild, not a restart.
 | `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. |
 | `/?place=<slug>` | `Home` | The globe with a place pre-selected and flown to. |
 | `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
-| `/saved` | `Saved` | The destinations saved in this browser. |
+| `/experiences` | `Experiences` | Generated route catalogue: search by title, stop, region or country; filter by the five categories; save. |
+| `/experiences/:slug` | `Experience` | One generated route: interactive map, ordered stops, trails, practical places from the cell store, photographs and save. |
+| `/saved` | `Saved` | The destinations and experiences saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
 
@@ -125,9 +128,17 @@ holds compact page records in slug shards; `src/data/place-details/` holds
 Wikidata descriptions, Commons photographs with credit and licence, official
 websites, parent ranges and protected areas; `src/data/trail-links/` holds the
 nearest named trails. `npm run pages` rebuilds the index, fetches only missing
-detail records, rebuilds trail links and validates; `npm run data:update` is the
-normal incremental command. The generated files are committed and are not part
-of `npm run build`.
+detail records, rebuilds trail links, regenerates experiences and validates;
+`npm run data:update` is the normal incremental command. The generated files are
+committed, and `npm run build` regenerates the indexes and experiences from them
+without the network.
+
+`src/data/experience-index/` is the generated route set: a compact `catalog.json`
+for the list and search, one first-character shard per route, and `meta.json`.
+`scripts/build-experiences.mjs` clusters the destination records and writes it;
+`npm run experiences` runs only that step. Practical campsites, huts and
+trailheads are deliberately not baked in — the experience page reads them from
+the cell store, where their OpenStreetMap coverage can be credited and caveated.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -184,6 +195,14 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 - **Photos and descriptions are Wikidata's coverage.** Some pages have a Commons
   image and description; many reach pages are sparse and show ridge art and no
   About section. Official websites are sparser still.
+- **Experiences are generated, not curated.** Each destination belongs to at most
+  one generated route, and there are no hand-written itineraries yet. The record's
+  `source` field is the hook for them.
+- **Experience distances are straight lines and durations are estimates.** The
+  model is printed beside the number; neither is a road or trail measurement.
+- **Practical stops on an experience are OSM coverage.** The generated route
+  knows destinations and named trails; campsites, huts and trailheads come from
+  the cell store and inherit its uneven coverage.
 - **Saves are local to one browser.** There is no account and no sync; clearing
   site data removes them.
 - **Practical POIs are map-only.** Campsites, parking, water, toilets and

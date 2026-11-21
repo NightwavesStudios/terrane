@@ -7,12 +7,21 @@ data is the public cell store.
 ## Entry and routes
 
 `src/main.tsx` mounts `App` and, on `/`, starts the `Globe` chunk early.
-`src/App.tsx` keeps `Home` in the entry chunk and lazy-loads `Place`, `Saved`
-and `Coverage`, so a `/place/:slug` visit never downloads MapLibre.
+`src/App.tsx` keeps `Home` in the entry chunk and lazy-loads `Place`,
+`Experiences`, `Experience`, `Saved` and `Coverage`, so a `/place/:slug` visit
+never downloads MapLibre, and the experience catalogue is a separate chunk from
+one experience page.
 
 `src/lib/router.ts` parses real paths with the History API. `navigate()` pushes a
 path and notifies subscribers; `popstate` is handled. `/saved` is the saved list;
-unknown paths fall through to the globe. There is no router dependency.
+`/experiences` and `/experiences/:slug` are the generated route catalogue and one
+route; unknown paths fall through to the globe. There is no router dependency.
+
+Experiences load two generated pieces lazily: `experience-index/catalog.json` for
+the list and one first-character shard for a page (`lib/experiences.ts`). The page
+adds `components/experiences/ExperienceMap.tsx`, a flat MapLibre builder that
+reuses `map/style.ts` but none of the globe's runtime layers, and
+`lib/experiencePois.ts`, which fetches the z6 cells covering the route's bounds.
 
 ## Map
 

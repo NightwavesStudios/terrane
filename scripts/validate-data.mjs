@@ -469,6 +469,185 @@ check(
   JSON.stringify(detailSummary),
 );
 
+/* ── generated experiences ──
+   The routes are generated, so a malformed shard is a build failure rather than
+   an empty section. Every stop must resolve to a real place page, every photo
+   must keep its credit, and the catalog must agree with the shards. */
+const experienceCategoryFile = read("src/data/experience-categories.json", {
+  categories: [],
+});
+const experienceIds = new Set(
+  (experienceCategoryFile.categories ?? []).map((category) => category.id),
+);
+const experienceMeta = read("src/data/experience-index/meta.json", {
+  total: 0,
+  byCategory: {},
+});
+const experienceCatalog = read("src/data/experience-index/catalog.json", {
+  items: [],
+});
+const experienceFiles = existsSync(join(root, "src/data/experience-index"))
+  ? readdirSync(join(root, "src/data/experience-index")).filter(
+      (name) => name.endsWith(".json") && name !== "catalog.json" && name !== "meta.json",
+    )
+  : [];
+const experienceItems = {};
+for (const name of experienceFiles) {
+  Object.assign(
+    experienceItems,
+    read(join("src/data/experience-index", name)).items ?? {},
+  );
+}
+const experienceRows = Object.values(experienceItems);
+const experienceSlugs = Object.keys(experienceItems);
+const catalogSlugs = new Set(
+  (experienceCatalog.items ?? []).map((row) => row.slug),
+);
+
+check(
+  "the five experience categories exist",
+  experienceIds.size === 5 &&
+    ["weekend", "mountain", "hiking", "camping", "park"].every((id) =>
+      experienceIds.has(id),
+    ),
+  [...experienceIds].join(",") || "none",
+);
+check(
+  "the experience index is not empty",
+  experienceRows.length >= 200,
+  `${experienceRows.length} routes`,
+);
+check(
+  "experience slugs are unique",
+  experienceSlugs.length === new Set(experienceSlugs).size &&
+    experienceRows.length === experienceSlugs.length,
+  `${experienceSlugs.length} slugs`,
+);
+check(
+  "experience titles are unique",
+  new Set(experienceRows.map((row) => row.title)).size === experienceRows.length,
+  `${experienceRows.length} titles`,
+);
+check(
+  "every experience category is known and represented",
+  experienceRows.every((row) => experienceIds.has(row.category)) &&
+    [...experienceIds].every((id) =>
+      experienceRows.some((row) => row.category === id),
+    ),
+  JSON.stringify(experienceMeta.byCategory ?? {}),
+);
+check(
+  "experience meta matches the records",
+  experienceMeta.total === experienceRows.length &&
+    (experienceCatalog.items ?? []).length === experienceRows.length &&
+    Object.entries(experienceMeta.byCategory ?? {}).every(
+      ([id, count]) =>
+        experienceRows.filter((row) => row.category === id).length === count,
+    ) &&
+    Object.values(experienceMeta.byCategory ?? {}).reduce(
+      (sum, count) => sum + count,
+      0,
+    ) === experienceRows.length,
+  `${experienceMeta.total}/${experienceRows.length}`,
+);
+check(
+  "experience stops are well formed and pageable",
+  experienceRows.every(
+    (row) =>
+      Array.isArray(row.stops) &&
+      row.stops.length >= 3 &&
+      row.stops.length <= 8 &&
+      row.stops.every(
+        (stop, index) =>
+          typeof stop.slug === "string" &&
+          pageSlugs.has(stop.slug) &&
+          typeof stop.name === "string" &&
+          stop.name.length > 0 &&
+          coordOk(stop.lat, stop.lon) &&
+          stop.index === index + 1 &&
+          Number.isFinite(stop.legKm) &&
+          stop.legKm >= 0 &&
+          Array.isArray(stop.trails),
+      ),
+  ),
+  `${experienceRows.reduce((sum, row) => sum + (row.stops?.length ?? 0), 0)} stops`,
+);
+check(
+  "experience bounds contain their stops",
+  experienceRows.every(
+    (row) =>
+      Array.isArray(row.bounds) &&
+      row.bounds.length === 4 &&
+      row.bounds.every(Number.isFinite) &&
+      row.stops.every(
+        (stop) =>
+          stop.lon >= row.bounds[0] - 0.01 &&
+          stop.lon <= row.bounds[2] + 0.01 &&
+          stop.lat >= row.bounds[1] - 0.01 &&
+          stop.lat <= row.bounds[3] + 0.01,
+      ),
+  ),
+  "bounds",
+);
+check(
+  "experience distances and estimates are positive",
+  experienceRows.every(
+    (row) =>
+      Number.isFinite(row.distanceKm) &&
+      row.distanceKm >= 0 &&
+      Number.isFinite(row.durationHours) &&
+      row.durationHours > 0 &&
+      Number.isInteger(row.days) &&
+      row.days >= 1 &&
+      typeof row.durationBasis === "string" &&
+      row.durationBasis.length > 0,
+  ),
+  "distance, duration, basis",
+);
+check(
+  "experience photographs keep their credit and licence",
+  experienceRows.every((row) =>
+    [...(row.photos ?? []), ...row.stops.map((stop) => stop.photo)]
+      .filter(Boolean)
+      .every(
+        (photo) =>
+          httpsUrl(photo.url) &&
+          imageHosts.has(hostOf(photo.url)) &&
+          typeof photo.credit === "string" &&
+          photo.credit.length > 0 &&
+          typeof photo.licence === "string" &&
+          photo.licence.length > 0,
+      ),
+  ),
+  "credited Commons images",
+);
+check(
+  "experience records are generated, not hand-written",
+  experienceRows.every((row) => row.source === "generated"),
+  "source",
+);
+check(
+  "every experience is in the catalog and every catalog row has a record",
+  experienceRows.every((row) => catalogSlugs.has(row.slug)) &&
+    (experienceCatalog.items ?? []).every((row) => experienceItems[row.slug]),
+  `${catalogSlugs.size} catalog rows`,
+);
+check(
+  "catalog rows match their records",
+  (experienceCatalog.items ?? []).every((row) => {
+    const record = experienceItems[row.slug];
+    return (
+      record &&
+      row.title === record.title &&
+      row.category === record.category &&
+      row.stopCount === record.stops.length &&
+      row.distanceKm === record.distanceKm &&
+      row.days === record.days
+    );
+  }),
+  "titles, categories, counts",
+);
+
 const failed = checks.filter((c) => !c.ok);
 const result = {
   ok: failed.length === 0,

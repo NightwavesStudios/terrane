@@ -2,11 +2,14 @@ import Logo from "./Logo";
 import { navigate, useRoute } from "../lib/router";
 import { useManifest } from "../lib/live";
 import { useSaved } from "../lib/saved";
+import { useSavedExperiences } from "../lib/savedExperiences";
 
 export default function Header({ tone }: { tone: "dark" | "light" }) {
   const route = useRoute();
   const manifest = useManifest();
   const saved = useSaved();
+  const savedExperiences = useSavedExperiences();
+  const savedCount = saved.length + savedExperiences.length;
 
   return (
     <header className={`header header--${tone}`}>
@@ -23,12 +26,20 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
           Globe
         </button>
         <button
+          className={
+            route.name === "experiences" || route.name === "experience" ? "on" : ""
+          }
+          onClick={() => navigate("/experiences")}
+        >
+          Experiences
+        </button>
+        <button
           className={route.name === "saved" ? "on" : ""}
           onClick={() => navigate("/saved")}
         >
           Saved
-          {saved.length > 0 ? (
-            <span className="nav-count mono">{saved.length}</span>
+          {savedCount > 0 ? (
+            <span className="nav-count mono">{savedCount}</span>
           ) : null}
         </button>
         <button

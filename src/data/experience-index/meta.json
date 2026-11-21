@@ -1,0 +1,31 @@
+{
+  "generated": "2026-11-20",
+  "total": 599,
+  "byCategory": {
+    "camping": 92,
+    "hiking": 99,
+    "mountain": 200,
+    "park": 137,
+    "weekend": 71
+  },
+  "stops": 3605,
+  "countries": 109,
+  "shards": 6,
+  "clusters": {
+    "total": 4011,
+    "byCategory": {
+      "mountain": 2391,
+      "park": 432,
+      "hiking": 294,
+      "camping": 478,
+      "weekend": 416
+    }
+  },
+  "inputs": {
+    "destinations": 24474,
+    "withDetails": 24474,
+    "withTrails": 11831,
+    "trailLinkedDestinations": 11831
+  },
+  "rejectedSeeds": 5352
+}

@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "weekend",
+      "label": "Weekend adventures",
+      "one": "Weekend adventure",
+      "colour": "#d9bd85",
+      "blurb": "Compact groups of destinations that fit into a day or two."
+    },
+    {
+      "id": "mountain",
+      "label": "Mountain exploration",
+      "one": "Mountain exploration",
+      "colour": "#8ab4d8",
+      "blurb": "Summits, glaciers and high ground, linked in one route."
+    },
+    {
+      "id": "hiking",
+      "label": "Hiking",
+      "one": "Hiking route",
+      "colour": "#79cf9b",
+      "blurb": "Routes with named trails within reach of most of their stops."
+    },
+    {
+      "id": "camping",
+      "label": "Camping",
+      "one": "Camping route",
+      "colour": "#c9a06b",
+      "blurb": "Park and water country with camping and hut evidence around the stops."
+    },
+    {
+      "id": "park",
+      "label": "National park exploration",
+      "one": "Park route",
+      "colour": "#5fc9d4",
+      "blurb": "Groups held together by parks, reserves and recorded protected areas."
+    }
+  ]
+}

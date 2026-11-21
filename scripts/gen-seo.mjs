@@ -19,10 +19,29 @@ const pageIndex = JSON.parse(await readFile("src/data/place-index/slugs.json", "
 const manifest = JSON.parse(await readFile("src/data/manifest.json", "utf8"));
 const slugs = Array.isArray(pageIndex.slugs) ? pageIndex.slugs : [];
 
+/* Experiences are generated pages too, so the sitemap must include their list
+   and every route. A missing catalog is an empty list, not a failed build: the
+   page still works and `validate` is the gate that catches a broken generator. */
+let experiences = [];
+try {
+  const file = JSON.parse(
+    await readFile("src/data/experience-index/catalog.json", "utf8"),
+  );
+  experiences = Array.isArray(file.items) ? file.items : [];
+} catch {
+  experiences = [];
+}
+
 const lastmod = manifest.days?.osm ?? manifest.days?.wikidata ?? "";
 const urls = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
+  { path: "/experiences", priority: "0.8", changefreq: "weekly" },
   { path: "/coverage", priority: "0.4", changefreq: "weekly" },
+  ...experiences.map((row) => ({
+    path: `/experiences/${row.slug}`,
+    priority: "0.7",
+    changefreq: "monthly",
+  })),
   ...slugs
     .map((slug) => ({ path: `/place/${slug}`, priority: "0.6", changefreq: "monthly" })),
 ];

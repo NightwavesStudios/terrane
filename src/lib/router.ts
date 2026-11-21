@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 export type Route =
   | { name: "home" }
   | { name: "place"; slug: string }
+  | { name: "experiences" }
+  | { name: "experience"; slug: string }
   | { name: "saved" }
   | { name: "coverage" };
 
@@ -24,6 +26,9 @@ export function parseRoute(pathname: string): Route {
   if (path === "/") return { name: "home" };
   if (path === "/saved") return { name: "saved" };
   if (path === "/coverage") return { name: "coverage" };
+  if (path === "/experiences") return { name: "experiences" };
+  const experience = path.match(/^\/experiences\/([a-z0-9-]+)$/);
+  if (experience) return { name: "experience", slug: experience[1] };
   const m = path.match(/^\/place\/([a-z0-9-]+)$/);
   if (m) return { name: "place", slug: m[1] };
   return { name: "home" };

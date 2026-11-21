@@ -131,9 +131,40 @@ match. Images are hotlinked, not mirrored: the R2 store is already 676 MB of a
 trails for every destination into sharded `src/data/trail-links/` plus a summary.
 The page loads one trail shard alongside its detail shard.
 
-The normal update is `npm run data:update` (index + incremental details + trail
-links + manifest + validate). `npm run data:refresh` re-harvests the sources
-first. Both are committed-output steps; `npm run build` stays offline.
+## Experiences
+
+Experiences are generated routes, not a page-per-destination index. The inputs
+are the committed destination set, the detail shards (description, elevation,
+credited photographs, recorded range and protected area) and the trail-link
+shards. There is no POI mirror and no network step: `npm run experiences` reads
+those files and writes `src/data/experience-index/` deterministically.
+
+`scripts/lib/experiences.mjs` is the pure part: a 0.5° bucket index, seed scoring
+by fame and evidence, greedy cluster growth (3–8 stops, 40 km corridor widened to
+70 km for compact groups, 120 km bounding diagonal, at most three stops of one
+category), the category rules and the prose. The generator applies country and
+category quotas in a second phase, so one category cannot crowd out the rest, and
+every destination is claimed by at most one route.
+
+Categories are earned from facts already recorded: a park/reserve majority or a
+shared specific protected area, a peak/glacier majority or two high stops, named
+trails within 10 km of most stops, water country with trails, and a compact mixed
+group as the weekend fallback. Camping never asserts that a campsite exists; the
+page lists mapped campsites and huts from the open POI cells instead.
+
+Output: `catalog.json` (one compact row per route, for search and cards), one
+first-character shard per route (the full record), and `meta.json` (counts and
+inputs). Titles are unique, slugs are stable, and no record uses the clock. The
+record's `source` is `"generated"`; a future curated route can sit beside it
+without a schema change.
+
+`npm run build`, `npm run validate` and `npm run pages` all regenerate the index
+before checking it, exactly as they do for the place index. Runtime practical
+places come from `src/lib/experiencePois.ts` and the existing z6 cells.
+
+The normal update is `npm run data:update` (index + experiences + incremental
+details + trail links + manifest + validate). `npm run data:refresh` re-harvests
+the sources first. Both are committed-output steps; `npm run build` stays offline.
 
 ## Refresh
 
@@ -159,6 +190,7 @@ npm run data:merge     # agency adapters → cells
 npm run data:trails    # trails-only merge + strict quality + links + manifest
 npm run trail:quality  # strict geometry gate → reports/trail-quality.{json,md}
 npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links/
+npm run experiences    # generated routes → src/data/experience-index/
 npm run data:coverage  # reports/coverage.{md,json} + public/coverage.json
 npm run data:upload    # PUT changed cells and manifests
 npm run store:check    # HEAD every stored object; compare counts/bytes
@@ -212,6 +244,7 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `src/data/place-details/`, `place-details-summary.json` | `scripts/build-place-details.mjs` | yes |
 | `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
 | `src/data/trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` | yes |
+| `src/data/experience-index/` | `scripts/build-experiences.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |
 | `src/data/wikidata-meta.json` | atlas / reach harvest | yes |
