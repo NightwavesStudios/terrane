@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { pickOf, type Pick as MapPick } from "../data/features";
 import type {
   GuideCatalogRow,
   GuideExperience,
@@ -187,6 +188,29 @@ export function filterGuides(
         a.row.slug.localeCompare(b.row.slug),
     )
     .map((item) => item.row);
+}
+
+/**
+ * A curated catalogue row as the one map pick shape, so a link can open the
+ * Globe with this Experience already selected. The row has no detail record,
+ * only the counts the catalogue carries, which is exactly what the card shows.
+ */
+export function guidePick(row: GuideCatalogRow): MapPick {
+  return pickOf(
+    {
+      cat: "experience",
+      n: row.name,
+      slug: row.slug,
+      kind: row.kind,
+      hue: row.hue,
+      region: row.region,
+      country: row.country,
+      places: row.placeCount,
+      trails: row.trailCount,
+    },
+    row.lon,
+    row.lat,
+  );
 }
 
 export function guideWhere(row: {

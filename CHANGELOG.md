@@ -19,6 +19,9 @@
 - The globe's Experience layer now draws the curated catalogue only; layers,
   counts and picking follow the six kinds. Saved Experiences use their own
   `terrane.saved.guide.v1` store; saved places are unchanged.
+- Added the Experiences → Globe hand-off: every curated card and detail page
+  opens `/?guide=<slug>`, which selects the destination on the globe, opens its
+  card and draws only that destination and its recorded neighbours.
 - Extended source verification to both catalogues and added `--incremental`:
   2,885 URLs verified, 0 dead, 0 unreachable. Added 14 curated-Experience checks
   to `npm run validate` (78 checks total) and `/experiences`, `/collections` and

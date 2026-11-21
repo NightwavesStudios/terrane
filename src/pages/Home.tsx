@@ -18,6 +18,7 @@ import Discover from "../components/Discover";
 import FeatureCard from "../components/FeatureCard";
 import ExperiencePickCard from "../components/experiences/ExperiencePickCard";
 import { PLACES, bySlug } from "../data/places";
+import { guidePick, loadGuideCatalog } from "../lib/guide";
 import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
 import { useHome } from "../lib/locate";
@@ -38,6 +39,12 @@ export default function Home() {
   });
   const [focus, setFocus] = useState<GlobeFocus | null>(null);
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
+  /* `?guide=<slug>` is the Experiences → Globe hand-off: open the map with the
+     curated destination already selected, not just centred on its coordinate. */
+  const guideSlug = useMemo(
+    () => new URLSearchParams(window.location.search).get("guide"),
+    [],
+  );
   /* The settled camera. Discover's nearby lists follow it, but it is only read
      while the panel is open, so panning never recomputes a closed panel. */
   const [view, setView] = useState<View>(() => {
@@ -50,6 +57,19 @@ export default function Home() {
   });
   const viewRef = useRef(view);
   const discoverOpen = useRef(false);
+
+  useEffect(() => {
+    if (!guideSlug) return;
+    let alive = true;
+    void loadGuideCatalog().then((rows) => {
+      if (!alive) return;
+      const row = rows.find((candidate) => candidate.slug === guideSlug);
+      if (row) setPick(guidePick(row));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [guideSlug]);
 
   const home = useHome();
   const manifest = useManifest();

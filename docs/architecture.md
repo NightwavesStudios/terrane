@@ -15,8 +15,10 @@ separate chunk from its detail page.
 `src/lib/router.ts` parses real paths with the History API. `navigate()` pushes a
 path and notifies subscribers; `popstate` is handled. The four tabs are `/`
 (Globe), `/experiences`, `/collections` and `/saved`; detail routes are
-`/experiences/:slug`, `/collections/:slug` and `/place/:slug`. Unknown paths fall
-through to the globe. There is no router dependency.
+`/experiences/:slug`, `/collections/:slug` and `/place/:slug`. `/?guide=<slug>`
+opens the Globe with a curated Experience selected, which is the hand-off from
+both the Experience card and its page. Unknown paths fall through to the globe.
+There is no router dependency.
 
 Experiences are the curated domain. The frozen editorial list is
 `data/guide-selection.json`; `scripts/build-guide.mjs` builds only those slugs

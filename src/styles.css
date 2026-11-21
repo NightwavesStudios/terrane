@@ -2578,6 +2578,29 @@ button {
   text-transform: none;
   letter-spacing: 0;
 }
+.guide-card .exp-card-open {
+  height: auto;
+  flex: 1;
+}
+.exp-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding: 0 18px 14px;
+}
+.exp-card-globe {
+  padding: 2px 0;
+  border-bottom: 1px solid var(--line-light);
+  color: var(--ink-3);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.exp-card-globe:hover {
+  border-color: var(--moss);
+  color: var(--moss);
+}
 .guide-reasons,
 .guide-trails,
 .guide-sources {

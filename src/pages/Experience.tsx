@@ -389,6 +389,12 @@ export default function Experience({ slug }: { slug: string }) {
               >
                 {saved ? "Saved ✓" : "Save this Experience"}
               </button>
+              <button
+                className="btn btn-light"
+                onClick={() => navigate(`/?guide=${guide.slug}`)}
+              >
+                View on Globe →
+              </button>
               <p className="mono exp-aside-note">
                 A curated destination, not an itinerary. Access, closures,
                 facilities and seasonal conditions are not verified; the page

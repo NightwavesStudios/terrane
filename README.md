@@ -54,6 +54,7 @@ it needs a rebuild, not a restart.
 | --- | --- | --- |
 | `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. The map draws the curated Experiences, not Collections. |
 | `/?place=<slug>` | `Home` | The globe with a place pre-selected and flown to. |
+| `/?guide=<slug>` | `Home` | The globe with a curated Experience pre-selected, its card open and its own map layers drawn. |
 | `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
 | `/experiences` | `Experiences` | Curated catalogue of individual destinations: search by title, place, region or country, filter to those near a named place and by the six kinds; save. |
 | `/experiences/:slug` | `Experience` | One curated destination: overview, why it is worth visiting, recorded features, associated places and trails, a map, practical places from the cell store, photographs, official/source links and save. |

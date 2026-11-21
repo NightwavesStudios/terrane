@@ -80,6 +80,15 @@ export default function GuideCard({
           ) : null}
         </span>
       </button>
+      <div className="exp-card-actions">
+        <button
+          className="exp-card-globe mono"
+          onClick={() => navigate(`/?guide=${row.slug}`)}
+          aria-label={`View ${row.name} on the Globe`}
+        >
+          View on Globe →
+        </button>
+      </div>
     </article>
   );
 }
