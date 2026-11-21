@@ -370,11 +370,11 @@ export default function Globe({
       try {
         map_.setSky({
           "sky-color": "#05070d",
-          "horizon-color": "#1b4d63",
-          "fog-color": "#0a1c26",
+          "horizon-color": "#2b6c82",
+          "fog-color": "#153b4a",
           "sky-horizon-blend": 0.7,
-          "horizon-fog-blend": 0.28,
-          "fog-ground-blend": 0.1,
+          "horizon-fog-blend": 0.4,
+          "fog-ground-blend": 0.18,
           "atmosphere-blend": 0.55,
         });
       } catch {

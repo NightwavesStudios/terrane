@@ -277,7 +277,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["==", ["get", "class"], "wood"],
       paint: {
         "fill-color": PALETTE.wood,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, 0.46, 11, 0.52, 14, 0.48],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, 0.46, 11, 0.6, 14, 0.58],
       },
     },
     {
@@ -288,7 +288,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
       paint: {
         "fill-color": PALETTE.grass,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.4, 11, 0.46, 14, 0.44],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.36, 11, 0.32, 14, 0.26],
       },
     },
     {
@@ -548,13 +548,13 @@ const MAP_STYLE: StyleSpecification = {
           ["linear"],
           ["zoom"],
           7.5,
-          ["match", ["get", "class"], "river", 0.4, 0.2],
+          ["match", ["get", "class"], "river", 0.35, 0.15],
           12,
-          ["match", ["get", "class"], "river", 1.2, 0.6],
+          ["match", ["get", "class"], "river", 1, 0.5],
           16,
-          ["match", ["get", "class"], "river", 2.4, 1.2],
+          ["match", ["get", "class"], "river", 2, 1],
         ],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 8.5, 0.55, 12, 0.72, 16, 0.88],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 8.5, 0.42, 12, 0.5, 16, 0.68],
       },
     },
 

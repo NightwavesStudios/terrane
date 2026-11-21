@@ -44,10 +44,10 @@ function ramp(zoom: number, stops: [number, number][]): number {
 export function pitchForZoom(zoom: number): number {
   return ramp(zoom, [
     [2.2, 0],
-    [4, 30],
-    [6, 48],
-    [8, 55],
-    [13, 58],
+    [4, 32],
+    [6, 52],
+    [9, 62],
+    [13, 66],
   ]);
 }
 
@@ -64,10 +64,10 @@ export function terrainExaggeration(zoom: number): number {
   return ramp(zoom, [
     [0, 2.8],
     [3, 2.6],
-    [6, 2.1],
-    [9, 1.6],
-    [12, 1.35],
-    [14, 1.25],
+    [6, 2.2],
+    [9, 1.85],
+    [12, 1.6],
+    [14, 1.45],
   ]);
 }
 

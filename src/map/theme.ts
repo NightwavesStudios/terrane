@@ -16,32 +16,32 @@ export const PALETTE = {
   /* Water: ocean deepest, lakes one step up, rivers lightest. Teal rather than
      navy, because every other colour on this map is warm and a blue-black sea
      read as a hole in the planet. */
-  ocean: "#0a2f42",
-  lake: "#0f4157",
-  river: "#2f6f7e",
+  ocean: "#0d4b64",
+  lake: "#1796ab",
+  river: "#2f8fa2",
   /* The drawn shelf: a broad bloom just outside the shore, then the surf line. */
-  shelf: "#2f7f92",
-  coastGlow: "#6fc9d4",
-  coastLine: "#4f9fb2",
+  shelf: "#4fc6d4",
+  coastGlow: "#8fe6ee",
+  coastLine: "#5cc2d2",
   surf: "#cfeeee",
 
   /* Land cover: distinct hues, not one green family. Kept translucent in the
      style so the relief reads through, but opaque enough at detail zooms to tell
      a forest from a meadow from a harvested field. */
-  wood: "#183f31",
-  grass: "#5d6f2f",
-  farmland: "#7a7336",
+  wood: "#1d5c38",
+  grass: "#4f7629",
+  farmland: "#94873f",
   wetland: "#2a5a5e",
   residential: "#3a4757",
   quarry: "#5d5646",
-  rock: "#77644b",
+  rock: "#a2957a",
   sand: "#cbaa7c",
-  ice: "#dce9ee",
+  ice: "#e8f4f7",
   snow: "#eef6f8",
   building: "#6a6153",
 
   parkFill: "#2f5f3f",
-  parkLine: "#86c79c",
+  parkLine: "#93d6a8",
 
   /* Ink. Borders are cartographic linework, not a UI accent. */
   boundary: "#6f8fa3",
@@ -86,12 +86,12 @@ export const PALETTE = {
  * olive under two names.
  */
 export const CLIMATE: [number, string][] = [
-  [0, "#1f3a2c"], // equatorial rain forest
-  [8, "#2c4229"], // savanna
+  [0, "#1b4030"], // equatorial rain forest
+  [8, "#314a29"], // savanna
   [15, "#3d4728"],
-  [22, "#5a5133"], // the arid belt
+  [22, "#635733"], // the arid belt
   [30, "#4d4a2d"],
-  [38, "#2f4128"], // temperate
+  [38, "#334827"], // temperate
   [45, "#2a3c26"],
   [55, "#243526"], // boreal
   [62, "#2b3a2c"],
@@ -115,11 +115,11 @@ export const HYPSOMETRY: [number, string][] = [
   [150, "rgba(96, 108, 74, 0.06)"],
   [400, "rgba(118, 120, 76, 0.14)"],
   [800, "rgba(96, 102, 66, 0.26)"],
-  [1400, "rgba(112, 104, 74, 0.42)"],
-  [2000, "rgba(112, 99, 82, 0.54)"],
-  [2600, "rgba(132, 128, 120, 0.64)"],
-  [3200, "rgba(168, 172, 172, 0.74)"],
-  [3800, "rgba(206, 212, 214, 0.82)"],
+  [1400, "rgba(96, 110, 72, 0.34)"],
+  [2000, "rgba(138, 132, 108, 0.52)"],
+  [2600, "rgba(178, 172, 158, 0.6)"],
+  [3200, "rgba(206, 206, 200, 0.7)"],
+  [3800, "rgba(228, 232, 232, 0.8)"],
   [4500, "rgba(234, 240, 240, 0.88)"],
   [5600, "rgba(248, 252, 253, 0.94)"],
 ];
@@ -188,7 +188,7 @@ export const HILLSHADE_PAINT = {
     ["linear"],
     ["zoom"],
     0,
-    1,
+    1.15,
     4,
     1.35,
     8,
@@ -214,18 +214,18 @@ export const HILLSHADE_NEAR = {
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": 315,
   "hillshade-illumination-altitude": 45,
-  "hillshade-highlight-color": "rgba(246, 236, 208, 0.5)",
-  "hillshade-shadow-color": "rgba(3, 14, 22, 0.85)",
-  "hillshade-accent-color": "rgba(6, 26, 22, 0.6)",
+  "hillshade-highlight-color": "rgba(255, 247, 222, 0.38)",
+  "hillshade-shadow-color": "rgba(1, 10, 14, 0.8)",
+  "hillshade-accent-color": "rgba(4, 20, 18, 0.7)",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
     8.5,
-    0.5,
+    0.62,
     12,
-    0.58,
+    0.78,
     16,
-    0.64,
+    0.88,
   ],
 } as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;

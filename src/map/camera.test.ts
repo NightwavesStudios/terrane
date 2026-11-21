@@ -89,19 +89,19 @@ describe("pitchForZoom", () => {
   });
 
   it("tilts early, then stops at 58 degrees", () => {
-    expect(pitchForZoom(4)).toBeCloseTo(30, 5);
-    expect(pitchForZoom(6)).toBeCloseTo(48, 5);
-    expect(pitchForZoom(13)).toBe(58);
-    expect(pitchForZoom(20)).toBe(58);
+    expect(pitchForZoom(4)).toBeCloseTo(32, 5);
+    expect(pitchForZoom(6)).toBeCloseTo(52, 5);
+    expect(pitchForZoom(13)).toBe(66);
+    expect(pitchForZoom(20)).toBe(66);
   });
 });
 
 describe("terrainExaggeration", () => {
   it("stands the mesh up at wide zooms and lets it settle close in", () => {
     expect(terrainExaggeration(0)).toBe(2.8);
-    expect(terrainExaggeration(6)).toBeCloseTo(2.1, 5);
-    expect(terrainExaggeration(9)).toBeCloseTo(1.6, 5);
-    expect(terrainExaggeration(14)).toBeCloseTo(1.25, 5);
-    expect(terrainExaggeration(18)).toBeCloseTo(1.25, 5);
+    expect(terrainExaggeration(6)).toBeCloseTo(2.2, 5);
+    expect(terrainExaggeration(9)).toBeCloseTo(1.85, 5);
+    expect(terrainExaggeration(14)).toBeCloseTo(1.45, 5);
+    expect(terrainExaggeration(18)).toBeCloseTo(1.45, 5);
   });
 });

@@ -4,6 +4,7 @@ import type { LayerState } from "../components/LayerControl";
 import { cellUrl } from "../lib/cells";
 import { cellMayExist } from "../lib/cellIndex";
 import { kmBetween } from "../lib/geo";
+import { firstPinCell } from "./pins";
 
 /**
  * Trail routes, from our own cells: OSM hiking relations plus the US agency trail
@@ -25,7 +26,7 @@ const MISS_RETRY_MS = 5 * 60_000;
 const ERROR_RETRY_MS = 20_000;
 const MAX_CELLS = 24;
 const NAMED_ZOOM = 10.5;
-const ROUTE_MAX_ZOOM = 13.2;
+const ROUTE_MAX_ZOOM = 12.6;
 const GAP_KM = 5;
 const CHORD_KM = 2;
 const CHORD_RATIO = 6;
@@ -331,8 +332,10 @@ export function refreshTrails(map: MlMap): void {
   applyTrailZoom(map);
   /* Route cells are 2–4 MB each, and the basemap already carries the paths
      below this: the named routes can wait until the reader is close enough for
-     them to be the subject rather than a texture. */
-  if (zoom < 10.2) {
+     them to be the subject rather than a texture. Past ROUTE_MAX_ZOOM the line has
+     faded out (ROUTE_MAX_ZOOM) and the basemap's own paths are the detail, so a
+     cell there would be four megabytes of routes drawn at their faintest. */
+  if (zoom < 10.2 || zoom > ROUTE_MAX_ZOOM + 0.3) {
     schedulePush(map);
     return;
   }
@@ -432,9 +435,16 @@ export function refreshTrails(map: MlMap): void {
   };
 
   /* Pins are what a reader is looking for; the route lines are what they read
-     once the pins are there. Let the POI cell take the bandwidth first. */
-  const idle = window.requestIdleCallback?.(fetchCells, { timeout: 1800 });
-  if (!idle) window.setTimeout(fetchCells, 700);
+     once the pins are there. Wait for the first pin cell, then take the idle
+     frame — with a cap, so a view with no pin cell in it still gets its routes. */
+  const pinsOrTimeout = Promise.race([
+    firstPinCell,
+    new Promise<void>((resolve) => window.setTimeout(resolve, 3000)),
+  ]);
+  void pinsOrTimeout.then(() => {
+    const idle = window.requestIdleCallback?.(fetchCells, { timeout: 1800 });
+    if (!idle) window.setTimeout(fetchCells, 700);
+  });
 }
 
 export function resetTrails(): void {

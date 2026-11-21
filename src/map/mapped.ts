@@ -11,6 +11,7 @@ import {
 import type { LayerState } from "../components/LayerControl";
 import { cellUrl } from "../lib/cells";
 import { cellMayExist } from "../lib/cellIndex";
+import { markFirstPinCell } from "./pins";
 import { PALETTE } from "./theme";
 
 /**
@@ -154,7 +155,7 @@ const MAX_CELLS_PER_PASS = 3;
 /* Parking is often two thirds of a country's rows and only matters at street
    zoom, so it travels in its own file and its own source. */
 const PARKING_MINZOOM = 13.5;
-const PARKING_MAX_CELLS = 4;
+const PARKING_MAX_CELLS = 2;
 const PARKING_MAX_FEATURES = 120_000;
 
 const MISS_RETRY_MS = 5 * 60_000;
@@ -863,6 +864,7 @@ export function refreshMapped(map: MlMap) {
             misses.delete(key);
             loaded.set(key, features);
             banded.set(key, splitBands(features));
+            markFirstPinCell();
             total += features.length;
             indexNamed(cell);
             evictIfNeeded(visibleKeys);
