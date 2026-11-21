@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
-import ExperienceCard from "../components/experiences/ExperienceCard";
+import CollectionCard from "../components/collections/CollectionCard";
 import { PLACES } from "../data/places";
 import {
-  EXPERIENCE_CATEGORIES,
-  type ExperienceCategoryId,
-} from "../data/experiences";
+  COLLECTION_SCOPES,
+  type CollectionScopeId,
+} from "../data/collections";
 import {
-  filterExperiences,
-  useExperienceCatalog,
-  type ExperienceNear,
-} from "../lib/experiences";
+  filterCollections,
+  useCollectionCatalog,
+  type CollectionNear,
+} from "../lib/collections";
 import { setMeta } from "../lib/meta";
-
 
 const nearLabel = (place: (typeof PLACES)[number]) =>
   `${place.name} — ${place.country}`;
@@ -20,50 +19,54 @@ const nearLabel = (place: (typeof PLACES)[number]) =>
 /**
  * The Collections section.
  *
- * Browse generated groups of remarkable places, narrow them by kind, search a
- * title, region, country or place, or filter to what is near a named place. The
- * catalog is one compact file; a card opens the collection's own shard.
- *
- * There is deliberately no difficulty filter and no walking plan: a collection
- * is a group of verified places, not an itinerary, and it is not saved to the
- * personal library.
+ * Browse wide groups of curated Experiences: countries, great ranges, large
+ * areas and recorded long-distance trails. A Collection is not an itinerary and
+ * not a group of raw destinations; every member is an Experience with its own
+ * page and Wikipedia source.
  */
 export default function Collections() {
-  const catalog = useExperienceCatalog();
+  const catalog = useCollectionCatalog();
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
-  const [activeCat, setActiveCat] = useState<ExperienceCategoryId | null>(null);
+  const [activeScope, setActiveScope] = useState<CollectionScopeId | null>(null);
   const [nearTerm, setNearTerm] = useState("");
-  const [near, setNear] = useState<ExperienceNear | null>(null);
-
+  const [near, setNear] = useState<CollectionNear | null>(null);
 
   useEffect(() => {
     setMeta({
       title: "Collections — Terrane",
       description:
-        "Curated groups of remarkable places: peaks, lakes, parks and trails grouped by region, with a Wikipedia source for every place. Not itineraries.",
+        "Wide groups of curated Experiences by country, great mountain range, area or recorded long-distance trail. Every Experience keeps its own page and Wikipedia source; collections are not itineraries.",
       path: "/collections",
     });
   }, []);
 
-  /* 150 ms swallows a word typed normally and is short enough that the first
-     result is there before the eye reaches the grid. */
   useEffect(() => {
     const id = window.setTimeout(() => setQuery(term), 150);
     return () => window.clearTimeout(id);
   }, [term]);
 
   const rows = useMemo(
-    () => filterExperiences(catalog.rows, { query, category: activeCat, near }),
-    [catalog.rows, query, activeCat, near],
+    () =>
+      filterCollections(catalog.rows, {
+        query,
+        scope: activeScope,
+        near,
+      }),
+    [catalog.rows, query, activeScope, near],
   );
 
-  const categoryCount = useMemo(
-    () => filterExperiences(catalog.rows, { category: activeCat, near }).length,
-    [catalog.rows, activeCat, near],
+  const scopeCount = useMemo(
+    () =>
+      filterCollections(catalog.rows, { scope: activeScope, near }).length,
+    [catalog.rows, activeScope, near],
   );
 
   const searching = query.trim().length > 0;
+  const experienceTotal = catalog.rows.reduce(
+    (sum, row) => sum + row.experienceCount,
+    0,
+  );
 
   const chooseNear = (value: string) => {
     setNearTerm(value);
@@ -75,7 +78,7 @@ export default function Collections() {
 
   const resetAll = () => {
     setTerm("");
-    setActiveCat(null);
+    setActiveScope(null);
     setNearTerm("");
     setNear(null);
   };
@@ -86,13 +89,14 @@ export default function Collections() {
 
       <div className="page-head exp-head">
         <p className="eyebrow">Collections</p>
-        <h1 className="page-title">Groups worth the detour</h1>
+        <h1 className="page-title">The world, in wide strokes</h1>
         <p className="page-sub">
-          A collection gathers a few remarkable destinations the data can vouch for
-          — peaks, lakes, parks and valleys — in one region, and links every place
-          to its own page and a Wikipedia article. These are not itineraries: no
-          walking days, no invented distances, no claim about how to travel
-          between them.
+          A collection gathers curated Experiences — not raw destinations — at
+          the scale where a journey actually takes shape: a country, a great
+          mountain range, a large area inside a big country, or the route of a
+          recorded long-distance trail. Every Experience keeps its own page and
+          Wikipedia source. These are not itineraries: no walking days, no
+          invented distances, no claim about how to travel between them.
         </p>
       </div>
 
@@ -102,7 +106,7 @@ export default function Collections() {
             <input
               value={term}
               onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search a collection, region, country or place…"
+              placeholder="Search a collection, country, range or Experience…"
               aria-label="Search collections"
               spellCheck={false}
               autoComplete="off"
@@ -124,11 +128,11 @@ export default function Collections() {
               onChange={(event) => chooseNear(event.target.value)}
               placeholder="Near a place — town, park or peak…"
               aria-label="Filter collections by a nearby place"
-              list="exp-near-options"
+              list="collection-near-options"
               spellCheck={false}
               autoComplete="off"
             />
-            <datalist id="exp-near-options">
+            <datalist id="collection-near-options">
               {PLACES.map((place) => (
                 <option key={place.slug} value={nearLabel(place)} />
               ))}
@@ -148,25 +152,25 @@ export default function Collections() {
           </div>
         </div>
 
-        <div className="chips chips--light" role="group" aria-label="Filter collections by kind">
+        <div className="chips chips--light" role="group" aria-label="Filter collections by scope">
           <button
-            className={`chip${activeCat ? "" : " on"}`}
-            aria-pressed={!activeCat}
-            onClick={() => setActiveCat(null)}
+            className={`chip${activeScope ? "" : " on"}`}
+            aria-pressed={!activeScope}
+            onClick={() => setActiveScope(null)}
           >
             All
           </button>
-          {EXPERIENCE_CATEGORIES.map((category) => (
+          {COLLECTION_SCOPES.map((scope) => (
             <button
-              key={category.id}
-              className={`chip${activeCat === category.id ? " on" : ""}`}
-              aria-pressed={activeCat === category.id}
+              key={scope.id}
+              className={`chip${activeScope === scope.id ? " on" : ""}`}
+              aria-pressed={activeScope === scope.id}
               onClick={() =>
-                setActiveCat(activeCat === category.id ? null : category.id)
+                setActiveScope(activeScope === scope.id ? null : scope.id)
               }
-              title={category.blurb}
+              title={scope.blurb}
             >
-              {category.label}
+              {scope.label}
             </button>
           ))}
         </div>
@@ -189,7 +193,7 @@ export default function Collections() {
           <div className="exp-empty">
             <p>
               {searching
-                ? `Nothing matches “${query.trim()}” in ${categoryCount.toLocaleString()} collection${categoryCount === 1 ? "" : "s"}.`
+                ? `Nothing matches “${query.trim()}” in ${scopeCount.toLocaleString()} collection${scopeCount === 1 ? "" : "s"}.`
                 : "No collections match these filters."}
             </p>
             <button className="btn btn-dark" onClick={resetAll}>
@@ -200,22 +204,28 @@ export default function Collections() {
           <>
             <p className="mono exp-count">
               {rows.length.toLocaleString()} collection{rows.length === 1 ? "" : "s"}
-              {activeCat
-                ? ` · ${EXPERIENCE_CATEGORIES.find((c) => c.id === activeCat)?.label}`
+              {activeScope
+                ? ` · ${COLLECTION_SCOPES.find((scope) => scope.id === activeScope)?.label}`
                 : ""}
-              {near ? ` · within 150 km of ${near.label}` : ""}
+              {near ? ` · within 750 km of ${near.label}` : ""}
               {searching ? ` · matching “${query.trim()}”` : ""}
               {catalog.generated ? ` · input data ${catalog.generated}` : ""}
             </p>
             <div className="exp-grid">
               {rows.map((row) => (
-                <ExperienceCard key={row.slug} row={row} query={query} near={near} />
+                <CollectionCard
+                  key={row.slug}
+                  row={row}
+                  query={query}
+                  near={near}
+                />
               ))}
             </div>
             <p className="mono exp-note exp-note--foot">
-              Generated from {catalog.rows.length.toLocaleString()} collections over
-              the destination set. Every place has a Terrane page and a Wikipedia
-              reference; distances describe the extent of the group, not a route.
+              {catalog.rows.length.toLocaleString()} wide collections over{" "}
+              {experienceTotal.toLocaleString()} curated Experiences. Each
+              Experience has a Terrane page and a Wikipedia reference; distances
+              describe the extent of the group, not a route.
             </p>
           </>
         )}
@@ -224,8 +234,8 @@ export default function Collections() {
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          COLLECTIONS ARE GROUPS, NOT ITINERARIES · MAP © OPENSTREETMAP · DATA:
-          WIKIDATA · PHOTOS: WIKIMEDIA COMMONS
+          COLLECTIONS GATHER EXPERIENCES, NOT DESTINATIONS · MAP © OPENSTREETMAP
+          · DATA: WIKIDATA · PHOTOS: WIKIMEDIA COMMONS
         </span>
       </footer>
     </div>

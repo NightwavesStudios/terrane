@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Map as MlMap, NavigationControl, ScaleControl } from "maplibre-gl";
 import type {
   GeoJSONSource,
-  HillshadeLayerSpecification,
   IControl,
-  LayerSpecification,
   MapGeoJSONFeature,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -51,32 +49,6 @@ import {
 import { pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
-
-/**
- * The single hillshade.
- *
- * Four lights in one pass. The 315° key light is the northwest sun the eye
- * expects and gets the brightest highlight and the deepest shadow; the other
- * three fill the faces it misses, lower and dimmer, because four equally weighted
- * lights turn relief into grey noise. The light is anchored to the map, not the
- * viewport, so pitching does not swing shadows across the ridges.
- *
- * One state, always. A gesture used to drop to a single key light and restore
- * four on settle, which saved frames but changed the colour of every slope twice
- * per gesture — the map visibly re-lit itself the moment the camera stopped.
- * That is what "the lighting only changes while moving" looked like from the
- * outside, so the tier is gone: the same four lights run at rest and in motion.
- */
-type HillshadePaint = NonNullable<HillshadeLayerSpecification["paint"]>;
-
-const HILLSHADE_MULTI: HillshadePaint = {
-  "hillshade-method": "multidirectional",
-  "hillshade-illumination-anchor": "map",
-  "hillshade-illumination-direction": [315, 45, 225, 135],
-  "hillshade-illumination-altitude": [45, 30, 45, 30],
-  "hillshade-highlight-color": ["#6f8158", "#5d6e4b", "#5a6a49", "#5d6e4b"],
-  "hillshade-shadow-color": ["#020806", "#07120c", "#050e09", "#07120c"],
-};
 
 export interface GlobeFocus {
   lon: number;
@@ -171,9 +143,9 @@ const LAYER_GROUPS: Record<string, string[]> = {
   roadLabels: ["label-road"],
 };
 
-/** Layers that must exist after a style rebuild before the fast path is taken. */
+/* Layers that must exist after a style rebuild before the fast path is taken.
+   Relief is declared in the style now, so it is not a runtime layer. */
 const RUNTIME_IDS = [
-  "relief-hillshade",
   "features-dot-0",
   "mapped-pin-0",
   "trail-route-line",
@@ -261,7 +233,7 @@ export default function Globe({
       dragRotate: true,
       pitchWithRotate: false,
       maxPitch: 65,
-      fadeDuration: 180,
+      fadeDuration: 260,
       refreshExpiredTiles: false,
       maxTileCacheSize: 48,
       renderWorldCopies: false,
@@ -306,55 +278,6 @@ export default function Globe({
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
     }
 
-    const addHillshade = () => {
-      if (map_.getLayer("relief-hillshade")) return;
-      try {
-        map_.addLayer(
-          {
-            id: "relief-hillshade",
-            type: "hillshade",
-            source: "relief",
-            paint: HILLSHADE_MULTI,
-          },
-          map_.getLayer("water") ? "water" : FIRST_SYMBOL_LAYER,
-        );
-        if (!map_.getLayer("relief-snow")) {
-          map_.addLayer(
-            {
-              id: "relief-snow",
-              type: "color-relief",
-              source: "relief",
-              minzoom: 10.5,
-              paint: {
-                "color-relief-opacity": 1,
-                resampling: "linear",
-                "color-relief-color": [
-                  "interpolate",
-                  ["linear"],
-                  ["elevation"],
-                  2800,
-                  "rgba(228, 238, 241, 0)",
-                  3200,
-                  "rgba(231, 240, 243, 0.08)",
-                  3600,
-                  "rgba(236, 244, 247, 0.22)",
-                  4000,
-                  "rgba(242, 248, 250, 0.38)",
-                  4600,
-                  "rgba(248, 251, 252, 0.5)",
-                  5200,
-                  "rgba(251, 253, 253, 0.6)",
-                ],
-              },
-            } as unknown as LayerSpecification,
-            map_.getLayer("water") ? "water" : undefined,
-          );
-        }
-      } catch {
-        /* hillshade unavailable */
-      }
-    };
-
     const addPickRing = () => {
       if (!map_.getSource("pick")) {
         map_.addSource("pick", { type: "geojson", data: EMPTY });
@@ -380,7 +303,6 @@ export default function Globe({
     const ensureRuntimeLayers = () => {
       if (!booted.current || !map_.getStyle()) return;
       if (!RUNTIME_IDS.every((id) => map_.getLayer(id))) {
-        addHillshade();
         addCampIcons(map_);
         addDestinations(map_);
         setAtlasPlaces(map_, dataRef.current);
@@ -411,15 +333,19 @@ export default function Globe({
         /* mercator fallback */
       }
 
+      /* Blue hour: a deeper space, a brighter limb and a longer ground haze.
+         The atmosphere is what gives the sphere its edge; the fog blend is what
+         makes a pitched camera over a range feel like distance rather than a
+         texture. */
       try {
         map_.setSky({
-          "sky-color": "#02040a",
-          "horizon-color": "#22779a",
-          "fog-color": "#0a2434",
-          "sky-horizon-blend": 0.72,
+          "sky-color": "#05070d",
+          "horizon-color": "#1b4d63",
+          "fog-color": "#0a1c26",
+          "sky-horizon-blend": 0.7,
           "horizon-fog-blend": 0.42,
-          "fog-ground-blend": 0.22,
-          "atmosphere-blend": 0.45,
+          "fog-ground-blend": 0.26,
+          "atmosphere-blend": 0.6,
         });
       } catch {
         /* sky unsupported */

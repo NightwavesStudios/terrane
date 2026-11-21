@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cellPresence } from "./cellIndex";
 
-/* A slice of the store's upload manifest: the cells it lists are the cells it has. */
+/* A slice of the store's upload manifest. It is the uploader's incremental state,
+   so it lists some cells and knows nothing about the rest. */
 const index = new Set([
   "trails/7/70/48.json",
   "trails/7/70/50.json",
@@ -16,9 +17,14 @@ describe("cellPresence", () => {
     expect(cellPresence(index, "poi/6/33/22.json")).toBe(true);
   });
 
-  it("reports an absent cell in a tracked family as absent, never as an error", () => {
-    expect(cellPresence(index, "trails/7/70/49.json")).toBe(false);
-    expect(cellPresence(index, "poi/6/33/24.json")).toBe(false);
+  it("never declares an unlisted cell absent", () => {
+    /* Regression: the manifest listed 98 `poi/6/…` cells while the store served
+       `poi/6/33/22.json` and most others — an unlisted cell is unknown, not empty,
+       and inferring absence from the tracked family hid nearly every real pin. */
+    expect(cellPresence(index, "poi/6/31/21.json")).toBe(null);
+    expect(cellPresence(index, "trails/7/70/49.json")).toBe(null);
+    /* A cell whose directory has no sibling at all is still only unknown. */
+    expect(cellPresence(index, "poi/6/25/43.json")).toBe(null);
   });
 
   it("has no opinion about families the manifest does not track", () => {

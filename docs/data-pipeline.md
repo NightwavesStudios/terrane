@@ -135,9 +135,10 @@ The page loads one trail shard alongside its detail shard.
 
 Terrane has two separate catalogue domains. **Experiences** are the curated
 destinations that appear on the globe: one real place per page, with editorial
-prose built only from recorded facts. **Collections** are the generated thematic
-groups of places: they are browsable and shareable but never drawn on the map and
-never saved to the personal library.
+prose built only from recorded facts. **Collections** are wide groups of those
+Experiences by country, great range, large area or recorded long-distance trail:
+they are browsable and shareable but never drawn on the map and never saved to
+the personal library.
 
 ### Experiences (curated)
 
@@ -166,28 +167,25 @@ Every page links to its official or Wikipedia sources; the networked
 
 ### Collections (generated)
 
-Collections keep the earlier generated model. The inputs are the committed
-destination set, the detail shards (description, elevation, credited photographs,
-recorded range and protected area) and the trail-link shards. There is no POI
-mirror and no network step: `npm run collections` reads those files and writes
-`src/data/experience-index/` deterministically.
+Collections are wide groups of curated Experiences, not clusters of raw
+destinations. The grouping is committed in `src/data/collection-groups.json`:
+28 groups cover all 183 Experiences exactly once, in four scopes — country,
+range, area and trail. Membership is editorial, so a large country is split into
+areas and a cross-border massif becomes one range collection without inventing a
+route or a day plan.
 
-`scripts/lib/experiences.mjs` is the pure part: a 0.5° bucket index, seed scoring
-by fame and evidence, greedy cluster growth (3–8 stops, 40 km corridor widened to
-70 km for compact groups, 120 km bounding diagonal, at most three stops of one
-category), the category rules and the prose. The generator applies country and
-category quotas in a second phase, so one category cannot crowd out the rest, and
-every destination is claimed by at most one collection.
-
-Categories are earned from facts already recorded: a park/reserve majority or a
-shared specific protected area, a peak/glacier majority or two high stops, named
-trails within 10 km of most stops, water country with trails, and a compact mixed
-group as the weekend fallback. Camping never asserts that a campsite exists; the
-page lists mapped campsites and huts from the open POI cells instead.
+`scripts/build-collections.mjs` reads the committed grouping, the generated
+`guide-index/` catalogue and its shards, and `guide-selection.json` for editorial
+order. `scripts/lib/collections.mjs` is the pure part: it composes kind phrases,
+bounds, extent, counts and evidence prose from the member Experience rows. It
+rejects a grouping that loses, duplicates or invents an Experience, and it checks
+that every trail named by a trail collection is actually recorded at a member
+Experience.
 
 Output: `catalog.json` (one compact row per collection, for search and cards),
-one hash-bucket shard per collection (the full record), and `meta.json` (counts
-and inputs). Titles are unique, slugs are stable, and no record uses the clock.
+one hash-bucket shard per collection (the full record with member rows and
+photos), and `meta.json` (counts and inputs). Titles and slugs are stable, and no
+record uses the clock.
 The record's `source` is `"generated"`; a later curated path could sit beside it
 without a schema change.
 
@@ -225,8 +223,8 @@ npm run data:trails    # trails-only merge + strict quality + links + manifest
 npm run trail:quality  # strict geometry gate → reports/trail-quality.{json,md}
 npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links/
 npm run experiences    # curated Experience index → src/data/guide-index/
-npm run collections    # generated Collections index → src/data/experience-index/
-npm run sources:check  # verify Experience/Collection source URLs (network)
+npm run collections    # wide Collections index → src/data/collection-index/
+npm run sources:check  # verify curated Experience source URLs (network)
 npm run data:coverage  # reports/coverage.{md,json} + public/coverage.json
 npm run data:upload    # PUT changed cells and manifests
 npm run store:check    # HEAD every stored object; compare counts/bytes
@@ -281,7 +279,7 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
 | `src/data/trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` | yes |
 | `src/data/guide-index/` | `scripts/build-guide.mjs` | yes |
-| `src/data/experience-index/` | `scripts/build-experiences.mjs` | yes |
+| `src/data/collection-index/` | `scripts/build-collections.mjs` | yes |
 | `src/data/experience-sources.json` | `scripts/check-experience-sources.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |

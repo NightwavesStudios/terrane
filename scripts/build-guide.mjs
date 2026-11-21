@@ -2,8 +2,8 @@
 /**
  * Build the curated Experience catalogue.
  *
- * This is deliberately not the collection generator. A collection groups places;
- * an Experience is one destination selected for the editorial catalogue. The
+ * This is deliberately not the collection generator. A Collection gathers
+ * Experiences; an Experience is one destination selected for the editorial catalogue. The
  * selection lives in `src/data/guide-selection.json` and is the only source of
  * membership: adding a slug is an editorial decision, not a threshold in a
  * ranking script.

@@ -3,7 +3,7 @@ import type { ExperiencePoi } from "../../lib/experiencePois";
 import { coordinates, formatKm } from "../../lib/present";
 
 /**
- * Practical places around a collection.
+ * Practical places around one Experience.
  *
  * These are not part of the generated record: they are OpenStreetMap cells read
  * at runtime, which is why the section credits OSM, prints the coordinates and
@@ -27,7 +27,7 @@ export default function ExperiencePois({
   if (status === "error") {
     return (
       <p className="mono exp-note">
-        The practical places could not be loaded. The collection above does not
+        The practical places could not be loaded. The Experience above does not
         depend on them.
       </p>
     );

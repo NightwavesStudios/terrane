@@ -10,6 +10,7 @@ import type { Place } from "../data/places";
 import type { LayerState } from "../components/LayerControl";
 import { cellOf } from "../data/rank";
 import { FIRST_SYMBOL_LAYER } from "./style";
+import { FONTS, PALETTE } from "./theme";
 import bandsFile from "../data/bands.json";
 
 /**
@@ -146,7 +147,32 @@ export function addDestinations(map: MlMap): void {
 
   map.addSource(SOURCE, { type: "geojson", data: collection([]) });
 
+  /* A soft halo under the first band only: the handful of places that carry
+     the world view get a glow, so the planet has a few lights on it instead of
+     an even speckle of dots. */
+  map.addLayer({
+    id: "features-halo-0",
+    type: "circle",
+    source: SOURCE,
+    filter: [
+      "all",
+      ["==", ["get", "dot"], 0],
+      catFilter(enabled),
+    ] as unknown as ExpressionSpecification,
+    paint: {
+      "circle-color": DEST_COLOUR,
+      "circle-radius": radius(2.2),
+      "circle-blur": 1,
+      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.14, 3, 0.17, 6, 0.1],
+    },
+  });
+
   for (const b of BANDS) {
+    /* The beacon: a white core inside a ring of the category's colour. It reads
+       as a survey station rather than a paint dot, and the category survives at
+       three pixels because the ring is the outside, where the eye looks. */
+    const early = b.band <= 2;
+    const dotOpacity = Number((b.opacity * (b.band >= 4 ? 0.62 : 1)).toFixed(2));
     const isFirst = b.band === 0;
     const rampStart = isFirst ? 0 : b.dot;
     map.addLayer({
@@ -156,8 +182,8 @@ export function addDestinations(map: MlMap): void {
       minzoom: isFirst ? 0 : b.dot,
       filter: ["all", ["==", ["get", "dot"], b.dot], catFilter(enabled)],
       paint: {
-        "circle-color": DEST_COLOUR,
-        "circle-radius": radius(b.scale),
+        "circle-color": PALETTE.white,
+        "circle-radius": radius(b.scale * 0.85),
         "circle-opacity": [
           "interpolate",
           ["linear"],
@@ -165,11 +191,11 @@ export function addDestinations(map: MlMap): void {
           rampStart,
           isFirst ? 0.55 : 0,
           isFirst ? 2.6 : b.dot + 1.2,
-          b.opacity,
+          dotOpacity,
         ],
-        "circle-stroke-color": "#05090f",
+        "circle-stroke-color": DEST_COLOUR,
         // Heavier, brighter rings on the early bands; the tail is nearly a speck.
-        "circle-stroke-width": Number((0.7 - b.band * 0.05).toFixed(2)),
+        "circle-stroke-width": Number(Math.max(0.8, 1.45 - b.band * 0.1).toFixed(2)),
         // Fade the ring with the fill: a constant ring drew hollow ghosts for
         // the first zoom of every new band.
         "circle-stroke-opacity": [
@@ -179,7 +205,7 @@ export function addDestinations(map: MlMap): void {
           rampStart,
           isFirst ? 0.2 : 0,
           isFirst ? 2.6 : b.dot + 1.2,
-          Number((0.45 * b.opacity).toFixed(2)),
+          Number(((early ? 0.95 : 0.7) * dotOpacity).toFixed(2)),
         ],
       },
     });
@@ -187,6 +213,9 @@ export function addDestinations(map: MlMap): void {
 
   for (const b of BANDS) {
     const isFirst = b.band === 0;
+    // Planet scale is deliberately quiet: the globe is the subject there, and a
+    // 10.5 px label repeated over every continent competes with it.
+    const labelSize = isFirst ? 9.5 : b.labelSize;
     map.addLayer({
       id: `features-label-${b.label}`,
       type: "symbol",
@@ -199,8 +228,19 @@ export function addDestinations(map: MlMap): void {
         catFilter(enabled),
       ],
       layout: {
-        "text-field": ["get", "n"],
-        "text-font": ["Noto Sans Regular"],
+        /* Two lines where the record carries an elevation: the name, then the
+           height in a smaller size. It is the alpine convention, and it turns a
+           label into a fact without a second symbol layer. */
+        "text-field": [
+          "format",
+          ["get", "n"],
+          {},
+          "\n",
+          {},
+          ["case", ["has", "elev"], ["concat", ["to-string", ["get", "elev"]], " m"], ""],
+          { "font-scale": 0.72 },
+        ],
+        "text-font": FONTS.regular,
         // Size follows the band: a world major reads larger than a tail name.
         // The stops ascend by construction, which the earlier band stops above
         // z8 did not — MapLibre dropped those layers without saying so.
@@ -209,33 +249,34 @@ export function addDestinations(map: MlMap): void {
           ["linear"],
           ["zoom"],
           b.label,
-          b.labelSize,
+          labelSize,
           b.label + 2,
-          Number((b.labelSize + 1.5).toFixed(2)),
+          Number((labelSize + 1.5).toFixed(2)),
           16,
-          Number((b.labelSize + 3).toFixed(2)),
+          Number((labelSize + 3).toFixed(2)),
         ],
         "text-anchor": "top",
         "text-offset": [0, 0.95],
         "text-max-width": 9,
-        "text-padding": 6,
+        "text-padding": 8,
         "text-optional": true,
         // Earlier bands (smaller `lz`) win a collision, then the shorter name:
         // "Everest" should beat a six-word ridge label for the same pixel.
         "symbol-sort-key": ["+", ["get", "lz"], ["length", ["get", "n"]]],
       },
       paint: {
-        "text-color": "#d7e7f5",
-        "text-halo-color": "#04070c",
-        "text-halo-width": 1.5,
+        "text-color": PALETTE.label,
+        "text-halo-color": PALETTE.halo,
+        "text-halo-width": 1.2,
+        "text-halo-blur": 0.6,
         "text-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           b.label,
-          isFirst ? 0.5 : 0,
+          isFirst ? 0.45 : 0,
           isFirst ? 2.2 : b.label + 0.9,
-          0.9,
+          isFirst ? 0.78 : 0.88,
         ],
       },
     });

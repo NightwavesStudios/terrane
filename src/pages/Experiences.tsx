@@ -15,7 +15,7 @@ const nearLabel = (place: (typeof PLACES)[number]) =>
  * These are the destinations Terrane has chosen to feature: a few hundred of the
  * most significant peaks, parks, falls, lakes and coastlines in the destination
  * database, each with its own editorial page. The full database remains on the
- * Globe. Collections are elsewhere, and are groups rather than destinations.
+ * Globe. Collections are elsewhere, and gather Experiences at wide scope.
  */
 export default function Experiences() {
   const catalog = useGuideCatalog();
@@ -73,7 +73,8 @@ export default function Experiences() {
           mountain, lake or waterfall on the map. Each Experience is one real
           place, chosen for its scale, recorded features or protected status, and
           given a page built from its own geography. The Globe remains the full
-          database; Collections are thematic groups of places.
+          database; Collections gather these Experiences by country, great range,
+          area or recorded long-distance trail.
         </p>
       </div>
 

@@ -27,7 +27,7 @@
  *
  * `--incremental` keeps already-verified entries and fetches only URLs the
  * committed artifact does not cover. It is how a newly curated Experience is
- * checked without re-fetching every collection source; a full run remains the
+ * checked without re-fetching every Experience source; a full run remains the
  * default and refreshes every entry.
  */
 import { readFileSync, readdirSync, renameSync, writeFileSync, existsSync } from "node:fs";
@@ -44,7 +44,6 @@ import {
 
 const root = process.cwd();
 const OUT = "src/data/experience-sources.json";
-const CATALOG = "src/data/experience-index/catalog.json";
 const GUIDE_CATALOG = "src/data/guide-index/catalog.json";
 
 const args = process.argv.slice(2);
@@ -97,25 +96,6 @@ function readShardDir(dir) {
     if (file?.items) Object.assign(out, file.items);
   }
   return out;
-}
-
-/** Every distinct credited URL a shipped page links to. */
-function collectUrls(records) {
-  const urls = new Map();
-  const add = (url, kind) => {
-    if (typeof url !== "string" || !/^https:\/\//.test(url)) return;
-    const prior = urls.get(url);
-    if (prior && prior.kind === "article") return;
-    urls.set(url, { kind });
-  };
-  for (const record of Object.values(records)) {
-    for (const stop of record.stops ?? []) {
-      add(stop.source?.url, "article");
-      add(stop.photo?.page, "file");
-    }
-    for (const photo of record.photos ?? []) add(photo.page, "file");
-  }
-  return urls;
 }
 
 /** The curated catalogue links each destination to Wikipedia and Commons. */
@@ -220,15 +200,13 @@ async function checkWithStatus(url, kind) {
 }
 
 async function main() {
-  const catalog = read(CATALOG, { generated: "unknown" });
   const guideCatalog = read(GUIDE_CATALOG, { generated: "unknown" });
-  const records = readShardDir("src/data/experience-index");
   const guides = readShardDir("src/data/guide-index");
-  if (!Object.keys(records).length && !Object.keys(guides).length) {
-    throw new Error("no experience or guide records found; run the builders first");
+  if (!Object.keys(guides).length) {
+    throw new Error("no curated Experience records found; run `npm run experiences` first");
   }
 
-  const collected = new Map([...collectUrls(records), ...collectGuideUrls(guides)]);
+  const collected = new Map(collectGuideUrls(guides));
   const previous = incremental ? read(OUT, null) : null;
   const targets = [...collected.entries()]
     .filter(([url]) => !incremental || !previous?.urls?.[url])
@@ -297,7 +275,7 @@ async function main() {
 
   const artifact = buildArtifact(
     entries,
-    [catalog.generated, guideCatalog.generated, previous?.generated]
+    [guideCatalog.generated, previous?.generated]
       .filter((date) => date && date !== "unknown")
       .sort()
       .at(-1) ?? "unknown",

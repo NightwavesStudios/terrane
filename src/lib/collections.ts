@@ -1,35 +1,32 @@
 import { useEffect, useState } from "react";
 import type {
-  Experience,
-  ExperienceCatalogRow,
-  ExperienceCategoryId,
-} from "../data/experiences";
+  CollectionRecord,
+  CollectionCatalogRow,
+  CollectionScopeId,
+} from "../data/collections";
 import { kmBetween } from "./geo";
 import { normalize } from "./text";
 
 /**
- * Lazy access to the generated experience index.
+ * Lazy access to the generated Collection index.
  *
- * The catalog is one compact file (one row per collection) and each collection
- * is one hash-bucket shard, so a page downloads exactly one shard. The list can
- * search and filter without loading the full stop, photo and trail records.
- *
- * Filtering is a pure function of rows here, not of the page's state, so it is
- * unit-tested rather than checked by clicking.
+ * The catalogue is one compact file (one row per wide group) and each Collection
+ * is one hash-bucket shard, so the list can search and filter without loading
+ * every member Experience record.
  */
 
 type CatalogFile = {
   generated?: string;
   count?: number;
-  items?: ExperienceCatalogRow[];
+  items?: CollectionCatalogRow[];
 };
-type ShardFile = { generated?: string; items?: Record<string, Experience> };
+type ShardFile = { generated?: string; items?: Record<string, CollectionRecord> };
 
-const FILES = import.meta.glob("../data/experience-index/*.json");
+const FILES = import.meta.glob("../data/collection-index/*.json");
 const shardCache = new Map<string, Promise<ShardFile | null>>();
 let catalogPromise: Promise<CatalogFile | null> | null = null;
 
-/** Mirrors `bucketOf` in `scripts/build-experiences.mjs`. */
+/** Mirrors `bucketOf` in `scripts/build-collections.mjs`. */
 function bucketOf(slug: string): string {
   let hash = 0;
   for (let i = 0; i < slug.length; i += 1) hash = (hash * 31 + slug.charCodeAt(i)) | 0;
@@ -37,7 +34,7 @@ function bucketOf(slug: string): string {
 }
 
 function loadJson<T>(file: string): Promise<T | null> {
-  const loader = FILES[`../data/experience-index/${file}`];
+  const loader = FILES[`../data/collection-index/${file}`];
   if (!loader) return Promise.resolve(null);
   return loader()
     .then((mod) => ((mod as { default?: T }).default ?? (mod as T)))
@@ -61,13 +58,13 @@ function loadShard(slug: string): Promise<ShardFile | null> {
 
 export type CatalogStatus = "loading" | "ready" | "error";
 
-export function useExperienceCatalog(): {
-  rows: ExperienceCatalogRow[];
+export function useCollectionCatalog(): {
+  rows: CollectionCatalogRow[];
   generated: string;
   status: CatalogStatus;
 } {
   const [state, setState] = useState<{
-    rows: ExperienceCatalogRow[];
+    rows: CollectionCatalogRow[];
     generated: string;
     status: CatalogStatus;
   }>({ rows: [], generated: "", status: "loading" });
@@ -91,37 +88,31 @@ export function useExperienceCatalog(): {
   return state;
 }
 
-/**
- * The catalogue without a component.
- *
- * The map draws every collection as one marker and needs the rows before any
- * page mounts, so the same cached fetch the list page uses is exposed here.
- */
-export function loadExperienceCatalog(): Promise<ExperienceCatalogRow[]> {
+/** The catalogue without a component, for map-first consumers. */
+export function loadCollectionCatalog(): Promise<CollectionCatalogRow[]> {
   return loadCatalog().then((file) =>
     Array.isArray(file?.items) ? file.items : [],
   );
 }
 
-/** One collection, for drawing its places on the globe. */
-export function loadExperience(slug: string): Promise<Experience | null> {
+export function loadCollection(slug: string): Promise<CollectionRecord | null> {
   return loadShard(slug).then((file) => file?.items?.[slug] ?? null);
 }
 
-export function useExperience(slug: string): {
-  experience: Experience | null;
+export function useCollection(slug: string): {
+  collection: CollectionRecord | null;
   loading: boolean;
 } {
-  const [experience, setExperience] = useState<Experience | null>(null);
+  const [collection, setCollection] = useState<CollectionRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    setExperience(null);
+    setCollection(null);
     setLoading(true);
     void loadShard(slug).then((file) => {
       if (!alive) return;
-      setExperience(file?.items?.[slug] ?? null);
+      setCollection(file?.items?.[slug] ?? null);
       setLoading(false);
     });
     return () => {
@@ -129,69 +120,59 @@ export function useExperience(slug: string): {
     };
   }, [slug]);
 
-  return { experience, loading };
+  return { collection, loading };
 }
 
 /* ── pure helpers ────────────────────────────────────────────────────────── */
 
-/**
- * How well a row answers a query.
- *
- * A title match leads, the region/country answers "where", and a place name is
- * the discovery path from somewhere the reader already knows. Everything is
- * normalised the same way the map's search normalises names.
- */
-function scoreRow(row: ExperienceCatalogRow, term: string): number {
+function scoreRow(row: CollectionCatalogRow, term: string): number {
   let score = 0;
   const title = normalize(row.title);
   if (title === term) score += 100;
   else if (title.startsWith(term)) score += 60;
   else if (title.includes(term)) score += 40;
 
-  const where = normalize(`${row.region ?? ""} ${row.country ?? ""}`);
+  const where = normalize(`${row.where} ${row.countries.join(" ")}`);
   if (where.includes(term)) score += 25;
-
-  if (row.stopNames.some((name) => normalize(name).includes(term))) score += 20;
+  if (row.experienceNames.some((name) => normalize(name).includes(term))) {
+    score += 20;
+  }
   return score;
 }
 
-/** How far from a chosen place a collection still counts as "near". */
-export const NEAR_RADIUS_KM = 150;
+/** How far from a chosen place a wide collection still counts as "near". */
+export const NEAR_RADIUS_KM = 750;
 
-export type ExperienceNear = { lat: number; lon: number; label: string };
+export type CollectionNear = { lat: number; lon: number; label: string };
 
-export type ExperienceFilter = {
+export type CollectionFilter = {
   query?: string;
-  category?: ExperienceCategoryId | null;
-  near?: ExperienceNear | null;
+  scope?: CollectionScopeId | null;
+  near?: CollectionNear | null;
 };
 
-/** Straight-line kilometres from a place to a collection's centre. */
 export function kilometresFrom(
-  row: Pick<ExperienceCatalogRow, "lat" | "lon">,
-  near: ExperienceNear,
+  row: Pick<CollectionCatalogRow, "lat" | "lon">,
+  near: CollectionNear,
 ): number {
   return kmBetween(near.lat, near.lon, row.lat, row.lon);
 }
 
 /**
- * Filter and order the catalogue.
- *
- * Category narrows the pool; a query scores titles, regions and place names; a
- * chosen place keeps collections within `NEAR_RADIUS_KM` and orders them by
- * distance. A query inside a place still ranks matches first, with distance
- * breaking ties.
+ * Filter and order the catalogue. Scope narrows the pool; a query scores titles,
+ * geography and member Experience names; a chosen place keeps collections within
+ * `NEAR_RADIUS_KM` and orders them by distance.
  */
-export function filterExperiences(
-  rows: ExperienceCatalogRow[],
-  options: ExperienceFilter = {},
-): ExperienceCatalogRow[] {
+export function filterCollections(
+  rows: CollectionCatalogRow[],
+  options: CollectionFilter = {},
+): CollectionCatalogRow[] {
   const term = normalize((options.query ?? "").trim());
-  const category = options.category ?? null;
+  const scope = options.scope ?? null;
   const near = options.near ?? null;
 
   let pool = rows;
-  if (category) pool = pool.filter((row) => row.category === category);
+  if (scope) pool = pool.filter((row) => row.scope === scope);
   if (near) {
     pool = pool.filter((row) => kilometresFrom(row, near) <= NEAR_RADIUS_KM);
   }
@@ -215,32 +196,30 @@ export function filterExperiences(
     .map((item) => item.row);
 }
 
-/** The place a query matched, for the "includes X" line on a card. */
-export function matchedStop(
-  row: ExperienceCatalogRow,
+/** The member Experience a query matched, for the "Includes X" line. */
+export function matchedExperience(
+  row: CollectionCatalogRow,
   query: string,
 ): string | undefined {
   const term = normalize(query.trim());
   if (!term) return undefined;
-  return row.stopNames.find((name) => normalize(name).includes(term));
+  return row.experienceNames.find((name) => normalize(name).includes(term));
 }
 
-export function experienceWhere(row: {
-  region?: string;
-  country?: string;
-}): string {
-  if (row.region && row.country && row.region !== row.country) {
-    return `${row.region}, ${row.country}`;
-  }
-  return row.region || row.country || "";
+/** The one wide Collection an Experience belongs to, from the catalogue. */
+export function collectionForExperience(
+  rows: CollectionCatalogRow[],
+  experienceSlug: string,
+): CollectionCatalogRow | undefined {
+  return rows.find((row) => row.experienceSlugs.includes(experienceSlug));
 }
 
-export function nearbyExperiences(
-  rows: ExperienceCatalogRow[],
+export function nearbyCollections(
+  rows: CollectionCatalogRow[],
   point: { lat: number; lon: number },
   excludeSlug: string,
   limit = 4,
-): { row: ExperienceCatalogRow; km: number }[] {
+): { row: CollectionCatalogRow; km: number }[] {
   return rows
     .filter((row) => row.slug !== excludeSlug)
     .map((row) => ({ row, km: kmBetween(point.lat, point.lon, row.lat, row.lon) }))

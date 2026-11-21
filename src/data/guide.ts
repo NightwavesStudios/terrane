@@ -8,8 +8,9 @@
  * traced to a record. A destination that is merely present in the geographic
  * database never becomes an Experience by itself.
  *
- * Collections are a separate domain (`data/experiences.ts`), a separate index
- * and a separate route. Collections are groups; Experiences are destinations.
+ * Collections are a separate domain (`data/collections.ts`), a separate index
+ * (`collection-index/`) and a separate route. Collections gather Experiences at
+ * country, range, area or recorded-trail scale; Experiences stay destinations.
  */
 
 export type GuideKindId =

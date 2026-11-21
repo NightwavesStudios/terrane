@@ -470,40 +470,43 @@ check(
   JSON.stringify(detailSummary),
 );
 
-/* ── generated experiences ──
-   The routes are generated, so a malformed shard is a build failure rather than
-   an empty section. Every stop must resolve to a real place page, every photo
-   must keep its credit, and the catalog must agree with the shards. */
-const experienceCategoryFile = read("src/data/experience-categories.json", {
-  categories: [],
-});
-const experienceIds = new Set(
-  (experienceCategoryFile.categories ?? []).map((category) => category.id),
+/* ── wide Collections ──
+   Collections are a browse layer over the curated Experience catalogue. The
+   grouping is committed in `collection-groups.json`; the records, counts,
+   prose and shards are generated from `guide-index/`. Every Experience belongs
+   to exactly one Collection, so no destination is advertised twice. */
+const collectionScopesFile = read("src/data/collection-scopes.json", { scopes: [] });
+const collectionIds = new Set(
+  (collectionScopesFile.scopes ?? []).map((scope) => scope.id),
 );
-const experienceMeta = read("src/data/experience-index/meta.json", {
+const collectionMeta = read("src/data/collection-index/meta.json", {
   total: 0,
-  byCategory: {},
+  byScope: {},
 });
-const experienceCatalog = read("src/data/experience-index/catalog.json", {
+const collectionCatalog = read("src/data/collection-index/catalog.json", {
   items: [],
 });
-const experienceFiles = existsSync(join(root, "src/data/experience-index"))
-  ? readdirSync(join(root, "src/data/experience-index")).filter(
+const collectionFiles = existsSync(join(root, "src/data/collection-index"))
+  ? readdirSync(join(root, "src/data/collection-index")).filter(
       (name) => name.endsWith(".json") && name !== "catalog.json" && name !== "meta.json",
     )
   : [];
-const experienceItems = {};
-for (const name of experienceFiles) {
+const collectionItems = {};
+for (const name of collectionFiles) {
   Object.assign(
-    experienceItems,
-    read(join("src/data/experience-index", name)).items ?? {},
+    collectionItems,
+    read(join("src/data/collection-index", name)).items ?? {},
   );
 }
-const experienceRows = Object.values(experienceItems);
-const experienceSlugs = Object.keys(experienceItems);
-const catalogSlugs = new Set(
-  (experienceCatalog.items ?? []).map((row) => row.slug),
+const collectionRows = Object.values(collectionItems);
+const collectionSlugs = Object.keys(collectionItems);
+const collectionCatalogSlugs = new Set(
+  (collectionCatalog.items ?? []).map((row) => row.slug),
 );
+const collectionGroups = read("src/data/collection-groups.json", { groups: [] });
+const groupRows = Array.isArray(collectionGroups.groups) ? collectionGroups.groups : [];
+const groupExperienceSlugs = groupRows.flatMap((group) => group.slugs ?? []);
+
 /* The networked link check writes this artifact; the build and validator only
    read it, so a normal build never depends on the network. */
 const sourceArtifact = read("src/data/experience-sources.json", {
@@ -513,209 +516,208 @@ const sourceArtifact = read("src/data/experience-sources.json", {
 const sourceVerified = (url) => sourceArtifact.urls?.[url]?.status === "verified";
 
 check(
-  "the five experience categories exist",
-  experienceIds.size === 5 &&
-    ["weekend", "mountain", "hiking", "camping", "park"].every((id) =>
-      experienceIds.has(id),
-    ),
-  [...experienceIds].join(",") || "none",
+  "the four Collection scopes exist",
+  collectionIds.size === 4 &&
+    ["country", "range", "area", "trail"].every((id) => collectionIds.has(id)),
+  [...collectionIds].join(", ") || "none",
 );
 check(
-  "the experience index is not empty",
-  experienceRows.length >= 120,
-  `${experienceRows.length} collections`,
+  "the Collection index is deliberately small and wide",
+  collectionRows.length >= 20 &&
+    collectionRows.length <= 60 &&
+    collectionRows.every((row) => (row.experiences?.length ?? 0) >= 2),
+  `${collectionRows.length} collections`,
 );
 check(
-  "experience slugs are unique",
-  experienceSlugs.length === new Set(experienceSlugs).size &&
-    experienceRows.length === experienceSlugs.length,
-  `${experienceSlugs.length} slugs`,
+  "Collection slugs are unique and routable",
+  collectionSlugs.length === new Set(collectionSlugs).size &&
+    collectionRows.length === collectionSlugs.length &&
+    collectionRows.every((row) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)),
+  `${collectionSlugs.length} slugs`,
 );
 check(
-  "experience titles are unique",
-  new Set(experienceRows.map((row) => row.title)).size === experienceRows.length,
-  `${experienceRows.length} titles`,
+  "Collection titles are unique",
+  new Set(collectionRows.map((row) => row.title)).size === collectionRows.length,
+  `${collectionRows.length} titles`,
 );
 check(
-  "every experience category is known and represented",
-  experienceRows.every((row) => experienceIds.has(row.category)) &&
-    [...experienceIds].every((id) =>
-      experienceRows.some((row) => row.category === id),
-    ),
-  JSON.stringify(experienceMeta.byCategory ?? {}),
+  "every Collection scope is known and represented",
+  collectionRows.every((row) => collectionIds.has(row.scope)) &&
+    [...collectionIds].every((id) => collectionRows.some((row) => row.scope === id)),
+  JSON.stringify(collectionMeta.byScope ?? {}),
 );
 check(
-  "experience meta matches the records",
-  experienceMeta.total === experienceRows.length &&
-    (experienceCatalog.items ?? []).length === experienceRows.length &&
-    Object.entries(experienceMeta.byCategory ?? {}).every(
-      ([id, count]) =>
-        experienceRows.filter((row) => row.category === id).length === count,
-    ) &&
-    Object.values(experienceMeta.byCategory ?? {}).reduce(
-      (sum, count) => sum + count,
-      0,
-    ) === experienceRows.length,
-  `${experienceMeta.total}/${experienceRows.length}`,
-);
-check(
-  "experience places are well formed, pageable and sourced",
-  experienceRows.every(
+  "Collection records are well formed",
+  collectionRows.every(
     (row) =>
-      Array.isArray(row.stops) &&
-      row.stops.length >= 3 &&
-      row.stops.length <= 8 &&
-      row.stops.every(
-        (stop) =>
-          typeof stop.slug === "string" &&
-          pageSlugs.has(stop.slug) &&
-          typeof stop.name === "string" &&
-          stop.name.length > 0 &&
-          coordOk(stop.lat, stop.lon) &&
-          Array.isArray(stop.trails) &&
-          (stop.note === undefined ||
-            (typeof stop.note === "string" && stop.note.length > 0)) &&
-          stop.source &&
-          stop.source.label === "Wikipedia" &&
-          httpsUrl(stop.source.url) &&
-          /^https:\/\/[a-z]{2,3}\.wikipedia\.org\/wiki\/\S+$/i.test(stop.source.url),
-      ),
-  ),
-  `${experienceRows.reduce((sum, row) => sum + (row.stops?.length ?? 0), 0)} sourced places`,
-);
-check(
-  "experience bounds contain their places",
-  experienceRows.every(
-    (row) =>
+      typeof row.title === "string" &&
+      row.title.length > 0 &&
+      typeof row.where === "string" &&
+      row.where.length > 0 &&
+      Array.isArray(row.countries) &&
+      row.countries.length > 0 &&
+      typeof row.summary === "string" &&
+      row.summary.length > 0 &&
+      Array.isArray(row.description) &&
+      row.description.length >= 2 &&
+      Array.isArray(row.experiences) &&
+      coordOk(row.center?.lat, row.center?.lon) &&
       Array.isArray(row.bounds) &&
       row.bounds.length === 4 &&
       row.bounds.every(Number.isFinite) &&
-      row.stops.every(
-        (stop) =>
-          stop.lon >= row.bounds[0] - 0.01 &&
-          stop.lon <= row.bounds[2] + 0.01 &&
-          stop.lat >= row.bounds[1] - 0.01 &&
-          stop.lat <= row.bounds[3] + 0.01,
+      Number.isFinite(row.spanKm) &&
+      row.spanKm > 0,
+  ),
+  `${collectionRows.length} records`,
+);
+check(
+  "Collection members are pageable Experiences with their own records",
+  collectionRows.every((row) =>
+    row.experiences.every(
+      (experience) =>
+        typeof experience.slug === "string" &&
+        pageSlugs.has(experience.slug) &&
+        typeof experience.name === "string" &&
+        experience.name.length > 0 &&
+        coordOk(experience.lat, experience.lon) &&
+        typeof experience.summary === "string" &&
+        experience.summary.length > 0,
+    ),
+  ),
+  `${collectionRows.reduce((sum, row) => sum + row.experiences.length, 0)} memberships`,
+);
+check(
+  "no Collection repeats an Experience",
+  collectionRows.every(
+    (row) =>
+      new Set(row.experiences.map((experience) => experience.slug)).size ===
+      row.experiences.length,
+  ),
+  "member slugs",
+);
+check(
+  "collection bounds contain every member Experience",
+  collectionRows.every(
+    (row) =>
+      row.experiences.every(
+        (experience) =>
+          experience.lon >= row.bounds[0] - 0.01 &&
+          experience.lon <= row.bounds[2] + 0.01 &&
+          experience.lat >= row.bounds[1] - 0.01 &&
+          experience.lat <= row.bounds[3] + 0.01,
       ),
   ),
   "bounds",
 );
 check(
-  "experience counts agree with their places",
-  experienceRows.every(
-    (row) =>
+  "Collection statistics agree with their members",
+  collectionRows.every((row) => {
+    const places = row.experiences.reduce(
+      (sum, experience) => sum + (experience.placeCount ?? 0),
+      0,
+    );
+    const trails = row.experiences.reduce(
+      (sum, experience) => sum + (experience.trailCount ?? 0),
+      0,
+    );
+    return (
       row.stats &&
-      row.stats.stops === row.stops.length &&
-      row.stats.sourced === row.stops.length &&
-      Number.isFinite(row.spanKm) &&
-      row.spanKm > 0,
-  ),
-  "stops, sources, span",
+      row.stats.experiences === row.experiences.length &&
+      row.stats.places === places &&
+      row.stats.trails === trails &&
+      row.stats.countries === row.countries.length &&
+      row.stats.sourced === row.experiences.length
+    );
+  }),
+  "members, places, trails, countries, sources",
 );
 check(
-  "experience records claim no itinerary",
-  experienceRows.every(
+  "Collection records claim no itinerary",
+  collectionRows.every(
     (row) =>
       !("itinerary" in row) &&
       !("days" in row) &&
       !("durationHours" in row) &&
       !("durationBasis" in row) &&
       !("difficulty" in row) &&
-      !("difficultyBasis" in row) &&
       !("distanceKm" in row) &&
-      Array.isArray(row.description) &&
-      row.description.length >= 2,
+      !("stops" in row),
   ),
-  "no walking plan or distance claim",
+  "no route or day plan",
 );
 check(
-  "experience photographs keep their credit and licence",
-  experienceRows.every((row) =>
-    [...(row.photos ?? []), ...row.stops.map((stop) => stop.photo)]
-      .filter(Boolean)
-      .every(
-        (photo) =>
-          httpsUrl(photo.url) &&
-          imageHosts.has(hostOf(photo.url)) &&
-          typeof photo.credit === "string" &&
-          photo.credit.length > 0 &&
-          typeof photo.licence === "string" &&
-          photo.licence.length > 0,
-      ),
+  "Collection photographs keep their credit and licence",
+  collectionRows.every((row) =>
+    (row.photos ?? []).every(
+      (photo) =>
+        httpsUrl(photo.url) &&
+        imageHosts.has(hostOf(photo.url)) &&
+        typeof photo.credit === "string" &&
+        photo.credit.length > 0 &&
+        typeof photo.licence === "string" &&
+        photo.licence.length > 0,
+    ),
   ),
   "credited Commons images",
 );
 check(
-  "experience records are generated, not hand-written",
-  experienceRows.every((row) => row.source === "generated"),
-  "source",
+  "Collection meta matches the records",
+  collectionMeta.total === collectionRows.length &&
+    (collectionCatalog.items ?? []).length === collectionRows.length &&
+    collectionCatalogSlugs.size === collectionRows.length &&
+    collectionMeta.experiences ===
+      collectionRows.reduce((sum, row) => sum + row.experiences.length, 0) &&
+    Object.entries(collectionMeta.byScope ?? {}).every(
+      ([id, count]) => collectionRows.filter((row) => row.scope === id).length === count,
+    ) &&
+    Object.values(collectionMeta.byScope ?? {}).reduce(
+      (sum, count) => sum + count,
+      0,
+    ) === collectionRows.length,
+  `${collectionMeta.total}/${collectionRows.length}`,
 );
 check(
-  "every experience is in the catalog and every catalog row has a record",
-  experienceRows.every((row) => catalogSlugs.has(row.slug)) &&
-    (experienceCatalog.items ?? []).every((row) => experienceItems[row.slug]),
-  `${catalogSlugs.size} catalog rows`,
+  "the committed grouping covers the Collection records",
+  groupRows.length === collectionRows.length &&
+    groupRows.every((group) => Boolean(collectionItems[group.slug])) &&
+    collectionRows.every((row) =>
+      groupRows.some((group) => group.slug === row.slug),
+    ) &&
+    groupExperienceSlugs.length === new Set(groupExperienceSlugs).size,
+  `${groupRows.length} groups`,
 );
 check(
-  "catalog rows match their records",
-  (experienceCatalog.items ?? []).every((row) => {
-    const record = experienceItems[row.slug];
+  "every Collection is in the catalog and every catalog row has a record",
+  collectionRows.every((row) => collectionCatalogSlugs.has(row.slug)) &&
+    (collectionCatalog.items ?? []).every((row) => collectionItems[row.slug]),
+  `${collectionCatalogSlugs.size} catalog rows`,
+);
+check(
+  "Collection catalog rows match their records",
+  (collectionCatalog.items ?? []).every((row) => {
+    const record = collectionItems[row.slug];
     return (
       record &&
       row.title === record.title &&
-      row.category === record.category &&
-      row.stopCount === record.stops.length &&
-      row.spanKm === record.spanKm &&
-      row.sourceCount === record.stats.sourced
+      row.scope === record.scope &&
+      row.where === record.where &&
+      row.experienceCount === record.experiences.length &&
+      row.countryCount === record.countries.length &&
+      row.placeCount === record.stats.places &&
+      row.trailCount === record.stats.trails &&
+      row.hue === record.hue &&
+      Array.isArray(row.experienceSlugs) &&
+      row.experienceSlugs.length === record.experiences.length &&
+      row.experienceSlugs.every(
+        (slug, index) => slug === record.experiences[index].slug,
+      ) &&
+      row.experienceNames.length === record.experiences.length &&
+      row.experienceNames.every(
+        (name, index) => name === record.experiences[index].name,
+      )
     );
   }),
-  "titles, categories, counts",
-);
-check(
-  "every experience place source was verified live",
-  experienceRows.every((row) =>
-    row.stops.every((stop) => sourceVerified(stop.source.url)),
-  ),
-  `${new Set(
-    experienceRows.flatMap((row) => row.stops.map((stop) => stop.source.url)),
-  ).size} article URLs`,
-);
-check(
-  "every shipped experience photograph page was verified live",
-  experienceRows.every((row) =>
-    [...(row.photos ?? []), ...row.stops.map((stop) => stop.photo)]
-      .filter(Boolean)
-      .every(
-        (photo) =>
-          typeof photo.page === "string" && sourceVerified(photo.page),
-      ),
-  ),
-  "Commons file pages",
-);
-check(
-  "the source verification artifact reconciles with the shipped links",
-  sourceArtifact.counts?.urls === Object.keys(sourceArtifact.urls ?? {}).length &&
-    sourceArtifact.counts?.verified +
-      sourceArtifact.counts?.dead +
-      sourceArtifact.counts?.unreachable ===
-      sourceArtifact.counts?.urls &&
-    sourceArtifact.counts?.articles + sourceArtifact.counts?.filePages ===
-      sourceArtifact.counts?.urls &&
-    Object.keys(sourceArtifact.urls ?? {}).length > 0,
-  `${sourceArtifact.counts?.urls ?? 0} checked · ${sourceArtifact.counts?.dead ?? 0} dead`,
-);
-check(
-  "Georgia experiences keep verified-live place sources",
-  experienceRows.filter((row) => row.country === "Georgia").length >= 3 &&
-    experienceRows
-      .filter((row) => row.country === "Georgia")
-      .every((row) =>
-        row.stops.every((stop) => sourceVerified(stop.source.url)),
-      ),
-  `${experienceRows.filter((row) => row.country === "Georgia").length} collections · ` +
-    `${experienceRows
-      .filter((row) => row.country === "Georgia")
-      .reduce((sum, row) => sum + row.stops.length, 0)} places`,
+  "titles, scopes, counts, member order",
 );
 
 /* ── curated Experiences ──
@@ -738,6 +740,35 @@ for (const name of guideFiles) {
 const guideRows = Object.values(guideItems);
 const guideSlugs = Object.keys(guideItems);
 const guideCatalogSlugs = new Set((guideCatalog.items ?? []).map((row) => row.slug));
+
+check(
+  "every curated Experience belongs to exactly one Collection",
+  groupExperienceSlugs.length === guideRows.length &&
+    new Set(groupExperienceSlugs).size === guideRows.length &&
+    guideRows.every((row) => groupExperienceSlugs.includes(row.slug)) &&
+    collectionRows.every((row) =>
+      row.experiences.every((experience) => Boolean(guideItems[experience.slug])),
+    ),
+  `${groupExperienceSlugs.length} memberships over ${guideRows.length} Experiences`,
+);
+check(
+  "trail Collections name trails that are recorded at their members",
+  collectionRows
+    .filter((row) => row.scope === "trail")
+    .every(
+      (row) =>
+        Array.isArray(row.basisTrails) &&
+        row.basisTrails.length > 0 &&
+        row.basisTrails.every((trail) =>
+          row.experiences.some((experience) =>
+            (guideItems[experience.slug]?.trails ?? []).some(
+              (entry) => entry.name === trail,
+            ),
+          ),
+        ),
+    ),
+  `${collectionRows.filter((row) => row.scope === "trail").length} trail collections`,
+);
 
 check(
   "the curated Experience selection is a deliberate list",
@@ -879,7 +910,19 @@ check(
   "official websites",
 );
 check(
-  "Experience and Collection catalogues agree with their shards",
+  "the source verification artifact reconciles with the shipped links",
+  sourceArtifact.counts?.urls === Object.keys(sourceArtifact.urls ?? {}).length &&
+    sourceArtifact.counts?.verified +
+      sourceArtifact.counts?.dead +
+      sourceArtifact.counts?.unreachable ===
+      sourceArtifact.counts?.urls &&
+    sourceArtifact.counts?.articles + sourceArtifact.counts?.filePages ===
+      sourceArtifact.counts?.urls &&
+    Object.keys(sourceArtifact.urls ?? {}).length > 0,
+  `${sourceArtifact.counts?.urls ?? 0} checked · ${sourceArtifact.counts?.dead ?? 0} dead`,
+);
+check(
+  "the Experience catalogue agrees with its shards",
   guideRows.every((row) => guideCatalogSlugs.has(row.slug)) &&
     (guideCatalog.items ?? []).every((row) => guideItems[row.slug]) &&
     (guideCatalog.items ?? []).every((row) => {
@@ -901,7 +944,7 @@ check(
 const sitemapUrls = sitemapPaths({
   slugs: pageSlugFile.slugs ?? [],
   experiences: guideCatalog.items ?? [],
-  collections: experienceCatalog.items ?? [],
+  collections: collectionCatalog.items ?? [],
 });
 const sitemapSet = new Set(sitemapUrls.map((entry) => entry.path));
 check(
@@ -909,14 +952,14 @@ check(
   sitemapSet.has("/experiences") &&
     sitemapSet.has("/collections") &&
     guideRows.every((row) => sitemapSet.has(`/experiences/${row.slug}`)) &&
-    experienceRows.every((row) => sitemapSet.has(`/collections/${row.slug}`)) &&
+    collectionRows.every((row) => sitemapSet.has(`/collections/${row.slug}`)) &&
     sitemapUrls.length ===
       4 +
         guideRows.length +
-        experienceRows.length +
+        collectionRows.length +
         (pageSlugFile.slugs ?? []).length &&
     new Set(sitemapUrls.map((entry) => entry.path)).size === sitemapUrls.length,
-  `${sitemapUrls.length} urls · ${guideRows.length} Experiences · ${experienceRows.length} Collections`,
+  `${sitemapUrls.length} urls · ${guideRows.length} Experiences · ${collectionRows.length} Collections`,
 );
 
 const failed = checks.filter((c) => !c.ok);

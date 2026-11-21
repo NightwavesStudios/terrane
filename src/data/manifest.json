@@ -470,94 +470,94 @@
         "detail": "{\"generated\":\"2026-11-20\",\"source\":\"wikidata\",\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282,\"shards\":28}"
       },
       {
-        "name": "the five experience categories exist",
+        "name": "the four Collection scopes exist",
         "ok": true,
-        "detail": "weekend,mountain,hiking,camping,park"
+        "detail": "country, range, area, trail"
       },
       {
-        "name": "the experience index is not empty",
+        "name": "the Collection index is deliberately small and wide",
         "ok": true,
-        "detail": "220 collections"
+        "detail": "28 collections"
       },
       {
-        "name": "experience slugs are unique",
+        "name": "Collection slugs are unique and routable",
         "ok": true,
-        "detail": "220 slugs"
+        "detail": "28 slugs"
       },
       {
-        "name": "experience titles are unique",
+        "name": "Collection titles are unique",
         "ok": true,
-        "detail": "220 titles"
+        "detail": "28 titles"
       },
       {
-        "name": "every experience category is known and represented",
+        "name": "every Collection scope is known and represented",
         "ok": true,
-        "detail": "{\"camping\":33,\"hiking\":14,\"mountain\":88,\"park\":52,\"weekend\":33}"
+        "detail": "{\"range\":4,\"trail\":1,\"area\":20,\"country\":3}"
       },
       {
-        "name": "experience meta matches the records",
+        "name": "Collection records are well formed",
         "ok": true,
-        "detail": "220/220"
+        "detail": "28 records"
       },
       {
-        "name": "experience places are well formed, pageable and sourced",
+        "name": "Collection members are pageable Experiences with their own records",
         "ok": true,
-        "detail": "1317 sourced places"
+        "detail": "183 memberships"
       },
       {
-        "name": "experience bounds contain their places",
+        "name": "no Collection repeats an Experience",
+        "ok": true,
+        "detail": "member slugs"
+      },
+      {
+        "name": "collection bounds contain every member Experience",
         "ok": true,
         "detail": "bounds"
       },
       {
-        "name": "experience counts agree with their places",
+        "name": "Collection statistics agree with their members",
         "ok": true,
-        "detail": "stops, sources, span"
+        "detail": "members, places, trails, countries, sources"
       },
       {
-        "name": "experience records claim no itinerary",
+        "name": "Collection records claim no itinerary",
         "ok": true,
-        "detail": "no walking plan or distance claim"
+        "detail": "no route or day plan"
       },
       {
-        "name": "experience photographs keep their credit and licence",
+        "name": "Collection photographs keep their credit and licence",
         "ok": true,
         "detail": "credited Commons images"
       },
       {
-        "name": "experience records are generated, not hand-written",
+        "name": "Collection meta matches the records",
         "ok": true,
-        "detail": "source"
+        "detail": "28/28"
       },
       {
-        "name": "every experience is in the catalog and every catalog row has a record",
+        "name": "the committed grouping covers the Collection records",
         "ok": true,
-        "detail": "220 catalog rows"
+        "detail": "28 groups"
       },
       {
-        "name": "catalog rows match their records",
+        "name": "every Collection is in the catalog and every catalog row has a record",
         "ok": true,
-        "detail": "titles, categories, counts"
+        "detail": "28 catalog rows"
       },
       {
-        "name": "every experience place source was verified live",
+        "name": "Collection catalog rows match their records",
         "ok": true,
-        "detail": "1312 article URLs"
+        "detail": "titles, scopes, counts, member order"
       },
       {
-        "name": "every shipped experience photograph page was verified live",
+        "name": "every curated Experience belongs to exactly one Collection",
         "ok": true,
-        "detail": "Commons file pages"
+        "detail": "183 memberships over 183 Experiences"
       },
       {
-        "name": "the source verification artifact reconciles with the shipped links",
+        "name": "trail Collections name trails that are recorded at their members",
         "ok": true,
-        "detail": "2885 checked · 0 dead"
-      },
-      {
-        "name": "Georgia experiences keep verified-live place sources",
-        "ok": true,
-        "detail": "4 collections · 31 places"
+        "detail": "1 trail collections"
       },
       {
         "name": "the curated Experience selection is a deliberate list",
@@ -625,14 +625,19 @@
         "detail": "official websites"
       },
       {
-        "name": "Experience and Collection catalogues agree with their shards",
+        "name": "the source verification artifact reconciles with the shipped links",
+        "ok": true,
+        "detail": "2885 checked · 0 dead"
+      },
+      {
+        "name": "the Experience catalogue agrees with its shards",
         "ok": true,
         "detail": "names, kinds, counts"
       },
       {
         "name": "the sitemap covers both catalogues and every route",
         "ok": true,
-        "detail": "24881 urls · 183 Experiences · 220 Collections"
+        "detail": "24689 urls · 183 Experiences · 28 Collections"
       }
     ]
   }

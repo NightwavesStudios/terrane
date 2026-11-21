@@ -6,8 +6,9 @@ import {
   NavigationControl,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { GuideExperience } from "../../data/guide";
+import { guideKind, type GuideExperience } from "../../data/guide";
 import { createStyle } from "../../map/style";
+import { installDemProtocol } from "../../map/dem";
 
 /**
  * A small, flat map of one Experience and its recorded neighbours.
@@ -33,17 +34,14 @@ export default function GuideMap({
   useEffect(() => {
     if (!container.current) return;
 
-    const base = createStyle();
-    const sources = Object.fromEntries(
-      Object.entries(base.sources ?? {}).filter(([id]) => id !== "relief"),
-    );
-    const layers = base.layers.filter(
-      (layer) => (layer as { source?: string }).source !== "relief",
-    );
+    /* The DEM protocol has to answer before the style asks for a relief tile.
+       With it, this small map gets the same tinted, hillshaded surface as the
+       globe instead of a thinner, flatter basemap. */
+    installDemProtocol();
 
     const map = new MlMap({
       container: container.current,
-      style: { ...base, sources, layers },
+      style: createStyle(),
       bounds: [
         [guide.bounds[0], guide.bounds[1]],
         [guide.bounds[2], guide.bounds[3]],
@@ -82,7 +80,7 @@ export default function GuideMap({
       const element = document.createElement("button");
       element.type = "button";
       element.className = "exp-pin exp-pin--place";
-      element.style.setProperty("--pin", `hsl(${guide.hue} 48% 46%)`);
+      element.style.setProperty("--pin", guideKind(guide.kind).colour);
       element.title = place.name;
       element.setAttribute("aria-label", place.name);
       element.addEventListener("click", () => onSelectRef.current(place.slug));

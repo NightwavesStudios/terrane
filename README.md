@@ -16,9 +16,9 @@ POIs remain map-only. Coverage is uneven; the [Data page](/coverage) and
 > **Facts only.** Place pages show type, high point, country, coordinates and a
 > Wikidata description, with a credited Commons photograph where one exists.
 > Experiences are a curated catalogue of individual destinations, each page built
-> only from its own recorded geography, trails and sources. Collections are
-> generated thematic groups of places and stay off the map. There are no accounts
-> and the saves stay in the browser.
+> only from its own recorded geography, trails and sources. Collections gather
+> those Experiences at country, mountain-range, area or long-trail scale and stay
+> off the globe. There are no accounts and the saves stay in the browser.
 
 ## Quick start
 
@@ -32,7 +32,7 @@ npm run pages      # page index + details + trail links + manifest + validation
 npm run data:update # incremental page/detail refresh for the current destinations
 npm run details    # Wikidata/Commons place details (network; committed output)
 npm run experiences # rebuild the curated Experience index
-npm run collections # rebuild the generated Collections index
+npm run collections # rebuild the wide Collections over curated Experiences
 npm run audit      # data audit → reports/ (generated, gitignored)
 npm run clean      # remove dist and other regenerable build output
 ```
@@ -58,8 +58,8 @@ it needs a rebuild, not a restart.
 | `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
 | `/experiences` | `Experiences` | Curated catalogue of individual destinations: search by title, place, region or country, filter to those near a named place and by the six kinds; save. |
 | `/experiences/:slug` | `Experience` | One curated destination: overview, why it is worth visiting, recorded features, associated places and trails, a map, practical places from the cell store, photographs, official/source links and save. |
-| `/collections` | `Collections` | Generated thematic groups of places: search, filter by kind and by a nearby place. Collections are not saved and do not appear on the globe. |
-| `/collections/:slug` | `Collection` | One collection: its places, each with a Terrane page and source, nearby named trails, a map of the group, practical places from the cell store and photographs. |
+| `/collections` | `Collections` | Wide groups of curated Experiences: search, filter by scope and by a nearby place. Collections are not saved and do not appear on the globe. |
+| `/collections/:slug` | `Collection` | One collection: its member Experiences, each with its own page and source, the shared trail thread where recorded, a map of the group and photographs. |
 | `/saved` | `Saved` | The places and curated Experiences saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
@@ -153,16 +153,17 @@ and official or Wikipedia sources. It invents no access, facilities or
 connections; missing facts are omitted. Practical campsites, huts and trailheads
 are read from the cell store at runtime rather than baked into the page.
 
-`src/data/experience-index/` is the separate, generated Collections set: a
-compact `catalog.json`, sixteen hash-bucket shards and `meta.json`.
-`scripts/build-experiences.mjs` groups same-country destinations within 120 km
-and writes it; `npm run collections` runs only that step. A place is eligible only
-when its detail record has a Wikipedia URL, so every stop has a Terrane page and
-an external reference. The generator caps the set at about 220 collections,
-guarantees one per represented country and at least three in Georgia, and records
-only geography: places, categories, elevations, nearby named trails and the extent
-of the group. Collections are not saved and are deliberately absent from the map;
-their pages do not plan walking days or claim distances between places.
+`src/data/collection-index/` is the separate, generated Collections set: a
+compact `catalog.json`, hash-bucket shards and `meta.json`.
+`scripts/build-collections.mjs` groups the curated Experiences at wide scope and
+writes it; `npm run collections` runs only that step. Membership is committed in
+`src/data/collection-groups.json`: 28 groups cover all 183 Experiences exactly
+once — countries, great ranges, large areas and one recorded trail collection.
+Every member is already a curated Experience with its own page and Wikipedia
+source, so a Collection adds no unverified place. Records carry the member rows,
+where the group is, its extent, credited photos and the recorded trail thread;
+they do not plan walking days or claim distances between places. Collections are
+not saved and are deliberately absent from the map.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -188,11 +189,11 @@ workflows are separate and never deploy the site. There is deliberately no
 linter; `tsc` with `noUnused*` is the static gate.
 
 `npm run sources:check` is the one networked check. It fetches every distinct
-Wikipedia article and Wikimedia Commons file page carried by a shipped
-Experience or Collection place, follows redirects, and classifies each link
-verified, dead or unreachable. It writes `src/data/experience-sources.json`; the
-curated Experience generator only admits entries whose article and photo page are
-verified, and the normal build and CI read that artifact offline. `--incremental`
+Wikipedia article and Wikimedia Commons file page carried by a shipped curated
+Experience, follows redirects, and classifies each link verified, dead or
+unreachable. It writes `src/data/experience-sources.json`; the validator admits
+only Experiences whose article and photo pages are verified, and the normal build
+and CI read that artifact offline. `--incremental`
 checks only new URLs and keeps the existing verified entries. The check refuses to
 overwrite the artifact when nothing could be verified or when any URL was
 unreachable, and `--strict` (used by the npm script) exits non-zero on a confirmed
@@ -248,7 +249,7 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 - **Collections are generated and stay off the map.** Each destination belongs to
   at most one collection; a collection says which remarkable places share a
   region and does not claim a route between them. Collections are not saveable.
-- **Practical places on Experience and Collection pages are OSM coverage.**
+- **Practical places on Experience pages are OSM coverage.**
   Campsites, huts and trailheads come from the cell store and inherit its uneven
   coverage. An empty section means nobody mapped it, not that there is nowhere to
   stay.

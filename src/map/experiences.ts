@@ -13,6 +13,7 @@ import {
 } from "../data/guide";
 import { loadGuide, loadGuideCatalog } from "../lib/guide";
 import { flyPadding } from "./camera";
+import { FONTS, PALETTE } from "./theme";
 
 /**
  * Curated Experiences on the globe.
@@ -152,8 +153,8 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": ["get", "colour"],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 10, 5, 13, 9, 17, 14, 23],
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1.5, 0.18, 5, 0.24, 14, 0.3],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 7, 5, 9, 9, 12, 14, 16],
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1.5, 0.14, 5, 0.18, 14, 0.24],
         "circle-blur": 0.9,
       },
     } as unknown as LayerSpecification,
@@ -163,10 +164,10 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": "rgba(0, 0, 0, 0)",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 6, 5, 7.5, 9, 9.5, 14, 12],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 4, 5, 5.5, 9, 6.5, 14, 8],
         "circle-stroke-color": ["get", "colour"],
-        "circle-stroke-width": 1.6,
-        "circle-stroke-opacity": 0.95,
+        "circle-stroke-width": 1.3,
+        "circle-stroke-opacity": 0.92,
       },
     } as unknown as LayerSpecification,
     {
@@ -175,32 +176,35 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": "#f8fdff",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 2.2, 5, 2.8, 9, 3.6, 14, 4.6],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 1.7, 5, 2, 9, 2.6, 14, 3.2],
         "circle-stroke-color": ["get", "colour"],
-        "circle-stroke-width": 1.4,
+        "circle-stroke-width": 1.2,
       },
     } as unknown as LayerSpecification,
     {
       id: "experiences-label",
       type: "symbol",
       source: SOURCE,
-      minzoom: 2.6,
+      minzoom: 3.2,
       layout: {
         "text-field": ["get", "n"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 2.6, 11, 6, 12.5, 12, 14],
+        "text-font": FONTS.regular,
+        // Smaller, quieter and later than the destinations: the curated catalogue
+        // is a layer of lights on the globe, not a wall of cards covering it.
+        "text-size": ["interpolate", ["linear"], ["zoom"], 3.2, 9.5, 6, 11, 12, 12.5],
         "text-anchor": "top",
-        "text-offset": [0, 1.5],
-        "text-max-width": 10,
+        "text-offset": [0, 1.35],
+        "text-max-width": 9,
         "text-padding": 5,
         "text-optional": true,
         "symbol-sort-key": ["*", -1, ["get", "places"]],
       },
       paint: {
         "text-color": ["get", "colour"],
-        "text-halo-color": "#03060b",
-        "text-halo-width": 2.2,
-        "text-opacity": 0.96,
+        "text-halo-color": PALETTE.halo,
+        "text-halo-width": 1.6,
+        "text-halo-blur": 0.6,
+        "text-opacity": 0.94,
       },
     } as unknown as LayerSpecification,
     {
@@ -222,17 +226,18 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       layout: {
         visibility: "none",
         "text-field": ["get", "name"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": 11,
+        "text-font": FONTS.regular,
+        "text-size": 10.5,
         "text-anchor": "top",
         "text-offset": [0, 0.85],
         "text-padding": 3,
         "text-optional": true,
       },
       paint: {
-        "text-color": "#f4fbff",
-        "text-halo-color": "#04070c",
-        "text-halo-width": 1.8,
+        "text-color": PALETTE.white,
+        "text-halo-color": PALETTE.halo,
+        "text-halo-width": 1.4,
+        "text-halo-blur": 0.5,
       },
     } as unknown as LayerSpecification,
   ];

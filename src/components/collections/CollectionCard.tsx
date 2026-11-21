@@ -1,42 +1,39 @@
 import { useEffect, useState } from "react";
 import RidgeArt from "../RidgeArt";
 import {
-  experienceCategory,
-  type ExperienceCatalogRow,
-} from "../../data/experiences";
+  collectionScope,
+  type CollectionCatalogRow,
+} from "../../data/collections";
 import {
-  experienceWhere,
   kilometresFrom,
-  matchedStop,
-  type ExperienceNear,
-} from "../../lib/experiences";
+  matchedExperience,
+  type CollectionNear,
+} from "../../lib/collections";
 import { thumbAt } from "../../lib/placeDetails";
 import { formatKm } from "../../lib/present";
 import { navigate } from "../../lib/router";
 
 /**
- * One collection card.
+ * One wide Collection card.
  *
- * A photograph when a place has a credited one, the generated ridge art when it
- * does not. The facts under the title are the ones the record actually holds:
- * where the collection is, how many places it gathers, how far apart they are,
- * and how many carry a Wikipedia reference. A search that matched a place says
- * so, because "includes Dufourspitze" is a better answer than a title that
- * happens not to contain the query.
+ * A credited photograph when the leading Experience has one, ridge art
+ * otherwise. The facts are the ones the generated record holds: how many
+ * Experiences it gathers, the countries it spans, how many places sit around
+ * them, and the first few names. No route and no day count.
  */
-export default function ExperienceCard({
+export default function CollectionCard({
   row,
   query,
   near,
 }: {
-  row: ExperienceCatalogRow;
+  row: CollectionCatalogRow;
   query?: string;
-  near?: ExperienceNear | null;
+  near?: CollectionNear | null;
 }) {
-  const category = experienceCategory(row.category);
+  const scope = collectionScope(row.scope);
   const [failed, setFailed] = useState(false);
-  const match = query ? matchedStop(row, query) : undefined;
-  const where = experienceWhere(row);
+  const match = query ? matchedExperience(row, query) : undefined;
+  const names = row.experienceNames.slice(0, 3);
 
   useEffect(() => {
     setFailed(false);
@@ -45,11 +42,15 @@ export default function ExperienceCard({
   const photo = row.photo && !failed ? row.photo : null;
 
   return (
-    <article className="exp-card">
+    <article
+      className="exp-card collection-card"
+      data-collection-slug={row.slug}
+      data-collection-scope={row.scope}
+    >
       <button
         className="exp-card-open"
         onClick={() => navigate(`/collections/${row.slug}`)}
-        aria-label={`${row.title}, ${category.one}`}
+        aria-label={`${row.title}, ${scope.one}, ${row.experienceCount} Experiences`}
       >
         <span className="exp-card-art">
           {photo ? (
@@ -63,7 +64,7 @@ export default function ExperienceCard({
           ) : (
             <RidgeArt hue={row.hue} className="exp-card-art-svg" />
           )}
-          <span className="exp-card-badge mono">{category.one}</span>
+          <span className="exp-card-badge mono">{scope.one}</span>
           {photo ? (
             <span className="exp-card-credit mono">
               {photo.credit} · {photo.licence}
@@ -72,13 +73,16 @@ export default function ExperienceCard({
         </span>
         <span className="exp-card-body">
           <span className="exp-card-title">{row.title}</span>
-          {where ? <span className="mono exp-card-meta">{where}</span> : null}
+          <span className="mono exp-card-meta">{row.where}</span>
           <span className="mono exp-card-stats">
             {[
-              `${row.stopCount} places`,
-              `${formatKm(row.spanKm)} across`,
-              `${row.sourceCount} Wikipedia sources`,
+              `${row.experienceCount} Experience${row.experienceCount === 1 ? "" : "s"}`,
+              `${row.countryCount} countr${row.countryCount === 1 ? "y" : "ies"}`,
+              `${row.placeCount.toLocaleString()} recorded places`,
             ].join(" · ")}
+          </span>
+          <span className="collection-card-names">
+            {names.length ? `Includes ${names.join(", ")}` : ""}
           </span>
           {near ? (
             <span className="mono exp-card-near">
@@ -90,7 +94,6 @@ export default function ExperienceCard({
           ) : null}
         </span>
       </button>
-
     </article>
   );
 }

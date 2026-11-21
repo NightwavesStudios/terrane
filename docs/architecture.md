@@ -31,17 +31,21 @@ A page has one real destination, associated places within 30 km, nearby named
 trails, credited photographs, official/Wikipedia links and the six-kind
 classification. It does not claim access, facilities, closures or a route.
 
-Collections are the generated domain, preserved from the earlier experience
-model. They load `experience-index/catalog.json` and one hash-bucket shard per
-page (`lib/experiences.ts`), with `components/experiences/ExperienceMap.tsx` and
-`lib/experiencePois.ts`. A record is a group of verified places in one region,
-not an itinerary: there is no `itinerary`, `days`, `durationHours`, `difficulty`
-or `distanceKm`; `spanKm` only states the extent of the group. Collections are
-not saveable and are never added to the globe; only Experiences are.
+Collections are wide groups of curated Experiences. Membership is committed in
+`data/collection-groups.json`; `scripts/build-collections.mjs` enriches those
+groups from `guide-index/` into `data/collection-index/` (`catalog.json`, one
+hash-bucket shard per record and `meta.json`). The list loads the catalogue and
+a page loads one shard (`lib/collections.ts`), with
+`components/collections/CollectionMap.tsx`. A record holds member Experience
+rows, not raw destinations and not a route: there is no `itinerary`, `days`,
+`durationHours`, `difficulty` or `distanceKm`; `spanKm` only states the extent of
+the group. Collections are not saveable and are never added to the globe; only
+Experiences are.
 
-Both catalogues filter on kind, free text and a chosen place within 150 km, all
-pure functions in their `lib/` module. Practical places are read from the cell
-store and nothing about them is baked into a record.
+Experiences filter on kind, free text and a place within 250 km; Collections
+filter on scope, free text and a place within 750 km. Both are pure functions in
+their `lib/` module. Practical places are read from the cell store and nothing
+about them is baked into a record.
 
 ## Map
 
@@ -59,7 +63,7 @@ store and nothing about them is baked into a record.
 | `src/map/camera.ts` | `worldZoom` and `pitchForZoom`, with no MapLibre import so pages can size the opening camera cheaply. |
 | `src/map/experiences.ts` | Curated Experience source, halo/ring/dot/label layers, selection of associated places and the selected place pins. Reads `guide-index`, never Collections. |
 | `src/lib/guide.ts` | Lazy curated catalogue/shard access; search, kind and near-place filters. |
-| `src/lib/experiences.ts` | Lazy generated Collections access and filters. |
+| `src/lib/collections.ts` | Lazy wide Collections access and filters. |
 | `src/lib/placePages.ts` | Atlas-immediate / reach-sharded page lookup. |
 | `src/lib/placeDetails.ts` | Lazy detail shard, thumbnail width cap, description and difficulty formatting. |
 | `src/lib/trailLinks.ts` | Lazy per-page trail-link shard. |

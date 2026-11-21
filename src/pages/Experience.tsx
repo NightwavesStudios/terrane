@@ -6,6 +6,10 @@ import RidgeArt from "../components/RidgeArt";
 import ExperiencePois from "../components/experiences/ExperiencePois";
 import { category } from "../data/features";
 import { guideKind } from "../data/guide";
+import {
+  collectionForExperience,
+  useCollectionCatalog,
+} from "../lib/collections";
 import { useExperiencePois } from "../lib/experiencePois";
 import {
   guideWhere,
@@ -33,6 +37,7 @@ const GuideMap = lazy(() => import("../components/guide/GuideMap"));
 export default function Experience({ slug }: { slug: string }) {
   const { guide, loading } = useGuide(slug);
   const catalog = useGuideCatalog();
+  const collections = useCollectionCatalog();
   const savedSlugs = useSavedGuideSlugs();
   const pois = useExperiencePois(guide?.bounds ?? null);
   const [active, setActive] = useState<string | null>(null);
@@ -105,6 +110,10 @@ export default function Experience({ slug }: { slug: string }) {
   const kind = guideKind(guide.kind);
   const saved = savedSlugs.has(guide.slug);
   const where = guideWhere(guide);
+  const collection =
+    collections.status === "ready"
+      ? collectionForExperience(collections.rows, guide.slug)
+      : undefined;
   const related =
     catalog.status === "ready"
       ? nearbyGuides(catalog.rows, guide.center, guide.slug, 4)
@@ -395,6 +404,15 @@ export default function Experience({ slug }: { slug: string }) {
               >
                 View on Globe →
               </button>
+              {collection ? (
+                <button
+                  className="btn btn-light"
+                  data-collection-slug={collection.slug}
+                  onClick={() => navigate(`/collections/${collection.slug}`)}
+                >
+                  Part of {collection.title} →
+                </button>
+              ) : null}
               <p className="mono exp-aside-note">
                 A curated destination, not an itinerary. Access, closures,
                 facilities and seasonal conditions are not verified; the page

@@ -56,11 +56,61 @@ const PEN = {
   glyph: "#eef4f8",
 };
 
+/*
+ * The plate.
+ *
+ * A pictogram drawn straight onto terrain disappears the moment the terrain is
+ * pale rock or snow. Each icon therefore sits on a small dark disc with a
+ * hairline keyline: a cartographic symbol, not a floating glyph. The accent arc
+ * on the rim carries the category colour, so the plate reads at 10 px where the
+ * glyph inside it is only a suggestion.
+ */
+const PLATE = {
+  fill: "rgba(6, 11, 18, 0.62)",
+  stroke: "rgba(224, 238, 246, 0.34)",
+  radius: 9.3,
+};
+
+const ACCENT: Record<KitIcon, string> = {
+  "camp-tent": PEN.sand,
+  "camp-hut": PEN.roof,
+  "camp-shelter": PEN.shelter,
+  "water-drop": PEN.water,
+  parking: PEN.sign,
+  "picnic-table": PEN.sand,
+  viewpoint: PEN.eye,
+  caravan: PEN.sand,
+  toilets: PEN.glyph,
+  shower: PEN.water,
+  info: PEN.sign,
+  trailhead: PEN.roof,
+};
+
 function paint(g: CanvasRenderingContext2D, name: KitIcon) {
+  /* The plate, then the glyph inset inside it. */
+  g.beginPath();
+  g.arc(10, 10, PLATE.radius, 0, Math.PI * 2);
+  g.fillStyle = PLATE.fill;
+  g.fill();
+  g.lineWidth = 0.9;
+  g.strokeStyle = PLATE.stroke;
+  g.stroke();
+
+  g.beginPath();
+  g.arc(10, 10, PLATE.radius, -Math.PI * 0.85, -Math.PI * 0.15);
+  g.strokeStyle = ACCENT[name];
+  g.globalAlpha = 0.85;
+  g.lineWidth = 1.5;
+  g.stroke();
+  g.globalAlpha = 1;
+
+  g.save();
+  g.translate(2.4, 2.4);
+  g.scale(0.76, 0.76);
   g.lineJoin = "round";
   g.lineCap = "round";
   g.strokeStyle = STROKE;
-  g.lineWidth = 1.2;
+  g.lineWidth = 1.5;
 
   switch (name) {
     case "camp-tent": {
@@ -332,6 +382,8 @@ function paint(g: CanvasRenderingContext2D, name: KitIcon) {
       break;
     }
   }
+
+  g.restore();
 }
 
 /** One icon as a square canvas, at `px` device pixels. */

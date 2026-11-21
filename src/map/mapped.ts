@@ -11,6 +11,7 @@ import {
 import type { LayerState } from "../components/LayerControl";
 import { cellUrl } from "../lib/cells";
 import { cellMayExist } from "../lib/cellIndex";
+import { PALETTE } from "./theme";
 
 /**
  * Mapped places: campsites, huts, shelters, water, parking and the rest of the
@@ -649,7 +650,7 @@ export function addMapped(map: MlMap, layers: LayerState): void {
         layout: {
           "text-field": ["get", "n"],
           "text-font": ["Noto Sans Regular"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], spec.minzoom, 9.5, 16, 12],
+          "text-size": ["interpolate", ["linear"], ["zoom"], spec.minzoom, 9.5, 16, 11.5],
           "text-anchor": "top",
           "text-offset": [0, 0.9],
           "text-max-width": 9,
@@ -657,9 +658,11 @@ export function addMapped(map: MlMap, layers: LayerState): void {
           "text-optional": true,
         },
         paint: {
-          "text-color": i >= 3 ? "#e9dcc4" : "#f3e6cd",
-          "text-halo-color": "#05090f",
-          "text-halo-width": 1.5,
+          "text-color": PALETTE.labelPoi,
+          "text-halo-color": PALETTE.halo,
+          "text-halo-width": 1.2,
+          "text-halo-blur": 0.5,
+          "text-opacity": i >= 3 ? 0.78 : 0.92,
         },
       },
       before,

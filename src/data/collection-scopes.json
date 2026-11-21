@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "scopes": [
+    {
+      "id": "country",
+      "label": "Countries",
+      "one": "Country collection",
+      "colour": "#8ab4d8",
+      "blurb": "Every curated Experience in one country, gathered at national scale."
+    },
+    {
+      "id": "range",
+      "label": "Mountain ranges",
+      "one": "Range collection",
+      "colour": "#79cf9b",
+      "blurb": "Experiences threaded by one great range or massif, across borders."
+    },
+    {
+      "id": "area",
+      "label": "Areas",
+      "one": "Area collection",
+      "colour": "#d9bd85",
+      "blurb": "A large country or region split into the areas its Experiences actually occupy."
+    },
+    {
+      "id": "trail",
+      "label": "Major trails",
+      "one": "Trail collection",
+      "colour": "#c9a06b",
+      "blurb": "Experiences joined by named long-distance trails recorded in their trail links."
+    }
+  ]
+}

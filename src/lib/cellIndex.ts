@@ -1,19 +1,31 @@
 import { cellUrl, setStoreVersion } from "./cells";
 
 /**
- * Which cells the store actually holds.
+ * The store's upload manifest, read for one thing: the version its cells were
+ * published under.
  *
- * The store publishes `upload-manifest.json`: the list its uploader keeps of every
- * object it has written (`scripts/upload-changed.mjs`, served by
- * `infra/cell-store/worker.js`). Asking for that list first turns "this cell was
- * never harvested" — a 404, which the browser logs as a failed request — into an
- * ordinary empty answer, without hiding anything the store does have: a cell the
- * index lists is still fetched normally, and any failure on it (bad status, broken
- * JSON) still throws and is reported.
+ * `upload-manifest.json` is the uploader's own incremental state
+ * (`scripts/upload-changed.mjs`), i.e. every object *one checkout* has written —
+ * not an inventory of the bucket. It cannot answer "does this cell exist":
  *
- * Only families the uploader tracks are judged. Parking cells (`.parking.json`) are
- * published outside this manifest, so their family is unknown and they are fetched
- * exactly as before rather than being declared absent.
+ *   - on 2026-11-20 it listed 98 `poi/6/…` cells, while the store served
+ *     `poi/6/33/22.json` (11.7 MB), `poi/6/31/21.json` and most other cells the
+ *     harvest wrote; those were uploaded by an earlier run whose state file this
+ *     checkout never had (the state is gitignored);
+ *   - the store offers no client-readable listing (`coverage.json` reports
+ *     totals, not keys), so nothing can prove a cell is absent.
+ *
+ * An earlier version inferred absence from a family ("`poi/6/` is tracked and
+ * this key is not listed, so the cell is empty"), which hid nearly every real
+ * cell: the practical pins never appeared and the map looked like the harvest had
+ * failed. So presence here is positive-only — a listed cell is known to exist, an
+ * unlisted one is unknown and is fetched. A cell that really is missing answers
+ * 404, which `mapped.ts` and `trails.ts` already turn into a backed-off miss
+ * rather than a repeated request.
+ *
+ * Reading the manifest still earns its keep: `setStoreVersion` appends its
+ * `generatedAt` to cell URLs, so a weekly publish is not hidden behind a cell's
+ * one-hour cache.
  */
 const TTL_MS = 10 * 60_000;
 
@@ -22,33 +34,13 @@ let cached: Index | null = null;
 let attemptedAt = 0;
 let inflight: Promise<Index | null> | null = null;
 
-function dirOf(path: string): string {
-  const cut = path.lastIndexOf("/");
-  return cut < 0 ? "" : path.slice(0, cut + 1);
-}
-
-function extOf(path: string): string {
-  const name = path.slice(path.lastIndexOf("/") + 1);
-  const dot = name.indexOf(".");
-  return dot < 0 ? "" : name.slice(dot + 1);
-}
-
 /**
- * `true` when the store lists this cell, `false` when the store tracks this family
- * of cells and does not list it, `null` when the index cannot say (no index, or a
- * family the uploader does not track).
+ * `true` when the manifest lists this path, `null` when it does not know — which
+ * includes the ordinary case of a cell this checkout never uploaded. Never
+ * `false`: the manifest cannot prove a cell is missing.
  */
-export function cellPresence(index: Set<string> | null, path: string): boolean | null {
-  if (!index || index.size === 0) return null;
-  if (index.has(path)) return true;
-  const dir = dirOf(path);
-  const ext = extOf(path);
-  if (!dir || !ext) return null;
-  const suffix = `.${ext}`;
-  for (const key of index) {
-    if (key.startsWith(dir) && key.endsWith(suffix)) return false;
-  }
-  return null;
+export function cellPresence(index: Set<string> | null, path: string): true | null {
+  return index?.has(path) ? true : null;
 }
 
 async function fetchIndex(): Promise<Index | null> {
@@ -63,12 +55,12 @@ async function fetchIndex(): Promise<Index | null> {
     const keys = body?.files ? Object.keys(body.files) : [];
     return keys.length ? { at: Date.now(), keys: new Set(keys) } : null;
   } catch {
-    /* The index is an optimisation: without it every cell is fetched as before. */
+    /* The manifest only supplies a cache version: without it cells are still fetched. */
     return null;
   }
 }
 
-/** The store's tile list, refreshed at most every ten minutes, or null if unavailable. */
+/** The store's manifest, refreshed at most every ten minutes, or null if unavailable. */
 function loadCellIndex(): Promise<Index | null> {
   if (cached && Date.now() - cached.at < TTL_MS) return Promise.resolve(cached);
   if (inflight) return inflight;
@@ -85,8 +77,13 @@ function loadCellIndex(): Promise<Index | null> {
   return inflight;
 }
 
-/** Unknown counts as yes: never skip a cell the store might have. */
+/**
+ * Whether a cell is worth fetching. Always `true`: this awaits the manifest only
+ * so `cellUrl` can version the request. It stays a function (rather than a no-op)
+ * because callers already treat it as the "should I fetch?" decision, and a cell
+ * the manifest does list is still fetched normally.
+ */
 export async function cellMayExist(path: string): Promise<boolean> {
   const index = await loadCellIndex();
-  return cellPresence(index?.keys ?? null, path) !== false;
+  return cellPresence(index?.keys ?? null, path) ?? true;
 }

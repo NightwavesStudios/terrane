@@ -33,7 +33,7 @@ if (experiences.length === 0) {
 }
 
 const collectionCatalog = JSON.parse(
-  await readFile("src/data/experience-index/catalog.json", "utf8"),
+  await readFile("src/data/collection-index/catalog.json", "utf8"),
 );
 const collections = Array.isArray(collectionCatalog.items) ? collectionCatalog.items : [];
 if (collections.length === 0) {
