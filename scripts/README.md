@@ -9,7 +9,10 @@ open data. `scripts/sources/common.py` is the shared adapter helper, and
 | Script | Run by | Purpose |
 | --- | --- | --- |
 | `build-place-index.mjs` | `npm run build`, `validate`, `pages` | Compact page records and slugs for every destination. |
+| `build-guide.mjs` | `npm run build`, `validate`, `pages` | Build one curated Experience page for every slug in `guide-selection.json`, from committed details, trails and photos. Fails on an unresolved entry. |
+| `build-experiences.mjs` | `npm run build`, `validate`, `pages` | Group verified same-country destinations into the generated Collections index. Requires the committed `experience-sources.json` artifact; it never fetches. |
 | `build-manifest.mjs` | `npm run build`, `validate` | Derive counts and dates from the data files. |
+| `check-experience-sources.mjs` | `npm run sources:check` (manual/CI network step) | Fetch every distinct Experience and Collection source URL, follow redirects, classify verified/dead/unreachable, and write `src/data/experience-sources.json`. `--incremental` keeps existing verified entries and checks only new URLs. Fails on dead links; refuses partial overwrites. |
 | `validate-data.mjs` | `npm run build`, `validate` | Schema, category, manifest and duplicate checks; writes the validation block. |
 | `gen-seo.mjs` | `npm run build` (after Vite) | Absolute `dist/sitemap.xml` and `dist/robots.txt`. |
 | `clean.mjs` | `npm run clean` | Remove `dist`, `tsconfig.tsbuildinfo`, `terrane.html`. |
@@ -52,7 +55,9 @@ The one non-stdlib Python dependency is pyosmium; install it with
 ## Page refresh
 
 ```bash
-npm run pages        # index + details + trail links + manifest + validate
+npm run pages        # both catalogues + details + trail links + manifest + validate
+npm run experiences  # curated Experience index only
+npm run collections  # generated Collections index only
 npm run data:update  # the normal incremental page refresh
 npm run data:refresh # full source harvest, then pages + audit
 ```

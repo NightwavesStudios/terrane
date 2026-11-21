@@ -2,14 +2,14 @@ import Logo from "./Logo";
 import { navigate, useRoute } from "../lib/router";
 import { useManifest } from "../lib/live";
 import { useSaved } from "../lib/saved";
-import { useSavedExperiences } from "../lib/savedExperiences";
+import { useSavedGuides } from "../lib/savedGuides";
 
 export default function Header({ tone }: { tone: "dark" | "light" }) {
   const route = useRoute();
   const manifest = useManifest();
   const saved = useSaved();
-  const savedExperiences = useSavedExperiences();
-  const savedCount = saved.length + savedExperiences.length;
+  const savedGuides = useSavedGuides();
+  const savedCount = saved.length + savedGuides.length;
 
   return (
     <header className={`header header--${tone}`}>
@@ -34,6 +34,14 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
           Experiences
         </button>
         <button
+          className={
+            route.name === "collections" || route.name === "collection" ? "on" : ""
+          }
+          onClick={() => navigate("/collections")}
+        >
+          Collections
+        </button>
+        <button
           className={route.name === "saved" ? "on" : ""}
           onClick={() => navigate("/saved")}
         >
@@ -41,12 +49,6 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
           {savedCount > 0 ? (
             <span className="nav-count mono">{savedCount}</span>
           ) : null}
-        </button>
-        <button
-          className={route.name === "coverage" ? "on" : ""}
-          onClick={() => navigate("/coverage")}
-        >
-          Data
         </button>
       </nav>
 

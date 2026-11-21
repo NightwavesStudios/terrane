@@ -504,6 +504,13 @@ const experienceSlugs = Object.keys(experienceItems);
 const catalogSlugs = new Set(
   (experienceCatalog.items ?? []).map((row) => row.slug),
 );
+/* The networked link check writes this artifact; the build and validator only
+   read it, so a normal build never depends on the network. */
+const sourceArtifact = read("src/data/experience-sources.json", {
+  counts: {},
+  urls: {},
+});
+const sourceVerified = (url) => sourceArtifact.urls?.[url]?.status === "verified";
 
 check(
   "the five experience categories exist",
@@ -515,8 +522,8 @@ check(
 );
 check(
   "the experience index is not empty",
-  experienceRows.length >= 200,
-  `${experienceRows.length} routes`,
+  experienceRows.length >= 120,
+  `${experienceRows.length} collections`,
 );
 check(
   "experience slugs are unique",
@@ -552,29 +559,32 @@ check(
   `${experienceMeta.total}/${experienceRows.length}`,
 );
 check(
-  "experience stops are well formed and pageable",
+  "experience places are well formed, pageable and sourced",
   experienceRows.every(
     (row) =>
       Array.isArray(row.stops) &&
       row.stops.length >= 3 &&
       row.stops.length <= 8 &&
       row.stops.every(
-        (stop, index) =>
+        (stop) =>
           typeof stop.slug === "string" &&
           pageSlugs.has(stop.slug) &&
           typeof stop.name === "string" &&
           stop.name.length > 0 &&
           coordOk(stop.lat, stop.lon) &&
-          stop.index === index + 1 &&
-          Number.isFinite(stop.legKm) &&
-          stop.legKm >= 0 &&
-          Array.isArray(stop.trails),
+          Array.isArray(stop.trails) &&
+          (stop.note === undefined ||
+            (typeof stop.note === "string" && stop.note.length > 0)) &&
+          stop.source &&
+          stop.source.label === "Wikipedia" &&
+          httpsUrl(stop.source.url) &&
+          /^https:\/\/[a-z]{2,3}\.wikipedia\.org\/wiki\/\S+$/i.test(stop.source.url),
       ),
   ),
-  `${experienceRows.reduce((sum, row) => sum + (row.stops?.length ?? 0), 0)} stops`,
+  `${experienceRows.reduce((sum, row) => sum + (row.stops?.length ?? 0), 0)} sourced places`,
 );
 check(
-  "experience bounds contain their stops",
+  "experience bounds contain their places",
   experienceRows.every(
     (row) =>
       Array.isArray(row.bounds) &&
@@ -591,19 +601,32 @@ check(
   "bounds",
 );
 check(
-  "experience distances and estimates are positive",
+  "experience counts agree with their places",
   experienceRows.every(
     (row) =>
-      Number.isFinite(row.distanceKm) &&
-      row.distanceKm >= 0 &&
-      Number.isFinite(row.durationHours) &&
-      row.durationHours > 0 &&
-      Number.isInteger(row.days) &&
-      row.days >= 1 &&
-      typeof row.durationBasis === "string" &&
-      row.durationBasis.length > 0,
+      row.stats &&
+      row.stats.stops === row.stops.length &&
+      row.stats.sourced === row.stops.length &&
+      Number.isFinite(row.spanKm) &&
+      row.spanKm > 0,
   ),
-  "distance, duration, basis",
+  "stops, sources, span",
+);
+check(
+  "experience records claim no itinerary",
+  experienceRows.every(
+    (row) =>
+      !("itinerary" in row) &&
+      !("days" in row) &&
+      !("durationHours" in row) &&
+      !("durationBasis" in row) &&
+      !("difficulty" in row) &&
+      !("difficultyBasis" in row) &&
+      !("distanceKm" in row) &&
+      Array.isArray(row.description) &&
+      row.description.length >= 2,
+  ),
+  "no walking plan or distance claim",
 );
 check(
   "experience photographs keep their credit and licence",
@@ -641,98 +664,259 @@ check(
       record &&
       row.title === record.title &&
       row.category === record.category &&
-      row.difficulty === record.difficulty &&
       row.stopCount === record.stops.length &&
-      row.distanceKm === record.distanceKm &&
-      row.days === record.days
+      row.spanKm === record.spanKm &&
+      row.sourceCount === record.stats.sourced
     );
   }),
   "titles, categories, counts",
 );
+check(
+  "every experience place source was verified live",
+  experienceRows.every((row) =>
+    row.stops.every((stop) => sourceVerified(stop.source.url)),
+  ),
+  `${new Set(
+    experienceRows.flatMap((row) => row.stops.map((stop) => stop.source.url)),
+  ).size} article URLs`,
+);
+check(
+  "every shipped experience photograph page was verified live",
+  experienceRows.every((row) =>
+    [...(row.photos ?? []), ...row.stops.map((stop) => stop.photo)]
+      .filter(Boolean)
+      .every(
+        (photo) =>
+          typeof photo.page === "string" && sourceVerified(photo.page),
+      ),
+  ),
+  "Commons file pages",
+);
+check(
+  "the source verification artifact reconciles with the shipped links",
+  sourceArtifact.counts?.urls === Object.keys(sourceArtifact.urls ?? {}).length &&
+    sourceArtifact.counts?.verified +
+      sourceArtifact.counts?.dead +
+      sourceArtifact.counts?.unreachable ===
+      sourceArtifact.counts?.urls &&
+    sourceArtifact.counts?.articles + sourceArtifact.counts?.filePages ===
+      sourceArtifact.counts?.urls &&
+    Object.keys(sourceArtifact.urls ?? {}).length > 0,
+  `${sourceArtifact.counts?.urls ?? 0} checked · ${sourceArtifact.counts?.dead ?? 0} dead`,
+);
+check(
+  "Georgia experiences keep verified-live place sources",
+  experienceRows.filter((row) => row.country === "Georgia").length >= 3 &&
+    experienceRows
+      .filter((row) => row.country === "Georgia")
+      .every((row) =>
+        row.stops.every((stop) => sourceVerified(stop.source.url)),
+      ),
+  `${experienceRows.filter((row) => row.country === "Georgia").length} collections · ` +
+    `${experienceRows
+      .filter((row) => row.country === "Georgia")
+      .reduce((sum, row) => sum + row.stops.length, 0)} places`,
+);
 
-/* The routes are walked, so the grade, the day plan and the named trails are
-   part of the record's contract, not decoration. */
-const difficultyIds = new Set(["easy", "moderate", "hard"]);
+/* ── curated Experiences ──
+   A separate domain with its own committed selection, catalogue and shards.
+   Membership is editorial: only the slugs in `guide-selection.json` may become
+   Experiences, and every selected slug must have a built record. */
+const GUIDE_KINDS = ["park", "peak", "waterfall", "lake", "coast", "landmark"];
+const guideSelection = read("src/data/guide-selection.json", { slugs: [] });
+const guideMeta = read("src/data/guide-index/meta.json", { total: 0, kinds: {} });
+const guideCatalog = read("src/data/guide-index/catalog.json", { items: [] });
+const guideFiles = existsSync(join(root, "src/data/guide-index"))
+  ? readdirSync(join(root, "src/data/guide-index")).filter(
+      (name) => name.endsWith(".json") && name !== "catalog.json" && name !== "meta.json",
+    )
+  : [];
+const guideItems = {};
+for (const name of guideFiles) {
+  Object.assign(guideItems, read(join("src/data/guide-index", name)).items ?? {});
+}
+const guideRows = Object.values(guideItems);
+const guideSlugs = Object.keys(guideItems);
+const guideCatalogSlugs = new Set((guideCatalog.items ?? []).map((row) => row.slug));
+
 check(
-  "experience difficulty uses the three grades",
-  experienceRows.every(
+  "the curated Experience selection is a deliberate list",
+  Array.isArray(guideSelection.slugs) &&
+    guideSelection.slugs.length >= 100 &&
+    new Set(guideSelection.slugs).size === guideSelection.slugs.length,
+  `${guideSelection.slugs?.length ?? 0} selected`,
+);
+check(
+  "the curated Experience index is not empty",
+  guideRows.length >= 150,
+  `${guideRows.length} Experiences`,
+);
+check(
+  "only selected destinations became Experiences",
+  guideSlugs.length === guideSelection.slugs?.length &&
+    guideSlugs.every((slug) => guideSelection.slugs.includes(slug)) &&
+    guideSelection.slugs.every((slug) => Boolean(guideItems[slug])),
+  `${guideSlugs.length}/${guideSelection.slugs?.length ?? 0} selected`,
+);
+check(
+  "Experience slugs are unique and pageable",
+  guideSlugs.length === new Set(guideSlugs).size &&
+    guideRows.length === guideSlugs.length &&
+    guideRows.every((row) => pageSlugs.has(row.slug)),
+  `${guideSlugs.length} slugs`,
+);
+check(
+  "Experience kinds are known and represented",
+  guideRows.every((row) => GUIDE_KINDS.includes(row.kind)) &&
+    GUIDE_KINDS.every((kind) => guideRows.some((row) => row.kind === kind)),
+  JSON.stringify(guideMeta.kinds ?? {}),
+);
+check(
+  "Experience meta matches the records",
+  guideMeta.total === guideRows.length &&
+    (guideCatalog.items ?? []).length === guideRows.length &&
+    guideCatalogSlugs.size === guideRows.length &&
+    Object.entries(guideMeta.kinds ?? {}).every(
+      ([kind, count]) => guideRows.filter((row) => row.kind === kind).length === count,
+    ) &&
+    Object.values(guideMeta.kinds ?? {}).reduce((sum, count) => sum + count, 0) ===
+      guideRows.length,
+  `${guideMeta.total}/${guideRows.length}`,
+);
+check(
+  "Experience records are well formed and sourced",
+  guideRows.every(
     (row) =>
-      difficultyIds.has(row.difficulty) &&
-      typeof row.difficultyBasis === "string" &&
-      row.difficultyBasis.length > 0,
-  ) &&
-    [...difficultyIds].every((id) =>
-      experienceRows.some((row) => row.difficulty === id),
+      typeof row.name === "string" &&
+      row.name.length > 0 &&
+      coordOk(row.center?.lat, row.center?.lon) &&
+      Array.isArray(row.bounds) &&
+      row.bounds.length === 4 &&
+      row.bounds.every(Number.isFinite) &&
+      typeof row.summary === "string" &&
+      row.summary.length > 0 &&
+      Array.isArray(row.overview) &&
+      row.overview.length >= 2 &&
+      Array.isArray(row.reasons) &&
+      row.reasons.length >= 3 &&
+      Array.isArray(row.associated) &&
+      Array.isArray(row.trails) &&
+      row.source?.label === "Wikipedia" &&
+      httpsUrl(row.source.url) &&
+      /^https:\/\/[a-z]{2,3}\.wikipedia\.org\/wiki\/\S+$/i.test(row.source.url),
+  ),
+  `${guideRows.length} records`,
+);
+check(
+  "Experience neighbours are pageable and inside the bounds",
+  guideRows.every(
+    (row) =>
+      row.associated.every(
+        (place) =>
+          pageSlugs.has(place.slug) &&
+          coordOk(place.lat, place.lon) &&
+          Number.isFinite(place.km) &&
+          place.km >= 0 &&
+          place.lon >= row.bounds[0] - 0.01 &&
+          place.lon <= row.bounds[2] + 0.01 &&
+          place.lat >= row.bounds[1] - 0.01 &&
+          place.lat <= row.bounds[3] + 0.01,
+      ),
+  ),
+  `${guideRows.reduce((sum, row) => sum + row.associated.length, 0)} neighbours`,
+);
+check(
+  "Experience statistics agree with their records",
+  guideRows.every(
+    (row) =>
+      row.stats &&
+      row.stats.places === row.associated.length &&
+      row.stats.trails === row.trails.length &&
+      row.stats.photos === row.photos.length &&
+      (row.stats.elevation === undefined || Number.isFinite(row.stats.elevation)),
+  ),
+  "places, trails, photos",
+);
+check(
+  "Experience records claim no itinerary",
+  guideRows.every(
+    (row) =>
+      !("itinerary" in row) &&
+      !("days" in row) &&
+      !("durationHours" in row) &&
+      !("distanceKm" in row) &&
+      !("difficulty" in row),
+  ),
+  "no route or day plan",
+);
+check(
+  "Experience photographs keep their credit and licence",
+  guideRows.every((row) =>
+    row.photos.every(
+      (photo) =>
+        httpsUrl(photo.url) &&
+        imageHosts.has(hostOf(photo.url)) &&
+        typeof photo.credit === "string" &&
+        photo.credit.length > 0 &&
+        typeof photo.licence === "string" &&
+        photo.licence.length > 0,
     ),
-  JSON.stringify(
-    experienceRows.reduce((out, row) => {
-      out[row.difficulty] = (out[row.difficulty] ?? 0) + 1;
-      return out;
-    }, {}),
   ),
+  "credited Commons images",
 );
 check(
-  "every experience has a walking itinerary that covers its stops",
-  experienceRows.every(
+  "every Experience source and photograph page was verified live",
+  guideRows.every(
     (row) =>
-      Array.isArray(row.itinerary) &&
-      row.itinerary.length === row.days &&
-      row.itinerary.length > 0 &&
-      row.itinerary.every(
-        (day, position) =>
-          day.day === position + 1 &&
-          day.stopFrom >= 1 &&
-          day.stopTo <= row.stops.length &&
-          day.stopTo >= day.stopFrom &&
-          day.km >= 0 &&
-          day.hours >= 0 &&
-          typeof day.fromName === "string" &&
-          day.fromName.length > 0 &&
-          typeof day.toName === "string" &&
-          day.toName.length > 0 &&
-          Array.isArray(day.trails) &&
-          day.trails.every(
-            (trail) =>
-              typeof trail.name === "string" &&
-              trail.name.length > 0 &&
-              trail.stop >= day.stopFrom &&
-              trail.stop <= day.stopTo,
-          ),
-      ) &&
-      row.itinerary[0].stopFrom === 1 &&
-      row.itinerary[row.itinerary.length - 1].stopTo === row.stops.length &&
-      Math.abs(
-        row.itinerary.reduce((sum, day) => sum + day.km, 0) - row.distanceKm,
-      ) <=
-        Math.max(0.5, row.distanceKm * 0.01),
+      sourceVerified(row.source.url) &&
+      row.photos.every((photo) => sourceVerified(photo.page)),
   ),
-  `${experienceRows.reduce((sum, row) => sum + row.days, 0)} walking days`,
+  `${new Set(guideRows.map((row) => row.source.url)).size} article URLs`,
 );
 check(
-  "experience titles name the ground, not a template",
-  experienceRows.every(
-    (row) => !/^(a weekend in|peaks of|hiking |camping around|exploring )/i.test(row.title),
-  ),
-  "no category prefixes",
+  "Experience official links are complete URLs",
+  guideRows.every((row) => row.official === undefined || httpsUrl(row.official)),
+  "official websites",
+);
+check(
+  "Experience and Collection catalogues agree with their shards",
+  guideRows.every((row) => guideCatalogSlugs.has(row.slug)) &&
+    (guideCatalog.items ?? []).every((row) => guideItems[row.slug]) &&
+    (guideCatalog.items ?? []).every((row) => {
+      const record = guideItems[row.slug];
+      return (
+        record &&
+        row.name === record.name &&
+        row.kind === record.kind &&
+        row.placeCount === record.associated.length &&
+        row.trailCount === record.trails.length
+      );
+    }),
+  "names, kinds, counts",
 );
 
 /* The sitemap is build output, so this cannot inspect the file `gen-seo` will
-   write later. It checks the same shared URL builder instead: the section index,
-   every generated route, and the place pages must all be present, and the count
-   must match the sources rather than a number someone remembered. */
+   write later. It checks the same shared URL builder instead: both section
+   indexes, every generated route, and the place pages must all be present. */
 const sitemapUrls = sitemapPaths({
   slugs: pageSlugFile.slugs ?? [],
-  experiences: experienceCatalog.items ?? [],
+  experiences: guideCatalog.items ?? [],
+  collections: experienceCatalog.items ?? [],
 });
 const sitemapSet = new Set(sitemapUrls.map((entry) => entry.path));
 check(
-  "the sitemap covers the experience index and every route",
+  "the sitemap covers both catalogues and every route",
   sitemapSet.has("/experiences") &&
-    experienceRows.every((row) => sitemapSet.has(`/experiences/${row.slug}`)) &&
+    sitemapSet.has("/collections") &&
+    guideRows.every((row) => sitemapSet.has(`/experiences/${row.slug}`)) &&
+    experienceRows.every((row) => sitemapSet.has(`/collections/${row.slug}`)) &&
     sitemapUrls.length ===
-      3 + experienceRows.length + (pageSlugFile.slugs ?? []).length &&
+      4 +
+        guideRows.length +
+        experienceRows.length +
+        (pageSlugFile.slugs ?? []).length &&
     new Set(sitemapUrls.map((entry) => entry.path)).size === sitemapUrls.length,
-  `${sitemapUrls.length} urls · ${experienceRows.length} experiences`,
+  `${sitemapUrls.length} urls · ${guideRows.length} Experiences · ${experienceRows.length} Collections`,
 );
 
 const failed = checks.filter((c) => !c.ok);

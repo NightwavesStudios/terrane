@@ -1,6 +1,6 @@
 /**
- * Writes `dist/sitemap.xml` and `dist/robots.txt` from the generated page index
- * and the generated experience catalog.
+ * Writes `dist/sitemap.xml` and `dist/robots.txt` from the generated page index,
+ * the curated Experience catalogue and the generated Collection catalogue.
  *
  * This runs after `vite build` because it writes into the build output, not into
  * `public/`: generated files must not be committed or copied by Vite. It always
@@ -19,21 +19,31 @@ const pageIndex = JSON.parse(await readFile("src/data/place-index/slugs.json", "
 const manifest = JSON.parse(await readFile("src/data/manifest.json", "utf8"));
 const slugs = Array.isArray(pageIndex.slugs) ? pageIndex.slugs : [];
 
-/* Experiences are generated pages too, so the sitemap must include their list
-   and every route. An empty catalog means the generator has not run: fail here
+/* Both sections are generated pages, so the sitemap must include each list and
+   every route. An empty catalogue means the generator has not run: fail here
    rather than publishing a sitemap without the section. */
-const catalog = JSON.parse(
-  await readFile("src/data/experience-index/catalog.json", "utf8"),
+const experienceCatalog = JSON.parse(
+  await readFile("src/data/guide-index/catalog.json", "utf8"),
 );
-const experiences = Array.isArray(catalog.items) ? catalog.items : [];
+const experiences = Array.isArray(experienceCatalog.items) ? experienceCatalog.items : [];
 if (experiences.length === 0) {
   throw new Error(
-    "seo: the experience catalog is empty — run `npm run experiences` before `npm run seo`",
+    "seo: the Experience catalog is empty — run `npm run experiences` before `npm run seo`",
+  );
+}
+
+const collectionCatalog = JSON.parse(
+  await readFile("src/data/experience-index/catalog.json", "utf8"),
+);
+const collections = Array.isArray(collectionCatalog.items) ? collectionCatalog.items : [];
+if (collections.length === 0) {
+  throw new Error(
+    "seo: the Collection catalog is empty — run `npm run collections` before `npm run seo`",
   );
 }
 
 const lastmod = manifest.days?.osm ?? manifest.days?.wikidata ?? "";
-const urls = sitemapPaths({ slugs, experiences });
+const urls = sitemapPaths({ slugs, experiences, collections });
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -60,5 +70,5 @@ await writeFile(
 
 const note = configured ? SITE : `${SITE} (placeholder origin; set SITE_URL)`;
 console.log(
-  `seo: ${urls.length} urls for ${note} · ${experiences.length} experiences, ${slugs.length} places`,
+  `seo: ${urls.length} urls for ${note} · ${experiences.length} experiences, ${collections.length} collections, ${slugs.length} places`,
 );

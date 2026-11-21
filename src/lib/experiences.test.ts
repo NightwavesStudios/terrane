@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ExperienceCatalogRow } from "../data/experiences";
 import {
-  difficultyLabel,
-  durationLabel,
+  experienceWhere,
   filterExperiences,
-  formatKmMiles,
   kilometresFrom,
   matchedStop,
   nearbyExperiences,
-  straightLineLabel,
   type ExperienceNear,
 } from "./experiences";
 
@@ -19,21 +16,17 @@ const row = (
   lat: 46,
   lon: 8,
   stopCount: 4,
-  distanceKm: 40,
-  maxDayKm: 14,
-  ascentM: 420,
-  difficulty: "moderate",
-  durationHours: 9,
-  days: 2,
+  spanKm: 40,
   hue: 200,
+  sourceCount: 4,
   stopNames: [],
   ...overrides,
 });
 
 const rows: ExperienceCatalogRow[] = [
   row({
-    slug: "peaks-of-bernese-alps",
-    title: "Peaks of Bernese Alps",
+    slug: "exploring-bernese-alps",
+    title: "Exploring Bernese Alps",
     country: "Switzerland",
     region: "Bernese Alps",
     lat: 46.4,
@@ -41,27 +34,23 @@ const rows: ExperienceCatalogRow[] = [
     stopNames: ["Jungfrau", "Mönch", "Eiger"],
   }),
   row({
-    slug: "camping-around-jasper",
-    title: "Camping around Jasper",
+    slug: "exploring-jasper",
+    title: "Exploring Jasper",
     category: "camping",
     country: "Canada",
     region: "Alberta",
     lat: 53,
     lon: -118,
-    difficulty: "easy",
-    maxDayKm: 9,
     stopNames: ["Maligne Lake", "Pyramid Mountain"],
   }),
   row({
-    slug: "hiking-oregon-cascades",
-    title: "Hiking Oregon Cascades",
+    slug: "exploring-oregon-cascades",
+    title: "Exploring Oregon Cascades",
     category: "hiking",
     country: "United States",
     region: "Oregon",
     lat: 44.2,
     lon: -121.8,
-    difficulty: "hard",
-    maxDayKm: 23.5,
     stopNames: ["Mount Hood", "Three Sisters"],
   }),
 ];
@@ -75,14 +64,14 @@ describe("filterExperiences", () => {
     expect(filterExperiences(rows, { category: "camping" })).toEqual([rows[1]]);
   });
 
-  it("ranks a title match above a stop match", () => {
-    const result = filterExperiences(rows, { query: "hiking" });
-    expect(result.map((item) => item.slug)).toEqual(["hiking-oregon-cascades"]);
+  it("ranks a title match above a place match", () => {
+    const result = filterExperiences(rows, { query: "oregon" });
+    expect(result.map((item) => item.slug)).toEqual(["exploring-oregon-cascades"]);
   });
 
-  it("matches an accented stop name without the accent", () => {
+  it("matches an accented place name without the accent", () => {
     const result = filterExperiences(rows, { query: "monch" });
-    expect(result.map((item) => item.slug)).toEqual(["peaks-of-bernese-alps"]);
+    expect(result.map((item) => item.slug)).toEqual(["exploring-bernese-alps"]);
   });
 
   it("matches a region or country", () => {
@@ -102,29 +91,14 @@ describe("filterExperiences", () => {
   it("returns nothing for an unknown term", () => {
     expect(filterExperiences(rows, { query: "kerguelen" })).toEqual([]);
   });
-
-  it("filters by walking difficulty", () => {
-    expect(filterExperiences(rows, { difficulty: "easy" })).toEqual([rows[1]]);
-    expect(filterExperiences(rows, { difficulty: "hard" })).toEqual([rows[2]]);
-    expect(filterExperiences(rows, { difficulty: "moderate" })).toEqual([rows[0]]);
-  });
-
-  it("combines difficulty with a category and a query", () => {
-    expect(filterExperiences(rows, { difficulty: "hard", category: "hiking" })).toEqual([
-      rows[2],
-    ]);
-    expect(filterExperiences(rows, { difficulty: "easy", query: "hood" })).toEqual(
-      [],
-    );
-  });
 });
 
 describe("place search", () => {
   const near: ExperienceNear = { lat: 46.4, lon: 7.9, label: "Bernese Alps" };
 
-  it("keeps routes within the radius and orders them by distance", () => {
+  it("keeps collections within the radius and orders them by distance", () => {
     const result = filterExperiences(rows, { near });
-    expect(result.map((item) => item.slug)).toEqual(["peaks-of-bernese-alps"]);
+    expect(result.map((item) => item.slug)).toEqual(["exploring-bernese-alps"]);
     expect(kilometresFrom(rows[0], near)).toBeLessThan(1);
   });
 
@@ -136,8 +110,8 @@ describe("place search", () => {
   it("still ranks a query match first inside a place", () => {
     const wider: ExperienceNear = { lat: 46.4, lon: 7.9, label: "Bernese Alps" };
     const close = row({
-      slug: "close-by",
-      title: "Aletsch Glacier",
+      slug: "exploring-aletsch",
+      title: "Exploring Aletsch",
       lat: 46.45,
       lon: 7.95,
       stopNames: ["Aletschhorn"],
@@ -146,48 +120,40 @@ describe("place search", () => {
       near: wider,
       query: "eiger",
     });
-    expect(result.map((item) => item.slug)).toEqual(["peaks-of-bernese-alps"]);
+    expect(result.map((item) => item.slug)).toEqual(["exploring-bernese-alps"]);
   });
 });
 
 describe("matchedStop", () => {
-  it("names the stop a query matched", () => {
+  it("names the place a query matched", () => {
     expect(matchedStop(rows[0], "eiger")).toBe("Eiger");
     expect(matchedStop(rows[0], "smoky")).toBeUndefined();
     expect(matchedStop(rows[0], "  ")).toBeUndefined();
   });
 });
 
-describe("labels", () => {
-  it("makes the estimate unmistakably an estimate", () => {
-    expect(durationLabel(9, 2)).toBe("≈ 9 h · 2 days");
-    expect(durationLabel(4, 1)).toBe("≈ 4 h · 1 day");
-    expect(durationLabel(0, 1)).toBe("≈ 1 day");
+describe("experienceWhere", () => {
+  it("does not repeat a region that is the country", () => {
+    expect(experienceWhere({ region: "Switzerland", country: "Switzerland" })).toBe(
+      "Switzerland",
+    );
   });
 
-  it("labels the distance as a straight line", () => {
-    expect(straightLineLabel(0.4)).toBe("400 m straight line");
-    expect(straightLineLabel(42.4)).toBe("42 km straight line");
-  });
-
-  it("gives a walking audience miles beside kilometres", () => {
-    expect(formatKmMiles(42.4)).toBe("42 km (26 mi)");
-    expect(formatKmMiles(0.4)).toBe("400 m (0 mi)");
-  });
-
-  it("names the three walking grades", () => {
-    expect(difficultyLabel("easy")).toBe("Easy");
-    expect(difficultyLabel("moderate")).toBe("Moderate");
-    expect(difficultyLabel("hard")).toBe("Hard");
+  it("joins region and country, and tolerates either alone", () => {
+    expect(experienceWhere({ region: "Valais", country: "Switzerland" })).toBe(
+      "Valais, Switzerland",
+    );
+    expect(experienceWhere({ country: "Georgia" })).toBe("Georgia");
+    expect(experienceWhere({})).toBe("");
   });
 });
 
 describe("nearbyExperiences", () => {
-  it("excludes the current route and sorts by distance", () => {
+  it("excludes the current collection and sorts by distance", () => {
     const result = nearbyExperiences(rows, { lat: 46.4, lon: 7.9 }, rows[0].slug, 4);
     expect(result.map((item) => item.row.slug)).toEqual([
-      "camping-around-jasper",
-      "hiking-oregon-cascades",
+      "exploring-jasper",
+      "exploring-oregon-cascades",
     ]);
     expect(result[0].km).toBeLessThan(result[1].km);
   });

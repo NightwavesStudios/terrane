@@ -1,126 +1,100 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import Header from "../components/Header";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
 import RidgeArt from "../components/RidgeArt";
 import ExperiencePois from "../components/experiences/ExperiencePois";
 import { category } from "../data/features";
-import { experienceCategory } from "../data/experiences";
-import { nearestStays, useExperiencePois } from "../lib/experiencePois";
+import { guideKind } from "../data/guide";
+import { useExperiencePois } from "../lib/experiencePois";
 import {
-  difficultyLabel,
-  durationLabel,
-  experienceWhere,
-  formatKmMiles,
-  nearbyExperiences,
-  useExperience,
-  useExperienceCatalog,
-} from "../lib/experiences";
+  guideWhere,
+  nearbyGuides,
+  useGuide,
+  useGuideCatalog,
+} from "../lib/guide";
 import { setMeta } from "../lib/meta";
 import { thumbAt } from "../lib/placeDetails";
-import { coordinates, formatKm, placeLine } from "../lib/present";
+import { coordinates, formatKm } from "../lib/present";
 import { navigate } from "../lib/router";
-import {
-  toggleSavedExperience,
-  useSavedExperienceSlugs,
-} from "../lib/savedExperiences";
+import { toggleSavedGuide, useSavedGuideSlugs } from "../lib/savedGuides";
 
-const ExperienceMap = lazy(
-  () => import("../components/experiences/ExperienceMap"),
-);
+const GuideMap = lazy(() => import("../components/guide/GuideMap"));
 
 /**
- * One generated experience.
+ * One curated Experience.
  *
- * The record is one lazy shard: title, prose, stops, photos and the numbers. The
- * map is a second lazy chunk, so the page paints without MapLibre. Practical POIs
- * arrive after that from the cell store and never block the route itself.
+ * One destination, one lazy shard. The page states what the records hold — its
+ * description, protected area, range, elevation, neighbouring destinations,
+ * named trails and credited photographs — and nothing about current access,
+ * closures, facilities or a route. Those are deliberately not claimed because
+ * they are not verified.
  */
 export default function Experience({ slug }: { slug: string }) {
-  const { experience, loading } = useExperience(slug);
-  const catalog = useExperienceCatalog();
-  const savedSlugs = useSavedExperienceSlugs();
-  const pois = useExperiencePois(experience?.bounds ?? null);
-  const stays = useMemo(
-    () => nearestStays(experience?.stops ?? [], pois.pois),
-    [experience, pois.pois],
-  );
+  const { guide, loading } = useGuide(slug);
+  const catalog = useGuideCatalog();
+  const savedSlugs = useSavedGuideSlugs();
+  const pois = useExperiencePois(guide?.bounds ?? null);
   const [active, setActive] = useState<string | null>(null);
   const [heroFailed, setHeroFailed] = useState(false);
 
-  const hero = experience?.photos[0];
+  const hero = guide?.photo ?? guide?.photos[0];
 
   useEffect(() => {
     setHeroFailed(false);
   }, [hero?.url]);
 
   useEffect(() => {
-    if (!experience) {
+    if (!guide) {
       if (loading) return;
       setMeta({
         title: "Experience not found — Terrane",
-        description: "That route isn’t in the generated set.",
+        description: "That Experience isn’t in the curated catalogue.",
         path: `/experiences/${slug}`,
       });
       return;
     }
 
-    const cat = experienceCategory(experience.category);
-    const image = hero ? thumbAt(hero.url, 1200, hero.max) : undefined;
+    const kind = guideKind(guide.kind);
     setMeta({
-      title: `${experience.title} — Terrane`,
-      description: experience.summary,
-      path: `/experiences/${experience.slug}`,
+      title: `${guide.name} — Terrane`,
+      description: guide.summary,
+      path: `/experiences/${guide.slug}`,
       type: "article",
-      image,
+      image: hero ? thumbAt(hero.url, 1200, hero.max) : undefined,
       jsonLd: {
         "@context": "https://schema.org",
-        "@type": "TouristTrip",
-        name: experience.title,
-        description: experience.summary,
-        url: `${location.origin}/experiences/${experience.slug}`,
-        touristType: cat.label,
-        itinerary: {
-          "@type": "ItemList",
-          numberOfItems: experience.stops.length,
-          itemListElement: experience.stops.map((stop) => ({
-            "@type": "ListItem",
-            position: stop.index,
-            item: {
-              "@type": "TouristAttraction",
-              name: stop.name,
-              url: `${location.origin}/place/${stop.slug}`,
-              geo: {
-                "@type": "GeoCoordinates",
-                latitude: stop.lat,
-                longitude: stop.lon,
-              },
-            },
-          })),
+        "@type": "TouristAttraction",
+        name: guide.name,
+        description: guide.summary,
+        url: `${location.origin}/experiences/${guide.slug}`,
+        sameAs: guide.source.url,
+        touristType: kind.label,
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: guide.center.lat,
+          longitude: guide.center.lon,
         },
       },
     });
-  }, [experience, hero, loading, slug]);
+  }, [guide, hero, loading, slug]);
 
-  if (!experience) {
+  if (!guide) {
     return (
       <div className="page">
         <Header tone="light" />
         <div className="page-head">
           <h1 className="page-title">
-            {loading ? "Reading the geography…" : "That route isn’t here."}
+            {loading ? "Reading the geography…" : "That Experience isn’t here."}
           </h1>
           <p className="page-sub">
             {loading
-              ? "Loading this experience."
-              : "It may have been replaced by a newer generation of the data."}
+              ? "Loading this destination."
+              : "It may have been removed from the curated selection."}
           </p>
           {loading ? null : (
-            <button
-              className="btn btn-dark"
-              onClick={() => navigate("/experiences")}
-            >
-              All experiences →
+            <button className="btn btn-dark" onClick={() => navigate("/experiences")}>
+              All Experiences →
             </button>
           )}
         </div>
@@ -128,82 +102,56 @@ export default function Experience({ slug }: { slug: string }) {
     );
   }
 
-  const cat = experienceCategory(experience.category);
-  const saved = savedSlugs.has(experience.slug);
-  const where = experienceWhere(experience);
-  const related = catalog.status === "ready"
-    ? nearbyExperiences(catalog.rows, experience.center, experience.slug, 4)
-    : [];
+  const kind = guideKind(guide.kind);
+  const saved = savedSlugs.has(guide.slug);
+  const where = guideWhere(guide);
+  const related =
+    catalog.status === "ready"
+      ? nearbyGuides(catalog.rows, guide.center, guide.slug, 4)
+      : [];
 
-  /* Activities are counted from the stops themselves, not from a tag list: a
-     peak is a summit stop, a lake is water, and a named trail is hiking. */
-  const activityCounts = new Map<string, number>();
-  for (const stop of experience.stops) {
-    activityCounts.set(stop.cat, (activityCounts.get(stop.cat) ?? 0) + 1);
-  }
-  const activityRows = [...activityCounts.entries()]
-    .map(([id, count]) => ({ id, label: category(id).label, count }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  if (experience.stats.trails > 0) {
-    activityRows.push({
-      id: "trails",
-      label: "Named trails nearby",
-      count: experience.stats.trails,
-    });
-  }
-
-  const longestDay = Math.max(...experience.itinerary.map((day) => day.km));
   const facts: Fact[] = [
-    { k: "Category", v: cat.one },
-    { k: "Difficulty", v: difficultyLabel(experience.difficulty) },
-    { k: "Stops", v: `${experience.stats.stops}` },
+    { k: "Kind", v: kind.one },
+    ...(where ? [{ k: "Location", v: where }] : []),
     {
-      k: "Between stops",
-      v: `${formatKmMiles(experience.distanceKm)} straight line`,
+      k: "Nearby places",
+      v: guide.stats.places
+        ? `${guide.stats.places} catalogued within 30 km`
+        : "none recorded",
     },
     {
-      k: "On foot",
-      v: durationLabel(experience.durationHours, experience.days),
+      k: "Trails",
+      v: guide.stats.trails
+        ? `${guide.stats.trails} named within 10 km`
+        : "none recorded",
     },
-    { k: "Longest day", v: formatKmMiles(longestDay) },
-    ...(experience.ascentM > 0
-      ? [
-          {
-            k: "Total climb",
-            v: `${experience.ascentM.toLocaleString("en-US")} m`,
-          },
-        ]
-      : []),
-    ...(experience.stats.elevationMax
-      ? [{ k: "High point", v: `${experience.stats.elevationMax.toLocaleString("en-US")} m` }]
+    ...(guide.stats.elevation
+      ? [{ k: "Recorded elevation", v: `${guide.stats.elevation.toLocaleString("en-US")} m` }]
       : []),
     {
       k: "Coordinates",
-      v: coordinates(experience.center.lat, experience.center.lon),
+      v: coordinates(guide.center.lat, guide.center.lon),
       mono: true,
     },
   ];
 
   const onToggleSave = () => {
-    toggleSavedExperience({
-      slug: experience.slug,
-      title: experience.title,
-      category: experience.category,
-      difficulty: experience.difficulty,
-      stopCount: experience.stats.stops,
-      days: experience.days,
-      country: experience.country,
-      region: experience.region,
+    toggleSavedGuide({
+      slug: guide.slug,
+      name: guide.name,
+      kind: guide.kind,
+      country: guide.country,
+      region: guide.region,
     });
   };
 
-  const selectStop = (stopSlug: string) => {
-    setActive(stopSlug);
-    /* Immediate, not smooth: the row is already in the document, and a real
-       click should put it under the eye at once. Smooth scrolling also depends
-       on animation frames, which a background or reduced-motion tab may never
-       run. */
-    document.getElementById(`stop-${stopSlug}`)?.scrollIntoView({ block: "center" });
+  const selectPlace = (placeSlug: string) => {
+    setActive(placeSlug);
+    if (placeSlug === guide.slug) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    document.getElementById(`guide-place-${placeSlug}`)?.scrollIntoView({ block: "center" });
   };
 
   return (
@@ -224,26 +172,20 @@ export default function Experience({ slug }: { slug: string }) {
                 .map((width) => `${thumbAt(hero.url, width, hero.max)} ${width}w`)
                 .join(", ")}
               sizes="(max-width: 860px) 100vw, 1240px"
-              alt={`${experience.title}, ${cat.one.toLowerCase()}`}
+              alt={`${guide.name}, ${kind.one.toLowerCase()}`}
               loading="eager"
               fetchPriority="high"
               decoding="async"
               onError={() => setHeroFailed(true)}
             />
           ) : (
-            <RidgeArt hue={experience.hue} className="place-hero-art" />
+            <RidgeArt hue={guide.hue} className="place-hero-art" />
           )}
 
           <div className="place-hero-text">
-            <p className="eyebrow">
-              {[cat.one, where].filter(Boolean).join(" · ")}
-            </p>
-            <h1 className="place-title">{experience.title}</h1>
-            <p className="place-tagline">
-              {experience.stats.stops} stops · {formatKmMiles(experience.distanceKm)}{" "}
-              between stops · {durationLabel(experience.durationHours, experience.days)} on
-              foot
-            </p>
+            <p className="eyebrow">{[kind.one, where].filter(Boolean).join(" · ")}</p>
+            <h1 className="place-title">{guide.name}</h1>
+            <p className="place-tagline">{guide.summary}</p>
           </div>
 
           <button
@@ -270,169 +212,107 @@ export default function Experience({ slug }: { slug: string }) {
           <div className="place-body">
             <PlaceFacts facts={facts} />
 
-            <PlaceSection title="The route" note={`generated ${experience.generated}`}>
-              {experience.description.map((paragraph) => (
+            <PlaceSection
+              title="Why this is an Experience"
+              note="curated selection · recorded evidence"
+            >
+              <ul className="guide-reasons">
+                {guide.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              <p className="mono exp-note">
+                Selected from the destination database, not promoted by a category
+                count. Membership is an editorial decision recorded in the
+                committed selection file.
+              </p>
+            </PlaceSection>
+
+            <PlaceSection title="Overview" note={`data ${guide.generated}`}>
+              {guide.overview.map((paragraph) => (
                 <p className="place-about-text" key={paragraph}>
                   {paragraph}
                 </p>
               ))}
             </PlaceSection>
 
-                        <PlaceSection
-              title="Itinerary"
-              note={`${experience.days} walking day${experience.days === 1 ? "" : "s"} · ${difficultyLabel(experience.difficulty)}`}
-            >
-              <ol className="exp-days">
-                {experience.itinerary.map((day) => {
-                  const stop = experience.stops[day.stopTo - 1];
-                  const stay = stop ? stays.get(stop.slug) : undefined;
-                  return (
-                    <li className="exp-day" key={day.day}>
-                      <div className="exp-day-head">
-                        <span className="mono exp-day-n">Day {day.day}</span>
-                        <span className="exp-day-route">
-                          {day.fromName} → {day.toName}
-                        </span>
-                      </div>
-                      <p className="mono exp-day-meta">
-                        {[
-                          formatKmMiles(day.km),
-                          `${day.hours} h walking`,
-                          day.ascentM > 0 ? `${day.ascentM.toLocaleString("en-US")} m up` : "",
-                          day.highPoint
-                            ? `high point ${day.highPoint.toLocaleString("en-US")} m`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {day.trails.length > 0 ? (
-                        <p className="exp-day-trails">
-                          <span className="mono exp-day-label">Trails</span>{" "}
-                          {day.trails
-                            .map(
-                              (trail) =>
-                                `${trail.name} (${formatKm(trail.km)} from stop ${trail.stop})`,
-                            )
-                            .join(" · ")}
-                        </p>
-                      ) : null}
-                      {stay ? (
-                        <p className="mono exp-day-stay">
-                          Stay: {stay.poi.name} · {formatKm(stay.km)} from {stop.name}
-                        </p>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ol>
-              <p className="mono exp-note">
-                {experience.durationBasis} {experience.difficultyBasis} Trail and
-                campsite names come from recorded data; check them before relying on
-                them.
-              </p>
-            </PlaceSection>
-
-            <PlaceSection title="Map"
-              note={`${experience.stops.length} stops · straight-line route`}
-            >
-              <Suspense
-                fallback={<div className="exp-map exp-map--loading mono">Loading the map…</div>}
+            {guide.associated.length > 0 ? (
+              <PlaceSection
+                title="What’s here"
+                note={`${guide.associated.length} other catalogued places within 30 km`}
               >
-                <ExperienceMap
-                  stops={experience.stops}
-                  hue={experience.hue}
-                  activeSlug={active}
-                  onSelect={selectStop}
-                />
-              </Suspense>
-            </PlaceSection>
-
-            <PlaceSection
-              title="Stops"
-              note={`${experience.stops.length} destinations in route order`}
-            >
-              <ol className="exp-stops">
-                {experience.stops.map((stop) => {
-                  const stopCat = category(stop.cat);
-                  const activities = [
-                    stopCat.one,
-                    stop.trails.length
-                      ? `${stop.trails.length} named trail${stop.trails.length === 1 ? "" : "s"}`
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
-                  return (
+                <ul className="exp-stops">
+                  {guide.associated.map((place) => (
                     <li
-                      key={stop.slug}
-                      id={`stop-${stop.slug}`}
-                      className={`exp-stop${active === stop.slug ? " on" : ""}`}
+                      key={place.slug}
+                      id={`guide-place-${place.slug}`}
+                      className={`exp-stop${active === place.slug ? " on" : ""}`}
                     >
                       <button
                         className="exp-stop-main"
-                        onClick={() => navigate(`/place/${stop.slug}`)}
+                        onClick={() => navigate(`/place/${place.slug}`)}
                       >
-                        <span className="mono exp-stop-n">
-                          {String(stop.index).padStart(2, "0")}
-                        </span>
+                        <span className="mono exp-stop-n">{category(place.cat).one}</span>
                         <span className="exp-stop-text">
-                          <span className="exp-stop-name">{stop.name}</span>
+                          <span className="exp-stop-name">{place.name}</span>
                           <span className="mono exp-stop-meta">
-                            {[
-                              activities,
-                              placeLine(stop.region, stop.country),
-                              stop.elevation
-                                ? `${stop.elevation.toLocaleString("en-US")} m`
-                                : "",
-                              stop.index > 1
-                                ? `${formatKm(stop.legKm)} from previous`
-                                : "Start",
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {formatKm(place.km)} from {guide.name}
                           </span>
-                          {stop.trails.length > 0 ? (
-                            <span className="mono exp-stop-trails">
-                              {stop.trails
-                                .map((trail) =>
-                                  trail.difficulty
-                                    ? `${trail.name} (${trail.difficulty})`
-                                    : trail.name,
-                                )
-                                .join(" · ")}
-                            </span>
-                          ) : null}
                         </span>
                         <span className="mono exp-stop-go">Place →</span>
                       </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            </PlaceSection>
-
-            {activityRows.length > 0 ? (
-              <PlaceSection title="Activities" note="counted from the stops">
-                <ul className="around-acts">
-                  {activityRows.map((activity) => (
-                    <li key={activity.id}>
-                      <span className="n">{activity.count}</span>
-                      <span className="l">{activity.label}</span>
                     </li>
                   ))}
                 </ul>
               </PlaceSection>
             ) : null}
 
-            <PlaceSection title="Practical stops nearby" note="OpenStreetMap cells">
+            {guide.trails.length > 0 ? (
+              <PlaceSection
+                title="Trails recorded nearby"
+                note={`${guide.trails.length} named within 10 km`}
+              >
+                <ul className="guide-trails">
+                  {guide.trails.map((trail) => (
+                    <li key={trail.name}>
+                      <span className="guide-trail-name">{trail.name}</span>
+                      <span className="mono guide-trail-meta">
+                        {[trail.difficulty, formatKm(trail.km)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mono exp-note">
+                  Trail names and lengths are recorded data. Their condition,
+                  access and seasonal status are not verified here.
+                </p>
+              </PlaceSection>
+            ) : null}
+
+            <PlaceSection
+              title="Map"
+              note={`${guide.associated.length + 1} catalogued places · no route`}
+            >
+              <Suspense
+                fallback={<div className="exp-map exp-map--loading mono">Loading the map…</div>}
+              >
+                <GuideMap guide={guide} activeSlug={active} onSelect={selectPlace} />
+              </Suspense>
+            </PlaceSection>
+
+            <PlaceSection
+              title="Campsites, huts and trailheads nearby"
+              note="OpenStreetMap cells"
+            >
               <ExperiencePois pois={pois.pois} status={pois.status} />
             </PlaceSection>
 
-            {experience.photos.length > 1 ? (
+            {guide.photos.length > 1 ? (
               <PlaceSection title="Photographs" note="Wikimedia Commons">
                 <ul className="exp-gallery">
-                  {experience.photos.map((photo) => (
+                  {guide.photos.map((photo) => (
                     <li key={photo.url}>
                       <a href={photo.page} target="_blank" rel="noreferrer">
                         <img
@@ -451,8 +331,36 @@ export default function Experience({ slug }: { slug: string }) {
               </PlaceSection>
             ) : null}
 
+            <PlaceSection title="Sources and official resources" note="external links">
+              <ul className="guide-sources">
+                <li>
+                  <a href={guide.source.url} target="_blank" rel="noreferrer">
+                    {guide.source.label} article ↗
+                  </a>
+                </li>
+                {guide.official ? (
+                  <li>
+                    <a href={guide.official} target="_blank" rel="noreferrer">
+                      Official website ↗
+                    </a>
+                  </li>
+                ) : null}
+                {hero ? (
+                  <li>
+                    <a href={hero.page} target="_blank" rel="noreferrer">
+                      Lead photograph on Wikimedia Commons ↗
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+              <p className="mono exp-note">
+                Links are recorded, not a live statement about opening hours,
+                closures or access. Check the official source before travelling.
+              </p>
+            </PlaceSection>
+
             {related.length > 0 ? (
-              <PlaceSection title="Other experiences nearby" note="closest first">
+              <PlaceSection title="Other Experiences nearby" note="closest first">
                 <ol className="around-list">
                   {related.map(({ row, km }) => (
                     <li key={row.slug}>
@@ -460,10 +368,8 @@ export default function Experience({ slug }: { slug: string }) {
                         className="around-row"
                         onClick={() => navigate(`/experiences/${row.slug}`)}
                       >
-                        <span className="around-name">{row.title}</span>
-                        <span className="around-type mono">
-                          {experienceCategory(row.category).one}
-                        </span>
+                        <span className="around-name">{row.name}</span>
+                        <span className="around-type mono">{guideKind(row.kind).one}</span>
                         <span className="around-km mono">{formatKm(km)}</span>
                       </button>
                     </li>
@@ -475,24 +381,23 @@ export default function Experience({ slug }: { slug: string }) {
 
           <aside className="place-aside">
             <div className="aside-card">
-              <p className="mono k">This route</p>
-              <p className="exp-aside-line">
-                {experience.summary}
-              </p>
+              <p className="mono k">This Experience</p>
+              <p className="exp-aside-line">{guide.summary}</p>
               <button
                 className={`btn btn-light${saved ? " btn-saved" : ""}`}
                 onClick={onToggleSave}
               >
-                {saved ? "Saved ✓" : "Save this experience"}
+                {saved ? "Saved ✓" : "Save this Experience"}
               </button>
               <p className="mono exp-aside-note">
-                {difficultyLabel(experience.difficulty)} — {experience.difficultyBasis}{" "}
-                {experience.durationBasis} Distance is straight-line between stops,
-                not trail distance.
+                A curated destination, not an itinerary. Access, closures,
+                facilities and seasonal conditions are not verified; the page
+                states only what the records hold.
               </p>
               <p className="mono exp-aside-note">
-                Generated from {experience.stats.stops} destinations and their
-                recorded trails. No hand-written additions.
+                {guide.stats.places} catalogued places within 30 km ·{" "}
+                {guide.stats.trails} named trails within 10 km ·{" "}
+                {guide.stats.photos} credited photographs.
               </p>
             </div>
           </aside>

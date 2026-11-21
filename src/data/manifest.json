@@ -477,42 +477,47 @@
       {
         "name": "the experience index is not empty",
         "ok": true,
-        "detail": "599 routes"
+        "detail": "220 collections"
       },
       {
         "name": "experience slugs are unique",
         "ok": true,
-        "detail": "599 slugs"
+        "detail": "220 slugs"
       },
       {
         "name": "experience titles are unique",
         "ok": true,
-        "detail": "599 titles"
+        "detail": "220 titles"
       },
       {
         "name": "every experience category is known and represented",
         "ok": true,
-        "detail": "{\"camping\":92,\"hiking\":99,\"mountain\":200,\"park\":137,\"weekend\":71}"
+        "detail": "{\"camping\":33,\"hiking\":14,\"mountain\":88,\"park\":52,\"weekend\":33}"
       },
       {
         "name": "experience meta matches the records",
         "ok": true,
-        "detail": "599/599"
+        "detail": "220/220"
       },
       {
-        "name": "experience stops are well formed and pageable",
+        "name": "experience places are well formed, pageable and sourced",
         "ok": true,
-        "detail": "3605 stops"
+        "detail": "1317 sourced places"
       },
       {
-        "name": "experience bounds contain their stops",
+        "name": "experience bounds contain their places",
         "ok": true,
         "detail": "bounds"
       },
       {
-        "name": "experience distances and estimates are positive",
+        "name": "experience counts agree with their places",
         "ok": true,
-        "detail": "distance, duration, basis"
+        "detail": "stops, sources, span"
+      },
+      {
+        "name": "experience records claim no itinerary",
+        "ok": true,
+        "detail": "no walking plan or distance claim"
       },
       {
         "name": "experience photographs keep their credit and licence",
@@ -527,7 +532,7 @@
       {
         "name": "every experience is in the catalog and every catalog row has a record",
         "ok": true,
-        "detail": "599 catalog rows"
+        "detail": "220 catalog rows"
       },
       {
         "name": "catalog rows match their records",
@@ -535,24 +540,99 @@
         "detail": "titles, categories, counts"
       },
       {
-        "name": "experience difficulty uses the three grades",
+        "name": "every experience place source was verified live",
         "ok": true,
-        "detail": "{\"moderate\":392,\"hard\":196,\"easy\":11}"
+        "detail": "1312 article URLs"
       },
       {
-        "name": "every experience has a walking itinerary that covers its stops",
+        "name": "every shipped experience photograph page was verified live",
         "ok": true,
-        "detail": "3466 walking days"
+        "detail": "Commons file pages"
       },
       {
-        "name": "experience titles name the ground, not a template",
+        "name": "the source verification artifact reconciles with the shipped links",
         "ok": true,
-        "detail": "no category prefixes"
+        "detail": "2885 checked · 0 dead"
       },
       {
-        "name": "the sitemap covers the experience index and every route",
+        "name": "Georgia experiences keep verified-live place sources",
         "ok": true,
-        "detail": "25076 urls · 599 experiences"
+        "detail": "4 collections · 31 places"
+      },
+      {
+        "name": "the curated Experience selection is a deliberate list",
+        "ok": true,
+        "detail": "183 selected"
+      },
+      {
+        "name": "the curated Experience index is not empty",
+        "ok": true,
+        "detail": "183 Experiences"
+      },
+      {
+        "name": "only selected destinations became Experiences",
+        "ok": true,
+        "detail": "183/183 selected"
+      },
+      {
+        "name": "Experience slugs are unique and pageable",
+        "ok": true,
+        "detail": "183 slugs"
+      },
+      {
+        "name": "Experience kinds are known and represented",
+        "ok": true,
+        "detail": "{\"park\":73,\"peak\":81,\"lake\":9,\"landmark\":7,\"waterfall\":6,\"coast\":7}"
+      },
+      {
+        "name": "Experience meta matches the records",
+        "ok": true,
+        "detail": "183/183"
+      },
+      {
+        "name": "Experience records are well formed and sourced",
+        "ok": true,
+        "detail": "183 records"
+      },
+      {
+        "name": "Experience neighbours are pageable and inside the bounds",
+        "ok": true,
+        "detail": "846 neighbours"
+      },
+      {
+        "name": "Experience statistics agree with their records",
+        "ok": true,
+        "detail": "places, trails, photos"
+      },
+      {
+        "name": "Experience records claim no itinerary",
+        "ok": true,
+        "detail": "no route or day plan"
+      },
+      {
+        "name": "Experience photographs keep their credit and licence",
+        "ok": true,
+        "detail": "credited Commons images"
+      },
+      {
+        "name": "every Experience source and photograph page was verified live",
+        "ok": true,
+        "detail": "183 article URLs"
+      },
+      {
+        "name": "Experience official links are complete URLs",
+        "ok": true,
+        "detail": "official websites"
+      },
+      {
+        "name": "Experience and Collection catalogues agree with their shards",
+        "ok": true,
+        "detail": "names, kinds, counts"
+      },
+      {
+        "name": "the sitemap covers both catalogues and every route",
+        "ok": true,
+        "detail": "24881 urls · 183 Experiences · 220 Collections"
       }
     ]
   }

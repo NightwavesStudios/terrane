@@ -1,11 +1,16 @@
 /**
  * The experience generator's pure half.
  *
- * Geographic clustering, category rules and prose composition are separated from
- * the file writes in `scripts/build-experiences.mjs` so they can be reasoned
- * about (and re-run) without touching the committed shards. Everything here is a
- * function of the committed destination, detail and trail-link data: no clock, no
- * network, no randomness, so two runs on the same commit produce the same files.
+ * An experience is a collection of remarkable places in one region, not an
+ * itinerary. These helpers group destinations that belong together on the
+ * ground, classify the group from recorded facts, and compose prose that says
+ * what the collection contains. They deliberately contain no walking model, no
+ * day planning and no distance-between-stops claim: the data can support "these
+ * places are here, and each has a source", not "walk this way".
+ *
+ * Everything is a function of the committed destination, detail and trail-link
+ * data: no clock, no network, no randomness, so two runs on the same commit
+ * produce the same files.
  */
 
 export const CATEGORY_IDS = ["weekend", "mountain", "hiking", "camping", "park"];
@@ -57,8 +62,19 @@ const CAMP_WORDS = /\b(campground|campsite|campsites|camping|huts?|refuges?|bivo
 const WATER_CATS = new Set(["lake", "valley", "waterfall", "spring", "island", "beach"]);
 const PEAK_CATS = new Set(["peak", "volcano", "glacier", "range"]);
 
+/** A verified place: its Terrane page, its position and the Wikipedia article
+    the detail harvest recorded. No source, no stop. */
+export function isVerifiedCandidate(candidate) {
+  return (
+    typeof candidate.wiki === "string" &&
+    /^https:\/\/[a-z]{2,3}\.wikipedia\.org\/wiki\/\S+$/i.test(candidate.wiki) &&
+    Number.isFinite(candidate.lat) &&
+    Number.isFinite(candidate.lon)
+  );
+}
+
 /**
- * How good a destination is as the seed of a route.
+ * How good a destination is as the anchor of a collection.
  *
  * Fame leads; a credited photograph, a recorded elevation, a description and
  * named trails are all evidence the page can actually say something. Nothing
@@ -71,6 +87,7 @@ export function scoreCandidate(candidate) {
   if (candidate.photos.length) score += 8;
   if (candidate.desc) score += 4;
   score += Math.min(10, candidate.trailLinks.length * 3);
+  if (candidate.wiki) score += 10;
   return score;
 }
 
@@ -93,11 +110,14 @@ export function buildCandidates(destinations, detailsBySlug, trailsBySlug) {
         lat: destination.lat,
         lon: destination.lon,
         cat: catOf(destination),
-        tier: destination.tier ?? 3,
+        tier: destination.tier ?? 4,
         country: destination.country,
         region: destination.region,
         elev: destination.elevation ?? detail.elev ?? null,
         desc: detail.desc ?? "",
+        wiki: typeof detail.wiki === "string" ? detail.wiki : null,
+        commons: typeof detail.commons === "string" ? detail.commons : null,
+        wd: typeof detail.wd === "string" ? detail.wd : null,
         photos,
         trailLinks: trailsBySlug[destination.slug] ?? [],
         range: detail.range ?? null,
@@ -157,12 +177,12 @@ export function spanKm(members) {
 }
 
 /**
- * Grow a cluster outward from one seed.
+ * Grow a collection outward from one seed.
  *
- * A candidate joins when it is within the corridor of a stop already in the
+ * A candidate joins when it is within the corridor of a place already in the
  * group, the group still fits its span, and no category has more than three
- * stops. The best next stop balances fame against distance and rewards a new
- * category, so a route is a mix of things rather than four summits in a row.
+ * places. The best next place balances fame against distance and rewards a new
+ * category, so a collection is a mix of things rather than four summits in a row.
  */
 export function expandCluster(seed, index, used, options = {}) {
   const {
@@ -170,6 +190,7 @@ export function expandCluster(seed, index, used, options = {}) {
     corridorKm = 40,
     maxSpanKm = 120,
     perCategory = 3,
+    country = null,
     initial,
   } = options;
   const members = Array.isArray(initial) && initial.length ? [...initial] : [seed];
@@ -184,6 +205,10 @@ export function expandCluster(seed, index, used, options = {}) {
     for (const member of members) {
       for (const candidate of index.near(member.lat, member.lon, corridorKm)) {
         if (used.has(candidate.slug) || inCluster.has(candidate.slug)) continue;
+        /* A collection is labelled with one country, so it must not borrow a
+           neighbour's summit to fill a row. Border ranges become one
+           collection on each side, which is what the records actually say. */
+        if (country && candidate.country !== country) continue;
         if ((counts.get(candidate.cat) ?? 0) >= perCategory) continue;
         const km = kmBetween(member.lat, member.lon, candidate.lat, candidate.lon);
         if (km > corridorKm) continue;
@@ -208,13 +233,13 @@ export function expandCluster(seed, index, used, options = {}) {
 }
 
 /**
- * The category a finished cluster earns.
+ * The category a finished collection earns.
  *
  * Rules read recorded facts only: destination categories, elevations, named
  * trails nearby, recorded protected areas, and the name/description words that
- * tell us a camp or hut is one of the stops. Order matters — camping needs
+ * tell us a camp or hut is one of the places. Order matters — camping needs
  * evidence and water or park context, parks claim majority park groups, and a
- * compact mixed group is a weekend.
+ * compact mixed group is a short escape.
  */
 export function classifyCluster(members) {
   const n = members.length;
@@ -234,7 +259,7 @@ export function classifyCluster(members) {
   );
   const trailStops = members.filter((member) => member.trailLinks.length > 0).length;
 
-    const protectedCounts = new Map();
+  const protectedCounts = new Map();
   for (const member of members) {
     const name = specificAreaName(member.protectedArea);
     if (name) protectedCounts.set(name, (protectedCounts.get(name) ?? 0) + 1);
@@ -245,306 +270,26 @@ export function classifyCluster(members) {
   if (parks / n >= 0.5 || sharedProtected) return "park";
   if (peaks / n >= 0.35 || high >= 2) return "mountain";
   /* Water country with named trails, without a park or peak majority: the
-     practical shape of a camping route even where the destination set records
-     no campsite. Campsites themselves are listed from the POI cells on the
-     page, never asserted here. */
+     practical shape of a camping collection even where the destination set
+     records no campsite. Campsites themselves are listed from the POI cells on
+     the page, never asserted here. */
   if (water && trailStops >= 2 && spanKm(members) <= 80) return "camping";
   if (trailCount >= 3 && trailStops >= 2) return "hiking";
   if (spanKm(members) <= 80) return "weekend";
   return null;
 }
 
-/**
- * Walk the cluster from its most notable stop, always taking the nearest stop
- * that has not been visited. The order is what makes the map's line readable and
- * the leg distances comparable.
- */
-export function orderStops(members) {
-  const anchor = [...members].sort(
+/** Places ordered by evidence, not by travel: the most notable first. */
+export function collectionOrder(members) {
+  return [...members].sort(
     (a, b) => b.score - a.score || a.name.localeCompare(b.name),
-  )[0];
-  const rest = members.filter((member) => member.slug !== anchor.slug);
-  const ordered = [anchor];
-
-  while (rest.length > 0) {
-    const last = ordered[ordered.length - 1];
-    let bestIndex = 0;
-    let bestKm = Infinity;
-    for (let i = 0; i < rest.length; i += 1) {
-      const km = kmBetween(last.lat, last.lon, rest[i].lat, rest[i].lon);
-      if (
-        km < bestKm - 1e-9 ||
-        (Math.abs(km - bestKm) < 1e-9 && rest[i].name < rest[bestIndex].name)
-      ) {
-        bestKm = km;
-        bestIndex = i;
-      }
-    }
-    ordered.push(rest.splice(bestIndex, 1)[0]);
-  }
-
-  let previous = null;
-  return ordered.map((member, index) => {
-    const legKm =
-      previous === null
-        ? 0
-        : round(kmBetween(previous.lat, previous.lon, member.lat, member.lon), 1);
-    previous = member;
-    return { ...member, index: index + 1, legKm };
-  });
-}
-
-export function distanceOf(stops) {
-  return round(
-    stops.reduce((sum, stop) => sum + stop.legKm, 0),
-    1,
   );
-}
-
-/* ── walking model ────────────────────────────────────────────────
-   These routes are walked. Naismith's rule is the standard estimate: flat pace
-   plus a climb allowance. The distances are still straight lines between stops,
-   so the result is a floor for the ground, and every surface states that. */
-
-export const WALK_KMH = 4.5;
-export const ASCENT_M_PER_HOUR = 600;
-const DAY_HOURS = 6;
-const DAY_MAX_KM = 20;
-const STOP_PAUSE_HOURS = 0.5;
-
-/** Walking hours for a leg, including its climb. */
-export function walkHours(km, ascentM = 0) {
-  return km / WALK_KMH + ascentM / ASCENT_M_PER_HOUR;
-}
-
-/** Ascent from one stop to the next, where both record an elevation. */
-export function ascentBetween(previous, stop) {
-  if (!Number.isFinite(previous?.elev) || !Number.isFinite(stop?.elev)) return 0;
-  return Math.max(0, stop.elev - previous.elev);
-}
-
-/**
- * Split the route into walking days.
- *
- * Stops are not evenly spaced: a leg can be 40 km, which is two days of walking
- * with a night somewhere in between. So days are cut by walking time along the
- * line, splitting a long leg proportionally instead of pretending it is one day.
- * Each day records its start and end names (a stop, or "between A and B"), its
- * km, hours and climb, the stops it reaches, and the last stop reached — the
- * place to look for a bed that night.
- */
-export function itineraryFor(stops) {
-  const cumulative = [0];
-  for (let i = 1; i < stops.length; i += 1) {
-    cumulative.push(round(cumulative[i - 1] + stops[i].legKm, 3));
-  }
-  const totalKm = cumulative[cumulative.length - 1] ?? 0;
-  const nameAt = (km) => {
-    for (let i = 0; i < stops.length; i += 1) {
-      if (Math.abs(cumulative[i] - km) <= 0.3) return stops[i].name;
-    }
-    if (km <= 0) return stops[0].name;
-    if (km >= totalKm) return stops[stops.length - 1].name;
-    for (let i = 1; i < stops.length; i += 1) {
-      if (km < cumulative[i]) {
-        /* A night mid-leg is stated by distance from the last stop, which is
-           more useful than "between X and Y" repeated on consecutive days. */
-        return `${stops[i - 1].name} +${Math.round(km - cumulative[i - 1])} km`;
-      }
-    }
-    return stops[stops.length - 1].name;
-  };
-
-  const stopAt = (km) => {
-    let last = 0;
-    for (let i = 0; i < stops.length; i += 1) {
-      if (cumulative[i] <= km + 0.05) last = i + 1;
-    }
-    return last;
-  };
-
-  const days = [];
-  let startKm = 0;
-  let km = 0;
-  let hours = 0;
-  let ascentM = 0;
-
-  const close = (endKm) => {
-    const stopFrom = stopAt(startKm);
-    const stopTo = Math.max(stopFrom, stopAt(endKm));
-    let highPoint;
-    for (let i = stopFrom; i <= stopTo && i <= stops.length; i += 1) {
-      const elev = stops[i - 1]?.elev;
-      if (Number.isFinite(elev)) highPoint = Math.max(highPoint ?? elev, elev);
-    }
-    days.push({
-      day: days.length + 1,
-      fromName: nameAt(startKm),
-      toName: nameAt(endKm),
-      stopFrom,
-      stopTo,
-      km: round(km, 1),
-      hours: round(hours, 1),
-      ascentM: Math.round(ascentM),
-      ...(highPoint == null ? {} : { highPoint: Math.round(highPoint) }),
-    });
-    startKm = endKm;
-    km = 0;
-    hours = 0;
-    ascentM = 0;
-  };
-
-  for (let i = 1; i < stops.length; i += 1) {
-    const legKm = stops[i].legKm;
-    const legAscent = ascentBetween(stops[i - 1], stops[i]);
-    const legHours = walkHours(legKm, legAscent);
-    if (legKm <= 0.01) continue;
-
-    let consumed = 0;
-    const hoursPerKm = legHours / legKm;
-    while (consumed < legKm - 0.01) {
-      const kmRoom = DAY_MAX_KM - km;
-      const hourRoom = DAY_HOURS - hours;
-      const take = Math.min(
-        legKm - consumed,
-        kmRoom,
-        hoursPerKm > 0 ? hourRoom / hoursPerKm : kmRoom,
-      );
-
-      if (take <= 0.05) {
-        if (km > 0.05 || hours > 0.05) {
-          close(cumulative[i - 1] + consumed);
-          continue;
-        }
-        /* A leg so steep that one hour of climb covers almost no ground: no
-           day size can split it, so it is walked as a single day. Without this
-           the loop closes empty days forever. */
-        const forced = legKm - consumed;
-        km += forced;
-        hours += forced * hoursPerKm;
-        ascentM += (legAscent * forced) / legKm;
-        consumed = legKm;
-        close(cumulative[i]);
-        break;
-      }
-
-      km += take;
-      hours += take * hoursPerKm;
-      ascentM += (legAscent * take) / legKm;
-      consumed += take;
-
-      if (
-        consumed < legKm - 0.01 &&
-        (DAY_MAX_KM - km <= 0.05 || DAY_HOURS - hours <= 0.05)
-      ) {
-        close(cumulative[i - 1] + consumed);
-      }
-    }
-  }
-
-  close(totalKm);
-  return days.length > 0
-    ? days
-    : [
-        {
-          day: 1,
-          fromName: stops[0]?.name ?? "",
-          toName: stops[0]?.name ?? "",
-          stopFrom: 1,
-          stopTo: 1,
-          km: 0,
-          hours: 0,
-          ascentM: 0,
-        },
-      ];
-}
-
-/** Total walking time, the per-day plan and the ascent the route accumulates. */
-export function walkingModel(stops) {
-  const itinerary = itineraryFor(stops);
-  const walking = itinerary.reduce((sum, day) => sum + day.hours, 0);
-  const ascentM = itinerary.reduce((sum, day) => sum + day.ascentM, 0);
-  const hours = round(
-    Math.round((walking + stops.length * STOP_PAUSE_HOURS) * 2) / 2,
-    1,
-  );
-  return { itinerary, hours, days: itinerary.length, ascentM };
-}
-
-/**
- * Difficulty from the daily shape, not from the category.
- *
- * The thresholds are stated on the page so the grade is auditable: a route is
- * only "hard" because a recorded day is long, climbs a lot, or reaches high
- * ground. Straight-line distance understates the ground, so the grade is a
- * floor in the same way the estimate is.
- */
-export function difficultyFor(itinerary, stops) {
-  const maxDayKm = Math.max(...itinerary.map((day) => day.km), 0);
-  const maxDayAscent = Math.max(...itinerary.map((day) => day.ascentM), 0);
-  const elevations = stops
-    .map((stop) => stop.elev)
-    .filter((value) => Number.isFinite(value) && value > 0);
-  const highPoint = elevations.length ? Math.max(...elevations) : 0;
-
-  let level = "moderate";
-  if (maxDayKm <= 14 && maxDayAscent <= 300 && highPoint <= 1500) level = "easy";
-  if (maxDayKm > 22 || maxDayAscent > 800 || highPoint > 3000) level = "hard";
-
-  return {
-    level,
-    maxDayKm: round(maxDayKm, 1),
-    maxDayAscent,
-    highPoint: highPoint > 0 ? highPoint : null,
-  };
-}
-
-export function difficultyBasis(level) {
-  return (
-    {
-      easy: "Easy: days of up to 14 km and 300 m of ascent, staying below 1,500 m.",
-      moderate:
-        "Moderate: days of up to 22 km and 800 m of ascent, staying below 3,000 m.",
-      hard: "Hard: more than 22 km or 800 m of ascent in a day, or ground above 3,000 m.",
-    }[level] ?? ""
-  );
-}
-
-export function walkingBasis() {
-  return `On foot: Naismith's rule at ${WALK_KMH} km/h plus 1 h per ${ASCENT_M_PER_HOUR} m of ascent, on straight-line stop distances, plus ${STOP_PAUSE_HOURS * 60} min at each stop.`;
-}
-
-/** The closest recorded trail at each of a day's stops, deduplicated by name. */
-export function trailsForDay(day, stops) {
-  const out = [];
-  const seen = new Set();
-  const first = Math.max(1, day.stopFrom);
-  const last = Math.min(stops.length, Math.max(day.stopTo, first));
-  for (let index = first; index <= last; index += 1) {
-    const stop = stops[index - 1];
-    const nearest = [...(stop.trails ?? stop.trailLinks ?? [])]
-      .filter((trail) => trail?.name)
-      .sort(
-        (a, b) => (a.km ?? 0) - (b.km ?? 0) || a.name.localeCompare(b.name),
-      )[0];
-    if (!nearest) continue;
-    const key = nearest.name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      name: nearest.name,
-      km: nearest.km,
-      stop: index,
-      ...(nearest.difficulty ? { difficulty: nearest.difficulty } : {}),
-    });
-  }
-  return out.slice(0, 3);
 }
 
 /**
  * The protected-area name, when it is a name rather than a classification.
  * Wikidata's P814 is often the generic `IUCN category II: National Park`, which
- * says nothing about where the route is and must never become a title.
+ * says nothing about where the collection is and must never become a title.
  */
 export function specificAreaName(assoc) {
   const raw = assoc?.name?.trim();
@@ -570,21 +315,103 @@ export function formatList(values) {
   return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 }
 
+/** Readable names for the recorded categories, singular and plural. */
+const KIND_NAMES = {
+  peak: ["peak", "peaks"],
+  volcano: ["volcano", "volcanoes"],
+  glacier: ["glacier", "glaciers"],
+  range: ["range", "ranges"],
+  park: ["park", "parks"],
+  reserve: ["reserve", "reserves"],
+  lake: ["lake", "lakes"],
+  waterfall: ["waterfall", "waterfalls"],
+  valley: ["valley", "valleys"],
+  island: ["island", "islands"],
+  beach: ["beach", "beaches"],
+  cave: ["cave", "caves"],
+  spring: ["spring", "springs"],
+  river: ["river", "rivers"],
+  landmark: ["landmark", "landmarks"],
+};
+
+/** The atlas category is coarse (a glacier is a `landmark`); the recorded name
+    and Wikidata description are specific, so they decide the readable kind. */
+function kindOf(member) {
+  const text = `${member.name} ${member.desc ?? ""}`.toLowerCase();
+  const hints = [
+    ["glacier", "glacier"],
+    ["waterfall", "waterfall"],
+    ["cave", "cave"],
+    ["valley", "valley"],
+    ["nature reserve", "reserve"],
+    ["national park", "park"],
+    ["lake", "lake"],
+    ["island", "island"],
+    ["beach", "beach"],
+    ["spring", "spring"],
+    ["range", "range"],
+    ["volcano", "volcano"],
+    ["mountain", "peak"],
+  ];
+  for (const [word, cat] of hints) {
+    if (text.includes(word)) return cat;
+  }
+  return member.cat;
+}
+
+/** "3 peaks, 2 glaciers and a national park" — counted, not characterised. */
+export function kindPhrase(members) {
+  const counts = new Map();
+  for (const member of members) {
+    const cat = kindOf(member);
+    counts.set(cat, (counts.get(cat) ?? 0) + 1);
+  }
+  const parts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3)
+    .map(([cat, count]) => {
+      const [one, many] = KIND_NAMES[cat] ?? KIND_NAMES.landmark;
+      if (count === 1) return cat === "park" ? "a national park" : `a ${one}`;
+      return `${count} ${many}`;
+    });
+  return formatList(parts);
+}
+
 /**
- * A route is named after the ground it crosses, not after the category.
+ * Title, summary and evidence paragraph for one collection.
  *
- * The category already has a badge, a filter and a sentence; prefixing every
- * title with "Camping around" or "A weekend in" made 599 routes read like one
- * template. The most specific recorded name — protected area, then range, then
- * the anchor destination — is the title, and the caller disambiguates duplicates
- * with the region or country.
+ * The summary says what is in the collection and where it is. The second
+ * paragraph says how it is verified. Neither says how to travel between the
+ * places, because the committed data does not record a route.
  */
-export function titleFor(category, members, anchor) {
-  return (
-    specificAreaName(anchor.protectedArea) ||
-    anchor.range?.name ||
-    anchor.name
-  );
+export function describeCollection({
+  members,
+  label,
+  country,
+  span,
+  trailCount,
+  photoCount,
+}) {
+  const photos =
+    Number.isFinite(photoCount)
+      ? photoCount
+      : members.filter((member) => member.photos.length > 0).length;
+  const where = country && country !== label ? `${label}, ${country}` : label;
+  const summary =
+    `A collection of ${members.length} remarkable places across ${where}: ` +
+    `${kindPhrase(members)}, within ${Math.round(span)} km of each other.`;
+
+  const evidence =
+    `Every place links to its Terrane page and to a Wikipedia article` +
+    `${photos ? `; ${photos} of ${members.length} have a credited Wikimedia Commons photograph` : ""}` +
+    `${
+      trailCount
+        ? `; ${trailCount} named trail${trailCount === 1 ? " is" : "s are"} recorded within 10 km of the places`
+        : ""
+    }. Campsites, huts and trailheads are listed from OpenStreetMap cells when the ` +
+    `page loads, never inferred here.`;
+
+  return { summary, description: [summary, evidence] };
 }
 
 export function slugify(value) {
@@ -595,98 +422,4 @@ export function slugify(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-}
-
-/**
- * Two factual paragraphs: what the route links, and the numbers behind it.
- * No adjectives the data cannot support.
- */
-export function describeExperience({
-  category,
-  members,
-  stops,
-  distanceKm,
-  duration,
-  difficulty,
-  itinerary,
-  label,
-}) {
-  const first = stops[0];
-  const last = stops[stops.length - 1];
-  const dayText = duration.days === 1 ? "One day" : `${duration.days} days`;
-  const summary = `${dayText} on foot across ${label}, from ${first.name} to ${last.name}: ${stops.length} stops, ${distanceKm} km apart in a straight line.`;
-
-  const parts = [];
-
-  /* The trails, by name, at the stop they are nearest. This is the most concrete
-     thing the committed data can say about which path to take. */
-  const trailLines = [];
-  for (const stop of stops) {
-    const nearest = [...(stop.trails ?? stop.trailLinks ?? [])]
-      .filter((trail) => trail?.name)
-      .sort(
-        (a, b) => (a.km ?? 0) - (b.km ?? 0) || a.name.localeCompare(b.name),
-      )[0];
-    if (nearest) {
-      trailLines.push(`${nearest.name} (${nearest.km} km from ${stop.name})`);
-    }
-  }
-  if (trailLines.length > 0) {
-    parts.push(
-      `Recorded trails nearest the stops: ${formatList(trailLines.slice(0, 4))}${
-        trailLines.length > 4 ? `, and ${trailLines.length - 4} more` : ""
-      }.`,
-    );
-  } else {
-    parts.push("No named trail is recorded within 10 km of these stops.");
-  }
-  const elevations = members
-    .filter((member) => Number.isFinite(member.elev) && member.elev > 0)
-    .sort((a, b) => a.elev - b.elev);
-  if (elevations.length >= 2) {
-    const low = elevations[0];
-    const high = elevations[elevations.length - 1];
-    parts.push(
-      `Elevation runs from ${Math.round(low.elev).toLocaleString("en-US")} m at ${low.name} to ${Math.round(high.elev).toLocaleString("en-US")} m at ${high.name}.`,
-    );
-  } else if (elevations.length === 1) {
-    parts.push(
-      `${elevations[0].name} is recorded at ${Math.round(elevations[0].elev).toLocaleString("en-US")} m.`,
-    );
-  }
-
-  const protectedNames = new Map();
-  for (const member of members) {
-    const name = specificAreaName(member.protectedArea);
-    if (name) protectedNames.set(name, (protectedNames.get(name) ?? 0) + 1);
-  }
-  const shared = [...protectedNames.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .find(([, count]) => count >= 2);
-  if (shared) {
-    parts.push(`${shared[1]} stops are recorded inside ${shared[0]}.`);
-  }
-
-  const longest = [...itinerary].sort(
-    (a, b) => b.km - a.km || a.day - b.day,
-  )[0];
-  const climb = [...itinerary].sort(
-    (a, b) => b.ascentM - a.ascentM || a.day - b.day,
-  )[0];
-  parts.push(
-    `${difficultyBasis(difficulty.level)}${
-      longest ? ` The longest day is ${longest.km} km` : ""
-    }${climb && climb.ascentM > 0 ? `, with up to ${climb.ascentM} m of ascent` : ""}.`,
-  );
-  parts.push(
-    `Distances are straight lines between stops, not trail distance; ${distanceKm} km in total.`,
-  );
-
-  if (category === "camping") {
-    parts.push(
-      "Campsites and huts near each stop come from OpenStreetMap cells and are listed on this page.",
-    );
-  }
-
-  return { summary, description: [summary, parts.join(" ")] };
 }

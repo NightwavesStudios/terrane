@@ -3,19 +3,16 @@ import type {
   Experience,
   ExperienceCatalogRow,
   ExperienceCategoryId,
-  ExperienceDifficulty,
 } from "../data/experiences";
 import { kmBetween } from "./geo";
-import { formatKm } from "./present";
 import { normalize } from "./text";
 
 /**
  * Lazy access to the generated experience index.
  *
- * The catalog is one compact file (one row per route) and each route is one
- * first-character shard, following `placePages.ts`. The list page can search and
- * filter without downloading the full stop, photo and trail records; the detail
- * page loads exactly one shard.
+ * The catalog is one compact file (one row per collection) and each collection
+ * is one hash-bucket shard, so a page downloads exactly one shard. The list can
+ * search and filter without loading the full stop, photo and trail records.
  *
  * Filtering is a pure function of rows here, not of the page's state, so it is
  * unit-tested rather than checked by clicking.
@@ -32,9 +29,11 @@ const FILES = import.meta.glob("../data/experience-index/*.json");
 const shardCache = new Map<string, Promise<ShardFile | null>>();
 let catalogPromise: Promise<CatalogFile | null> | null = null;
 
-function shardOf(slug: string): string {
-  const first = slug.slice(0, 1).toLowerCase();
-  return /[a-z0-9]/.test(first) ? first : "_";
+/** Mirrors `bucketOf` in `scripts/build-experiences.mjs`. */
+function bucketOf(slug: string): string {
+  let hash = 0;
+  for (let i = 0; i < slug.length; i += 1) hash = (hash * 31 + slug.charCodeAt(i)) | 0;
+  return "0123456789abcdef"[Math.abs(hash) % 16];
 }
 
 function loadJson<T>(file: string): Promise<T | null> {
@@ -51,7 +50,7 @@ function loadCatalog(): Promise<CatalogFile | null> {
 }
 
 function loadShard(slug: string): Promise<ShardFile | null> {
-  const file = `${shardOf(slug)}.json`;
+  const file = `${bucketOf(slug)}.json`;
   let pending = shardCache.get(file);
   if (!pending) {
     pending = loadJson<ShardFile>(file);
@@ -92,6 +91,23 @@ export function useExperienceCatalog(): {
   return state;
 }
 
+/**
+ * The catalogue without a component.
+ *
+ * The map draws every collection as one marker and needs the rows before any
+ * page mounts, so the same cached fetch the list page uses is exposed here.
+ */
+export function loadExperienceCatalog(): Promise<ExperienceCatalogRow[]> {
+  return loadCatalog().then((file) =>
+    Array.isArray(file?.items) ? file.items : [],
+  );
+}
+
+/** One collection, for drawing its places on the globe. */
+export function loadExperience(slug: string): Promise<Experience | null> {
+  return loadShard(slug).then((file) => file?.items?.[slug] ?? null);
+}
+
 export function useExperience(slug: string): {
   experience: Experience | null;
   loading: boolean;
@@ -121,8 +137,8 @@ export function useExperience(slug: string): {
 /**
  * How well a row answers a query.
  *
- * A title match leads, the region/country answers "where", and a stop name is
- * the discovery path from a place the reader already knows. Everything is
+ * A title match leads, the region/country answers "where", and a place name is
+ * the discovery path from somewhere the reader already knows. Everything is
  * normalised the same way the map's search normalises names.
  */
 function scoreRow(row: ExperienceCatalogRow, term: string): number {
@@ -139,7 +155,7 @@ function scoreRow(row: ExperienceCatalogRow, term: string): number {
   return score;
 }
 
-/** How far from a chosen place a route still counts as "near". */
+/** How far from a chosen place a collection still counts as "near". */
 export const NEAR_RADIUS_KM = 150;
 
 export type ExperienceNear = { lat: number; lon: number; label: string };
@@ -147,11 +163,10 @@ export type ExperienceNear = { lat: number; lon: number; label: string };
 export type ExperienceFilter = {
   query?: string;
   category?: ExperienceCategoryId | null;
-  difficulty?: ExperienceDifficulty | null;
   near?: ExperienceNear | null;
 };
 
-/** Straight-line kilometres from a place to a route's centre. */
+/** Straight-line kilometres from a place to a collection's centre. */
 export function kilometresFrom(
   row: Pick<ExperienceCatalogRow, "lat" | "lon">,
   near: ExperienceNear,
@@ -162,10 +177,10 @@ export function kilometresFrom(
 /**
  * Filter and order the catalogue.
  *
- * Category and difficulty narrow the pool; a query scores titles, regions and
- * stop names; a chosen place keeps routes within `NEAR_RADIUS_KM` and orders
- * them by distance. A query inside a place still ranks matches first, with
- * distance breaking ties.
+ * Category narrows the pool; a query scores titles, regions and place names; a
+ * chosen place keeps collections within `NEAR_RADIUS_KM` and orders them by
+ * distance. A query inside a place still ranks matches first, with distance
+ * breaking ties.
  */
 export function filterExperiences(
   rows: ExperienceCatalogRow[],
@@ -173,12 +188,10 @@ export function filterExperiences(
 ): ExperienceCatalogRow[] {
   const term = normalize((options.query ?? "").trim());
   const category = options.category ?? null;
-  const difficulty = options.difficulty ?? null;
   const near = options.near ?? null;
 
   let pool = rows;
   if (category) pool = pool.filter((row) => row.category === category);
-  if (difficulty) pool = pool.filter((row) => row.difficulty === difficulty);
   if (near) {
     pool = pool.filter((row) => kilometresFrom(row, near) <= NEAR_RADIUS_KM);
   }
@@ -202,7 +215,7 @@ export function filterExperiences(
     .map((item) => item.row);
 }
 
-/** The stop a query matched, for the "includes X" line on a card. */
+/** The place a query matched, for the "includes X" line on a card. */
 export function matchedStop(
   row: ExperienceCatalogRow,
   query: string,
@@ -210,32 +223,6 @@ export function matchedStop(
   const term = normalize(query.trim());
   if (!term) return undefined;
   return row.stopNames.find((name) => normalize(name).includes(term));
-}
-
-export function difficultyLabel(id: ExperienceDifficulty): string {
-  return id === "easy" ? "Easy" : id === "moderate" ? "Moderate" : "Hard";
-}
-
-/** Kilometres in miles, rounded — the page gives both for a walking audience. */
-export function kmAsMiles(km: number): number {
-  return Math.round(km * 0.621371);
-}
-
-/** "12 km (7 mi)" — distance with its mile equivalent. */
-export function formatKmMiles(km: number): string {
-  return `${formatKm(km)} (${kmAsMiles(km).toLocaleString("en-US")} mi)`;
-}
-
-export function durationLabel(hours: number, days: number): string {
-  const dayText = days === 1 ? "1 day" : `${days} days`;
-  if (!Number.isFinite(hours) || hours <= 0) return `≈ ${dayText}`;
-  const rounded = Math.round(hours * 10) / 10;
-  return `≈ ${rounded} h · ${dayText}`;
-}
-
-/** The distance is a straight-line sum; never present it as road or trail km. */
-export function straightLineLabel(km: number): string {
-  return `${formatKm(km)} straight line`;
 }
 
 export function experienceWhere(row: {

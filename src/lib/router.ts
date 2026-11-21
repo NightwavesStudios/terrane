@@ -5,6 +5,8 @@ export type Route =
   | { name: "place"; slug: string }
   | { name: "experiences" }
   | { name: "experience"; slug: string }
+  | { name: "collections" }
+  | { name: "collection"; slug: string }
   | { name: "saved" }
   | { name: "coverage" };
 
@@ -29,6 +31,9 @@ export function parseRoute(pathname: string): Route {
   if (path === "/experiences") return { name: "experiences" };
   const experience = path.match(/^\/experiences\/([a-z0-9-]+)$/);
   if (experience) return { name: "experience", slug: experience[1] };
+  if (path === "/collections") return { name: "collections" };
+  const collection = path.match(/^\/collections\/([a-z0-9-]+)$/);
+  if (collection) return { name: "collection", slug: collection[1] };
   const m = path.match(/^\/place\/([a-z0-9-]+)$/);
   if (m) return { name: "place", slug: m[1] };
   return { name: "home" };

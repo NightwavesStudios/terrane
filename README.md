@@ -15,8 +15,10 @@ POIs remain map-only. Coverage is uneven; the [Data page](/coverage) and
 
 > **Facts only.** Place pages show type, high point, country, coordinates and a
 > Wikidata description, with a credited Commons photograph where one exists.
-> Experiences are generated from that geography, not hand-written; there are no
-> accounts and the saves stay in the browser.
+> Experiences are a curated catalogue of individual destinations, each page built
+> only from its own recorded geography, trails and sources. Collections are
+> generated thematic groups of places and stay off the map. There are no accounts
+> and the saves stay in the browser.
 
 ## Quick start
 
@@ -29,6 +31,8 @@ npm run check      # typecheck + tests + data validation
 npm run pages      # page index + details + trail links + manifest + validation
 npm run data:update # incremental page/detail refresh for the current destinations
 npm run details    # Wikidata/Commons place details (network; committed output)
+npm run experiences # rebuild the curated Experience index
+npm run collections # rebuild the generated Collections index
 npm run audit      # data audit → reports/ (generated, gitignored)
 npm run clean      # remove dist and other regenerable build output
 ```
@@ -48,18 +52,21 @@ it needs a rebuild, not a restart.
 
 | Path | Page | What it is |
 | --- | --- | --- |
-| `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. |
+| `/` | `Home` | The globe, full bleed: header, caption, filters, search and layers. The map draws the curated Experiences, not Collections. |
 | `/?place=<slug>` | `Home` | The globe with a place pre-selected and flown to. |
 | `/place/:slug` | `Place` | Destination page: photo, description, facts, range/park, trails, activities, nearby places and save. |
-| `/experiences` | `Experiences` | Generated walking-route catalogue: search by title, stop, region or country, or filter to routes near a named place; filter by the five categories and by walking difficulty; save. |
-| `/experiences/:slug` | `Experience` | One generated route: walking-day itinerary with distances in km and miles, named trails and OSM stays, difficulty, interactive map, ordered stops, practical places from the cell store, photographs and save. |
-| `/saved` | `Saved` | The destinations and experiences saved in this browser. |
+| `/experiences` | `Experiences` | Curated catalogue of individual destinations: search by title, place, region or country, filter to those near a named place and by the six kinds; save. |
+| `/experiences/:slug` | `Experience` | One curated destination: overview, why it is worth visiting, recorded features, associated places and trails, a map, practical places from the cell store, photographs, official/source links and save. |
+| `/collections` | `Collections` | Generated thematic groups of places: search, filter by kind and by a nearby place. Collections are not saved and do not appear on the globe. |
+| `/collections/:slug` | `Collection` | One collection: its places, each with a Terrane page and source, nearby named trails, a map of the group, practical places from the cell store and photographs. |
+| `/saved` | `Saved` | The places and curated Experiences saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
 
 Routing is real paths through the History API, parsed in `src/lib/router.ts`.
-There is no router dependency. Saves are a versioned `localStorage` list; the
-place page's back link restores the last globe camera from `sessionStorage`.
+There is no router dependency. Saved places and Experiences are versioned
+`localStorage` lists; the place page's back link restores the last globe camera
+from `sessionStorage`.
 
 ## Stack
 
@@ -78,11 +85,11 @@ place page's back link restores the last globe camera from `sessionStorage`.
 
 ```
 src/
-  App.tsx            route switch; Home is eager, Place and Coverage are lazy
-  pages/             Home, Place, Saved, Coverage
-  components/        header, chips, layers, search, card, ridge art, place/
+  App.tsx            route switch; Home is eager, the rest are lazy
+  pages/             Home, Place, Experiences, Experience, Collections, Collection, Saved, Coverage
+  components/        header, chips, layers, search, card, ridge art, place/, guide/
   map/               MapLibre style, globe component, layers, DEM, contours
-  data/              typed models + generated JSON (atlas, reach, page index, details, trail links, manifest)
+  data/              typed models + generated JSON (atlas, reach, page index, details, trail links, guide, collections, manifest)
   lib/               router, live cell feed, geolocation, distances, filters, meta, saves
 ```
 
@@ -90,9 +97,10 @@ src/
   a latitude-banded land backdrop, landcover, park areas, water, roads,
   boundaries and the full label ladder.
 - **`src/map/Globe.tsx`** owns one `Map`, adds runtime layers, and turns clicks
-  into one `Pick`. **`src/map/destinations.ts`**, **`mapped.ts`** and
-  **`trails.ts`** own their sources and zoom bands. Practical pins are dealt into
-  per-cell bands, pushed once per frame and bounded to the viewport.
+  into one `Pick`. **`src/map/destinations.ts`**, **`mapped.ts`**,
+  **`trails.ts`** and **`experiences.ts`** own their sources and zoom bands.
+  Practical pins are dealt into per-cell bands, pushed once per frame and bounded
+  to the viewport; the Experiences source is the curated catalogue only.
 - **`src/map/dem.ts`** exposes elevation as a MapLibre protocol; a worker fetches
   and resamples tiles. **`contours.ts`** generates contours from the same DEM.
 - **`src/data/features.ts`** is the one feature/pick model and style-expression
@@ -130,19 +138,30 @@ websites, parent ranges and protected areas; `src/data/trail-links/` holds the
 nearest named trails. `npm run pages` rebuilds the index, fetches only missing
 detail records, rebuilds trail links, regenerates experiences and validates;
 `npm run data:update` is the normal incremental command. The generated files are
-committed, and `npm run build` regenerates the indexes and experiences from them
-without the network.
+committed, and `npm run build` regenerates the page index, both catalogues and the
+manifest from them without the network.
 
-`src/data/experience-index/` is the generated route set: a compact `catalog.json`
-for the list and search, one first-character shard per route, and `meta.json`.
-`scripts/build-experiences.mjs` clusters the destination records and writes it;
-`npm run experiences` runs only that step. Each route is walked: the generator
-splits it into days by Naismith's rule, grades it easy/moderate/hard from the
-longest day, the climb and the high point, and names the recorded trail nearest
-each stop. Practical campsites, huts and trailheads are deliberately not baked
-in — the experience page reads them from the cell store, where their
-OpenStreetMap coverage can be credited and caveated, and attaches the nearest
-mapped bed to each walking day.
+`src/data/guide-index/` is the curated Experience catalogue: a compact
+`catalog.json` for the list and search, sixteen hash-bucket shards, and
+`meta.json`. The set is frozen editorially in `src/data/guide-selection.json`
+(183 destinations), not computed from a live ranking; `scripts/build-guide.mjs`
+writes one page per selected slug from that destination's own detail, trail and
+photo records, and fails on an unresolved entry. Every page names its six-kind
+classification, associated places within 30 km, nearby named trails, photographs
+and official or Wikipedia sources. It invents no access, facilities or
+connections; missing facts are omitted. Practical campsites, huts and trailheads
+are read from the cell store at runtime rather than baked into the page.
+
+`src/data/experience-index/` is the separate, generated Collections set: a
+compact `catalog.json`, sixteen hash-bucket shards and `meta.json`.
+`scripts/build-experiences.mjs` groups same-country destinations within 120 km
+and writes it; `npm run collections` runs only that step. A place is eligible only
+when its detail record has a Wikipedia URL, so every stop has a Terrane page and
+an external reference. The generator caps the set at about 220 collections,
+guarantees one per represented country and at least three in Georgia, and records
+only geography: places, categories, elevations, nearby named trails and the extent
+of the group. Collections are not saved and are deliberately absent from the map;
+their pages do not plan walking days or claim distances between places.
 
 The bundled manifest is the first paint; the live manifest and coverage report
 come from the cell store. `scripts/build-manifest.mjs` derives every count and
@@ -157,6 +176,7 @@ npm run typecheck  # tsc -b
 npm test           # router, ranking, filters, distances, camera, catalog, saves
 npm run validate   # manifest counts, schemas, duplicate rules, coverage
 npm run build      # all of the above + Data checks + Vite build + SEO into dist
+npm run sources:check  # opt-in network: fetch every experience source URL
 npm run audit      # data density, duplicates and freshness (report only)
 npm run trail:quality  # strict geometry gate (needs public/trails)
 n```
@@ -165,6 +185,18 @@ n```
 every push to `main` and every pull request, and uploads `dist`. The data
 workflows are separate and never deploy the site. There is deliberately no
 linter; `tsc` with `noUnused*` is the static gate.
+
+`npm run sources:check` is the one networked check. It fetches every distinct
+Wikipedia article and Wikimedia Commons file page carried by a shipped
+Experience or Collection place, follows redirects, and classifies each link
+verified, dead or unreachable. It writes `src/data/experience-sources.json`; the
+curated Experience generator only admits entries whose article and photo page are
+verified, and the normal build and CI read that artifact offline. `--incremental`
+checks only new URLs and keeps the existing verified entries. The check refuses to
+overwrite the artifact when nothing could be verified or when any URL was
+unreachable, and `--strict` (used by the npm script) exits non-zero on a confirmed
+dead link. A manual `.github/workflows/experience-sources.yml` run repeats it
+without making CI or the build depend on the network.
 
 The build always writes `dist/sitemap.xml` and `dist/robots.txt`: absolute URLs
 use `SITE_URL` (or Vercel's production hostname) when set, and the documented
@@ -202,17 +234,23 @@ be copied. See [deployment](docs/deploy.md) for the runbook and the decision.
 - **Photos and descriptions are Wikidata's coverage.** Some pages have a Commons
   image and description; many reach pages are sparse and show ridge art and no
   About section. Official websites are sparser still.
-- **Experiences are generated, not curated.** Each destination belongs to at most
-  one generated route, and there are no hand-written itineraries yet. The record's
-  `source` field is the hook for them.
-- **Experience distances are straight lines and walking times are estimates.**
-  Days follow Naismith's rule on those straight-line legs, so both the day plan
-  and the difficulty grade are a floor for the ground, never a trail survey. The
-  model is printed beside every number.
-- **Practical stops on an experience are OSM coverage.** The generated route
-  knows destinations and named trails; campsites, huts and trailheads come from
-  the cell store and inherit its uneven coverage. A day with no mapped bed within
-  6 km simply shows none.
+- **Experiences are a curated selection, not a census.** The 183 entries in
+  `guide-selection.json` are chosen editorially from the destination database; a
+  remarkable place can exist on the Globe without having an Experience page yet.
+  The Globe remains the comprehensive discovery surface.
+- **Experiences are not itineraries.** A page lists what is recorded about one
+  destination and its associated places and trails; it makes no claim about how
+  to travel between them, current access or seasonal closures.
+- **Every Experience source is verified.** A curated entry needs a verified
+  Wikipedia article and, when it has a photo, a verified Commons file page. The
+  generator refuses an unresolved entry rather than inventing content.
+- **Collections are generated and stay off the map.** Each destination belongs to
+  at most one collection; a collection says which remarkable places share a
+  region and does not claim a route between them. Collections are not saveable.
+- **Practical places on Experience and Collection pages are OSM coverage.**
+  Campsites, huts and trailheads come from the cell store and inherit its uneven
+  coverage. An empty section means nobody mapped it, not that there is nowhere to
+  stay.
 - **Saves are local to one browser.** There is no account and no sync; clearing
   site data removes them.
 - **Practical POIs are map-only.** Campsites, parking, water, toilets and

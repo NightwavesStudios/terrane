@@ -1,5 +1,65 @@
 # Changelog
 
+## 2026-11-21 — Experiences become curated destinations; Collections are separate
+
+- Split the product into four tabs with distinct jobs: **Globe** (the full POI
+  database), **Experiences** (curated individual destinations), **Collections**
+  (generated thematic groups) and **Saved** (the personal library).
+- Added a curated Experience catalogue of **183 destinations** across 47
+  countries, frozen in `guide-selection.json` and built by `build-guide.mjs` from
+  each place's own description, protected area, range, elevation, photos, trails
+  and neighbours. Pages have an overview, why it is worth visiting, recorded
+  features, associated places and trails, a map, photographs, official/source
+  links and clear uncertainty; no access, facilities or closures are asserted.
+- Classified the catalogue into six kinds (peak, park, waterfall, lake, coast,
+  landmark) type-first, so a national park named for a waterfall stays a park.
+- Moved the previous generated experience catalogue to `/collections` and
+  `/collections/:slug`, with its 220 collections intact. Collections no longer
+  appear on the globe, no longer have save controls and no longer appear in Saved.
+- The globe's Experience layer now draws the curated catalogue only; layers,
+  counts and picking follow the six kinds. Saved Experiences use their own
+  `terrane.saved.guide.v1` store; saved places are unchanged.
+- Extended source verification to both catalogues and added `--incremental`:
+  2,885 URLs verified, 0 dead, 0 unreachable. Added 14 curated-Experience checks
+  to `npm run validate` (78 checks total) and `/experiences`, `/collections` and
+  their detail routes to the sitemap.
+
+## 2026-11-21 — Experience source links are fetched, not assumed
+
+- Added `npm run sources:check`, a networked verifier that fetches every
+  distinct source URL a shipped place links to, follows redirects, checks the
+  final page is a real article or Commons file, and classifies each as verified,
+  dead or unreachable. It never treats 404/410, a redirect to search or the main
+  page, a missing-article page or an off-site redirect as verified.
+- Wrote `src/data/experience-sources.json`: 2,576 distinct URLs (1,312 Wikipedia
+  articles, 1,264 Commons file pages) checked, 2,576 verified, 0 dead,
+  0 unreachable. The generator now admits a place only when its article and photo
+  page are in that artifact, and refuses to run without it; missing artifacts are
+  build errors, not silent fallbacks.
+- Added `npm run sources:verify` for an offline coverage check, a manual
+  networked GitHub workflow, and validator checks that every shipped source and
+  photograph page is verified and that Georgia keeps at least three collections
+  with every place source verified. No places or collections were dropped.
+
+## 2026-11-21 — Experiences become verified collections
+
+- An experience is now a collection of remarkable places in one region, not an
+  itinerary. Records no longer carry `itinerary`, `days`, `durationHours`,
+  `difficulty` or `distanceKm`; `spanKm` states only the extent of the group.
+- Every place must have a Wikipedia URL in its detail record, so every stop on
+  every page links to its Terrane page and an external reference. The generator
+  refuses unverified destinations instead of filling a quota, and the validator
+  checks the links resolve to a page.
+- Collections are built within one country, so a Georgia collection contains
+  Georgian places rather than a border-spanning mixture. The set is capped at
+  220 collections, one per represented country, with at least three in Georgia.
+- The map draws a selected collection's places as neutral markers and no longer
+  draws a dashed line or numbered stops. Cards and saved rows show places,
+  extent and sources instead of days and difficulty.
+- Pages list campsites, huts, trailheads and viewpoints from OpenStreetMap cells
+  with coordinates, and state that coverage is uneven rather than inferring a
+  stay from the destination data.
+
 ## 2026-11-21 — Experiences are walked, graded and named after the ground
 
 - Experiences are now planned on foot: walking days split long legs by

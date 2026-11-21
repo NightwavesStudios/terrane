@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { CATEGORIES, FAMILIES, type Family } from "../data/features";
+import { GUIDE_KINDS } from "../data/guide";
+import { useGuideCatalog } from "../lib/guide";
 import { useManifest } from "../lib/live";
 
 /**
@@ -30,6 +32,9 @@ export interface LayerState {
   /** Master switch for every point on the map. */
   features: boolean;
   cats: Record<string, boolean>;
+  /** Routes are their own layer, not a category of pin. */
+  experience: boolean;
+  expCats: Record<string, boolean>;
 }
 
 export const DEFAULT_LAYERS: LayerState = {
@@ -48,6 +53,8 @@ export const DEFAULT_LAYERS: LayerState = {
   labels: true,
   features: true,
   cats: Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
+  experience: true,
+  expCats: Object.fromEntries(GUIDE_KINDS.map((c) => [c.id, true])),
 };
 
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
@@ -82,6 +89,14 @@ export default function LayerControl({
 }) {
   const [open, setOpen] = useState(false);
   const manifest = useManifest();
+  const experience = useGuideCatalog();
+  const expCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const row of experience.rows) {
+      counts[row.kind] = (counts[row.kind] ?? 0) + 1;
+    }
+    return counts;
+  }, [experience.rows]);
   const rawCount = (id: string) =>
     Number((manifest.byCategory as Record<string, number>)[id] ?? 0);
   const count = (id: string) => compact.format(rawCount(id));
@@ -159,8 +174,13 @@ export default function LayerControl({
 
   const activeCats = CATEGORIES.filter((c) => value.features && value.cats[c.id]).length;
   const baseOn = BASE_ROWS.filter((r) => value[r.key]).length;
-  const active = baseOn + activeCats;
-  const total = BASE_ROWS.length + CATEGORIES.length;
+  const active = baseOn + activeCats + (value.experience ? 1 : 0);
+  const total = BASE_ROWS.length + CATEGORIES.length + 1;
+  const activeExp = GUIDE_KINDS.filter((c) => value.expCats[c.id]).length;
+
+  function setExpCat(id: string, on: boolean) {
+    onChange({ ...value, expCats: { ...value.expCats, [id]: on } });
+  }
 
   function setCats(ids: string[], on: boolean) {
     const cats = { ...value.cats };
@@ -240,6 +260,44 @@ export default function LayerControl({
 
       {open && (
         <div className="layers-panel" role="group" aria-label="Map layers" ref={panel}>
+          {/* Routes first and on their own: an experience is not a pin, and the
+              panel says so before the lists of peaks and campsites. */}
+          <div className="layers-group layers-group--experiences">
+            <label className="layers-row layers-row--group layers-row--experience">
+              <input
+                type="checkbox"
+                checked={value.experience}
+                onChange={() => onChange({ ...value, experience: !value.experience })}
+              />
+              <span className="layers-text">
+                <span className="layers-label">Experiences</span>
+                <span className="layers-note mono">
+                  {experience.rows.length
+                    ? `${experience.rows.length.toLocaleString("en-US")} curated · ${activeExp}/${GUIDE_KINDS.length} on`
+                    : "loading experiences…"}
+                </span>
+              </span>
+            </label>
+            {GUIDE_KINDS.map((cat) => (
+              <label className="layers-row layers-row--cat" key={cat.id}>
+                <input
+                  type="checkbox"
+                  checked={value.experience && value.expCats[cat.id]}
+                  onChange={() => setExpCat(cat.id, !value.expCats[cat.id])}
+                />
+                <span className="layers-text">
+                  <span className="layers-label layers-label--cat">
+                    <i className="cat-dot cat-dot--experience" style={{ background: cat.colour }} />
+                    {cat.label}
+                  </span>
+                  <span className="layers-note mono">
+                    {compact.format(expCounts[cat.id] ?? 0)}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
           {BASE_ROWS.map((row) => (
             <Fragment key={row.key}>
               <label className="layers-row">

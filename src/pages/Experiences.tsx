@@ -1,69 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
-import ExperienceCard from "../components/experiences/ExperienceCard";
+import GuideCard from "../components/guide/GuideCard";
 import { PLACES } from "../data/places";
-import {
-  EXPERIENCE_CATEGORIES,
-  EXPERIENCE_DIFFICULTIES,
-  type ExperienceCategoryId,
-  type ExperienceDifficulty,
-} from "../data/experiences";
-import {
-  filterExperiences,
-  useExperienceCatalog,
-  type ExperienceNear,
-} from "../lib/experiences";
+import { GUIDE_KINDS, type GuideKindId } from "../data/guide";
+import { filterGuides, useGuideCatalog, type GuideNear } from "../lib/guide";
 import { setMeta } from "../lib/meta";
-import {
-  toggleSavedExperience,
-  useSavedExperienceSlugs,
-} from "../lib/savedExperiences";
 
 const nearLabel = (place: (typeof PLACES)[number]) =>
   `${place.name} — ${place.country}`;
 
 /**
- * The Experiences section.
+ * The curated Experiences catalogue.
  *
- * Browse the generated routes, narrow them by kind and by walking difficulty,
- * search a title, a region, a country or a stop, or filter to what is walkable
- * from a named place. The catalog is one compact file; a card opens the route's
- * own shard. No mode tabs: the controls answer different questions and combine.
+ * These are the destinations Terrane has chosen to feature: a few hundred of the
+ * most significant peaks, parks, falls, lakes and coastlines in the destination
+ * database, each with its own editorial page. The full database remains on the
+ * Globe. Collections are elsewhere, and are groups rather than destinations.
  */
 export default function Experiences() {
-  const catalog = useExperienceCatalog();
+  const catalog = useGuideCatalog();
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
-  const [activeCat, setActiveCat] = useState<ExperienceCategoryId | null>(null);
-  const [difficulty, setDifficulty] = useState<ExperienceDifficulty | null>(null);
+  const [activeKind, setActiveKind] = useState<GuideKindId | null>(null);
   const [nearTerm, setNearTerm] = useState("");
-  const [near, setNear] = useState<ExperienceNear | null>(null);
-  const saved = useSavedExperienceSlugs();
+  const [near, setNear] = useState<GuideNear | null>(null);
 
   useEffect(() => {
     setMeta({
       title: "Experiences — Terrane",
       description:
-        "Walking routes generated from geography: named trails, walking days, distances and difficulty, grouped into weekend, mountain, hiking, camping and national park experiences.",
+        "A curated catalogue of the world's most significant outdoor destinations: parks, peaks, waterfalls, lakes and coastlines, each with an editorial page grounded in recorded geography.",
       path: "/experiences",
     });
   }, []);
 
-  /* 150 ms swallows a word typed normally and is short enough that the first
-     result is there before the eye reaches the grid. */
   useEffect(() => {
     const id = window.setTimeout(() => setQuery(term), 150);
     return () => window.clearTimeout(id);
   }, [term]);
 
   const rows = useMemo(
-    () => filterExperiences(catalog.rows, { query, category: activeCat, difficulty, near }),
-    [catalog.rows, query, activeCat, difficulty, near],
-  );
-
-  const categoryCount = useMemo(
-    () => filterExperiences(catalog.rows, { category: activeCat, difficulty, near }).length,
-    [catalog.rows, activeCat, difficulty, near],
+    () => filterGuides(catalog.rows, { query, kind: activeKind, near }),
+    [catalog.rows, query, activeKind, near],
   );
 
   const searching = query.trim().length > 0;
@@ -78,8 +56,7 @@ export default function Experiences() {
 
   const resetAll = () => {
     setTerm("");
-    setActiveCat(null);
-    setDifficulty(null);
+    setActiveKind(null);
     setNearTerm("");
     setNear(null);
   };
@@ -88,14 +65,15 @@ export default function Experiences() {
     <div className="page">
       <Header tone="light" />
 
-      <div className="page-head exp-head">
+      <div className="page-head exp-head guide-head">
         <p className="eyebrow">Experiences</p>
-        <h1 className="page-title">Routes the map suggests</h1>
+        <h1 className="page-title">The places worth the journey</h1>
         <p className="page-sub">
-          Every route here is walked. Nearby destinations are grouped into a short
-          sequence, named from the range, park or region they share, and split into
-          walking days with the recorded trails nearest each stop. There is no
-          hand-written itinerary in this list.
+          A curated catalogue of significant outdoor destinations — not every
+          mountain, lake or waterfall on the map. Each Experience is one real
+          place, chosen for its scale, recorded features or protected status, and
+          given a page built from its own geography. The Globe remains the full
+          database; Collections are thematic groups of places.
         </p>
       </div>
 
@@ -105,8 +83,8 @@ export default function Experiences() {
             <input
               value={term}
               onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search a route, park, range, country or stop…"
-              aria-label="Search experiences"
+              placeholder="Search an Experience, country or nearby place…"
+              aria-label="Search Experiences"
               spellCheck={false}
               autoComplete="off"
             />
@@ -126,12 +104,12 @@ export default function Experiences() {
               value={nearTerm}
               onChange={(event) => chooseNear(event.target.value)}
               placeholder="Near a place — town, park or peak…"
-              aria-label="Filter experiences by a nearby place"
-              list="exp-near-options"
+              aria-label="Filter Experiences by a nearby place"
+              list="guide-near-options"
               spellCheck={false}
               autoComplete="off"
             />
-            <datalist id="exp-near-options">
+            <datalist id="guide-near-options">
               {PLACES.map((place) => (
                 <option key={place.slug} value={nearLabel(place)} />
               ))}
@@ -151,118 +129,71 @@ export default function Experiences() {
           </div>
         </div>
 
-        <div className="chips chips--light" role="group" aria-label="Filter experiences by kind">
+        <div className="chips chips--light" role="group" aria-label="Filter Experiences by kind">
           <button
-            className={`chip${activeCat ? "" : " on"}`}
-            aria-pressed={!activeCat}
-            onClick={() => setActiveCat(null)}
+            className={`chip${activeKind ? "" : " on"}`}
+            aria-pressed={!activeKind}
+            onClick={() => setActiveKind(null)}
           >
             All
           </button>
-          {EXPERIENCE_CATEGORIES.map((category) => (
+          {GUIDE_KINDS.map((kind) => (
             <button
-              key={category.id}
-              className={`chip${activeCat === category.id ? " on" : ""}`}
-              aria-pressed={activeCat === category.id}
-              onClick={() =>
-                setActiveCat(activeCat === category.id ? null : category.id)
-              }
+              key={kind.id}
+              className={`chip${activeKind === kind.id ? " on" : ""}`}
+              aria-pressed={activeKind === kind.id}
+              onClick={() => setActiveKind(activeKind === kind.id ? null : kind.id)}
+              title={kind.blurb}
             >
-              {category.label}
-            </button>
-          ))}
-        </div>
-
-        <div
-          className="chips chips--light exp-chips--difficulty"
-          role="group"
-          aria-label="Filter experiences by difficulty"
-        >
-          <button
-            className={`chip${difficulty ? "" : " on"}`}
-            aria-pressed={!difficulty}
-            onClick={() => setDifficulty(null)}
-          >
-            Any difficulty
-          </button>
-          {EXPERIENCE_DIFFICULTIES.map((level) => (
-            <button
-              key={level.id}
-              className={`chip${difficulty === level.id ? " on" : ""}`}
-              aria-pressed={difficulty === level.id}
-              onClick={() => setDifficulty(difficulty === level.id ? null : level.id)}
-            >
-              {level.label}
+              {kind.label}
             </button>
           ))}
         </div>
 
         {nearTerm && !near ? (
-          <p className="mono exp-note">
-            Pick a place from the list to measure from it.
-          </p>
+          <p className="mono exp-note">Pick a place from the list to measure from it.</p>
         ) : null}
       </div>
 
       <div className="exp-results">
         {catalog.status === "loading" ? (
-          <p className="mono exp-note">Loading the generated routes…</p>
+          <p className="mono exp-note">Loading the curated catalogue…</p>
         ) : catalog.status === "error" ? (
           <p className="mono exp-note">
-            The experience index could not be loaded. The globe is unaffected.
+            The Experience index could not be loaded. The globe is unaffected.
           </p>
         ) : rows.length === 0 ? (
           <div className="exp-empty">
             <p>
               {searching
-                ? `Nothing matches “${query.trim()}” in ${categoryCount.toLocaleString()} route${categoryCount === 1 ? "" : "s"}.`
-                : "No routes match these filters."}
+                ? `Nothing matches “${query.trim()}”.`
+                : "No Experiences match these filters."}
             </p>
             <button className="btn btn-dark" onClick={resetAll}>
-              All experiences →
+              All Experiences →
             </button>
           </div>
         ) : (
           <>
             <p className="mono exp-count">
-              {rows.length.toLocaleString()} route{rows.length === 1 ? "" : "s"}
-              {activeCat
-                ? ` · ${EXPERIENCE_CATEGORIES.find((c) => c.id === activeCat)?.label}`
+              {rows.length.toLocaleString()} Experience{rows.length === 1 ? "" : "s"}
+              {activeKind
+                ? ` · ${GUIDE_KINDS.find((kind) => kind.id === activeKind)?.label}`
                 : ""}
-              {difficulty
-                ? ` · ${EXPERIENCE_DIFFICULTIES.find((d) => d.id === difficulty)?.label}`
-                : ""}
-              {near ? ` · within 150 km of ${near.label}` : ""}
+              {near ? ` · within 250 km of ${near.label}` : ""}
               {searching ? ` · matching “${query.trim()}”` : ""}
-              {catalog.generated ? ` · input data ${catalog.generated}` : ""}
+              {catalog.generated ? ` · data ${catalog.generated}` : ""}
             </p>
             <div className="exp-grid">
               {rows.map((row) => (
-                <ExperienceCard
-                  key={row.slug}
-                  row={row}
-                  query={query}
-                  near={near}
-                  saved={saved.has(row.slug)}
-                  onToggleSave={() =>
-                    toggleSavedExperience({
-                      slug: row.slug,
-                      title: row.title,
-                      category: row.category,
-                      difficulty: row.difficulty,
-                      stopCount: row.stopCount,
-                      days: row.days,
-                      country: row.country,
-                      region: row.region,
-                    })
-                  }
-                />
+                <GuideCard key={row.slug} row={row} near={near} />
               ))}
             </div>
             <p className="mono exp-note exp-note--foot">
-              Generated from {catalog.rows.length.toLocaleString()} walking routes over the
-              destination set. Days follow Naismith's rule; distances are straight lines
-              between stops, not trail distance.
+              {catalog.rows.length.toLocaleString()} curated destinations selected
+              from the full catalogue. Every page links its Wikipedia source and
+              includes only recorded features; access, closures and seasonal
+              conditions are not verified.
             </p>
           </>
         )}
@@ -271,8 +202,8 @@ export default function Experiences() {
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          EXPERIENCES ARE GENERATED FROM DESTINATION, DETAIL AND TRAIL DATA · MAP ©
-          OPENSTREETMAP · PHOTOS: WIKIMEDIA COMMONS
+          EXPERIENCES ARE CURATED DESTINATIONS, NOT ITINERARIES · MAP ©
+          OPENSTREETMAP · DATA: WIKIDATA · PHOTOS: WIKIMEDIA COMMONS
         </span>
       </footer>
     </div>

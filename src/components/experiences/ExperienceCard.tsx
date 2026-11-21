@@ -5,10 +5,7 @@ import {
   type ExperienceCatalogRow,
 } from "../../data/experiences";
 import {
-  difficultyLabel,
-  durationLabel,
   experienceWhere,
-  formatKmMiles,
   kilometresFrom,
   matchedStop,
   type ExperienceNear,
@@ -18,26 +15,23 @@ import { formatKm } from "../../lib/present";
 import { navigate } from "../../lib/router";
 
 /**
- * One experience card.
+ * One collection card.
  *
- * A photograph when a stop has a credited one, the generated ridge art when it
- * does not. The facts under the title are the same ones the page uses: where the
- * route is, how many stops, how far, and the labelled estimate. A search that
- * matched a stop says so, because "includes Dufourspitze" is a better answer
- * than a title that happens not to contain the query.
+ * A photograph when a place has a credited one, the generated ridge art when it
+ * does not. The facts under the title are the ones the record actually holds:
+ * where the collection is, how many places it gathers, how far apart they are,
+ * and how many carry a Wikipedia reference. A search that matched a place says
+ * so, because "includes Dufourspitze" is a better answer than a title that
+ * happens not to contain the query.
  */
 export default function ExperienceCard({
   row,
   query,
   near,
-  saved,
-  onToggleSave,
 }: {
   row: ExperienceCatalogRow;
   query?: string;
   near?: ExperienceNear | null;
-  saved: boolean;
-  onToggleSave: () => void;
 }) {
   const category = experienceCategory(row.category);
   const [failed, setFailed] = useState(false);
@@ -54,7 +48,7 @@ export default function ExperienceCard({
     <article className="exp-card">
       <button
         className="exp-card-open"
-        onClick={() => navigate(`/experiences/${row.slug}`)}
+        onClick={() => navigate(`/collections/${row.slug}`)}
         aria-label={`${row.title}, ${category.one}`}
       >
         <span className="exp-card-art">
@@ -70,9 +64,6 @@ export default function ExperienceCard({
             <RidgeArt hue={row.hue} className="exp-card-art-svg" />
           )}
           <span className="exp-card-badge mono">{category.one}</span>
-          <span className={`exp-card-diff exp-card-diff--${row.difficulty}`}>
-            {difficultyLabel(row.difficulty)}
-          </span>
           {photo ? (
             <span className="exp-card-credit mono">
               {photo.credit} · {photo.licence}
@@ -84,13 +75,10 @@ export default function ExperienceCard({
           {where ? <span className="mono exp-card-meta">{where}</span> : null}
           <span className="mono exp-card-stats">
             {[
-              `${row.stopCount} stops`,
-              formatKmMiles(row.distanceKm),
-              durationLabel(row.durationHours, row.days),
+              `${row.stopCount} places`,
+              `${formatKm(row.spanKm)} across`,
+              `${row.sourceCount} Wikipedia sources`,
             ].join(" · ")}
-          </span>
-          <span className="mono exp-card-day">
-            Up to {formatKmMiles(row.maxDayKm)} a day
           </span>
           {near ? (
             <span className="mono exp-card-near">
@@ -103,14 +91,6 @@ export default function ExperienceCard({
         </span>
       </button>
 
-      <button
-        className={`exp-card-save${saved ? " on" : ""}`}
-        onClick={onToggleSave}
-        aria-pressed={saved}
-        aria-label={saved ? `Remove ${row.title} from saved` : `Save ${row.title}`}
-      >
-        {saved ? "Saved ✓" : "Save"}
-      </button>
     </article>
   );
 }

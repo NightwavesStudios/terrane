@@ -1,22 +1,25 @@
 import categoriesFile from "./experience-categories.json";
 
 /**
- * Experiences: routes the map suggests, generated from geography.
+ * Experiences: collections of remarkable places, not itineraries.
  *
- * An experience is a small group of destinations that belong together on the
- * ground — peaks above one valley, a park and its lakes, a compact weekend. It is
- * not a hand-written itinerary: `scripts/build-experiences.mjs` builds every
- * record from the same destination, detail and trail-link files the rest of the
- * app uses, and writes committed shards under `experience-index/`.
+ * An experience gathers a few destinations that belong together on the ground —
+ * peaks above one valley, a park and its lakes, a compact group for a short trip
+ * — and presents them as things worth exploring. It deliberately makes no claim
+ * about how to travel between them: no walking days, no legs, no distance or
+ * duration estimates. The committed data records where each place is and what it
+ * is, not a route.
  *
- * `source` is `"generated"` for every record today. The field exists so a later
- * hand-curated route can join the same list without a schema change; nothing in
- * the UI assumes it is generated.
+ * `scripts/build-experiences.mjs` builds every record from the same destination,
+ * detail and trail-link files the rest of the app uses, and writes committed
+ * shards under `experience-index/`. A place is only eligible when its detail
+ * record carries a Wikipedia URL, so every stop on every page has a Terrane page
+ * and an external reference. `source` stays `"generated"` for every record today;
+ * a later hand-curated collection can join the same list unchanged.
  *
- * Facts only: a title names recorded geography, a description counts the stops
- * and the trails around them, and the distance is labelled as a straight line.
- * Practical POIs are never baked in — they are fetched from the cell store on the
- * page, where their source can be credited and their coverage caveated.
+ * Practical places (campsites, huts, trailheads) are never baked in — they are
+ * read from the cell store on the page, where their source is credited and their
+ * coverage caveated.
  */
 
 export type ExperienceCategoryId =
@@ -64,43 +67,10 @@ export interface ExperienceTrail {
   src?: string;
 }
 
-export type ExperienceDifficulty = "easy" | "moderate" | "hard";
-
-export const EXPERIENCE_DIFFICULTIES: {
-  id: ExperienceDifficulty;
+/** The external reference that verifies a place. */
+export interface ExperienceSource {
   label: string;
-}[] = [
-  { id: "easy", label: "Easy" },
-  { id: "moderate", label: "Moderate" },
-  { id: "hard", label: "Hard" },
-];
-
-/** A trail named for a walking day, at the stop it runs nearest. */
-export interface ExperienceDayTrail {
-  name: string;
-  km: number;
-  stop: number;
-  difficulty?: string;
-}
-
-/**
- * One walking day.
- *
- * Boundaries can fall mid-leg, so `fromName`/`toName` are either a stop or a
- * distance past the last stop ("Gresvatnet +4 km"). `stopFrom`/`stopTo` are the
- * 1-based stop indices the day covers, which is what the map and trails use.
- */
-export interface ExperienceDay {
-  day: number;
-  fromName: string;
-  toName: string;
-  stopFrom: number;
-  stopTo: number;
-  km: number;
-  hours: number;
-  ascentM: number;
-  highPoint?: number;
-  trails: ExperienceDayTrail[];
+  url: string;
 }
 
 export interface ExperienceStop {
@@ -109,15 +79,13 @@ export interface ExperienceStop {
   cat: string;
   lat: number;
   lon: number;
-  /** Position in the route, starting at 1. */
-  index: number;
-  /** Straight-line distance from the previous stop; 0 for the first. */
-  legKm: number;
-  /** Recorded climb from the previous stop, where both have an elevation. */
-  ascentM?: number;
   elevation?: number;
   country?: string;
   region?: string;
+  /** The recorded Wikidata description, one factual line. */
+  note?: string;
+  /** Wikipedia article for this place. Required by the generator. */
+  source: ExperienceSource;
   photo?: ExperiencePhoto;
   /** Up to three named trails within 10 km. */
   trails: ExperienceTrail[];
@@ -129,6 +97,8 @@ export interface ExperienceStats {
   parks: number;
   trails: number;
   photos: number;
+  /** Places with an external reference. Equals `stops` by construction. */
+  sourced: number;
   elevationMin?: number;
   elevationMax?: number;
 }
@@ -139,7 +109,7 @@ export interface Experience {
   category: ExperienceCategoryId;
   /** One sentence, used for cards, search results and the page description. */
   summary: string;
-  /** Two factual paragraphs. */
+  /** Two factual paragraphs: what the collection holds, and how it is sourced. */
   description: string[];
   country?: string;
   region?: string;
@@ -148,20 +118,8 @@ export interface Experience {
   bounds: [number, number, number, number];
   /** Ridge-art hue, derived from the category and the slug. */
   hue: number;
-  /** Straight-line sum of the legs between stops. */
-  distanceKm: number;
-  /** Recorded climb along the route. */
-  ascentM: number;
-  difficulty: ExperienceDifficulty;
-  /** The thresholds behind the grade, printed with it. */
-  difficultyBasis: string;
-  /** Walking time, Naismith's rule plus a pause at each stop. */
-  durationHours: number;
-  /** The model behind the estimate, printed beside it. */
-  durationBasis: string;
-  days: number;
-  /** The walking plan, one entry per day. */
-  itinerary: ExperienceDay[];
+  /** Bounding-box diagonal, the collection's extent in kilometres. */
+  spanKm: number;
   stops: ExperienceStop[];
   photos: ExperiencePhoto[];
   stats: ExperienceStats;
@@ -179,14 +137,10 @@ export interface ExperienceCatalogRow {
   lat: number;
   lon: number;
   stopCount: number;
-  distanceKm: number;
-  difficulty: ExperienceDifficulty;
-  /** The longest walking day on the route. */
-  maxDayKm: number;
-  ascentM: number;
-  durationHours: number;
-  days: number;
+  spanKm: number;
   hue: number;
+  /** Places with a Wikipedia reference; equals `stopCount` today. */
+  sourceCount: number;
   photo?: Pick<ExperiencePhoto, "url" | "credit" | "licence" | "max">;
   stopNames: string[];
 }

@@ -1,28 +1,25 @@
 import { useEffect } from "react";
 import Header from "../components/Header";
 import { category } from "../data/features";
-import { experienceCategory } from "../data/experiences";
+import { guideKind } from "../data/guide";
 import { bySlug } from "../data/places";
 import { setMeta } from "../lib/meta";
 import { placeLine } from "../lib/present";
 import { navigate } from "../lib/router";
 import { toggleSaved, useSaved } from "../lib/saved";
-import {
-  toggleSavedExperience,
-  useSavedExperiences,
-} from "../lib/savedExperiences";
+import { toggleSavedGuide, useSavedGuides } from "../lib/savedGuides";
 
 /**
  * Everything saved in this browser, in two lists.
  *
- * Places and experiences are separate versioned keys with separate shapes, so
- * neither has to migrate the other. The page is still one page: a short trip and
- * a summit are the same kind of intention, and the reader should not have to
- * remember which store a thing was in.
+ * Places and Experiences are separate versioned keys with separate shapes, so
+ * neither has to migrate the other. Collections are deliberately absent: they
+ * are thematic groups, not personal destinations. The page is still one page:
+ * a place and a featured destination are the same kind of intention.
  */
 export default function Saved() {
   const places = useSaved();
-  const experiences = useSavedExperiences();
+  const experiences = useSavedGuides();
   const total = places.length + experiences.length;
 
   useEffect(() => {
@@ -57,15 +54,15 @@ export default function Saved() {
         {total === 0 ? (
           <div className="saved-empty">
             <p>
-              Open a destination or a generated experience and press Save. It will
-              appear here.
+              Open a place or a curated Experience and press Save. It will appear
+              here.
             </p>
             <div className="saved-empty-actions">
               <button className="btn btn-dark" onClick={() => navigate("/")}>
                 Find a place →
               </button>
               <button className="btn btn-dark" onClick={() => navigate("/experiences")}>
-                Browse experiences →
+                Browse Experiences →
               </button>
             </div>
           </div>
@@ -119,7 +116,7 @@ export default function Saved() {
         ) : null}
 
         {experiences.length > 0 ? (
-          <section className="saved-block" aria-label="Saved experiences">
+          <section className="saved-block" aria-label="Saved Experiences">
             <h2 className="mono saved-block-title">Experiences</h2>
             <ol className="saved-list">
               {experiences.map((item) => (
@@ -128,17 +125,9 @@ export default function Saved() {
                     className="saved-main"
                     onClick={() => navigate(`/experiences/${item.slug}`)}
                   >
-                    <span className="saved-name">{item.title}</span>
+                    <span className="saved-name">{item.name}</span>
                     <span className="mono saved-meta">
-                      {[
-                        experienceCategory(item.category).one,
-                        item.difficulty
-                          ? item.difficulty.charAt(0).toUpperCase() +
-                            item.difficulty.slice(1)
-                          : "",
-                        placeLine(item.region, item.country),
-                        `${item.stopCount} stops`,
-                      ]
+                      {[guideKind(item.kind).one, placeLine(item.region, item.country)]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
@@ -151,8 +140,8 @@ export default function Saved() {
                   </span>
                   <button
                     className="saved-remove mono"
-                    onClick={() => toggleSavedExperience(item)}
-                    aria-label={`Remove ${item.title}`}
+                    onClick={() => toggleSavedGuide(item)}
+                    aria-label={`Remove ${item.name}`}
                   >
                     Remove
                   </button>

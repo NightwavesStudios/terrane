@@ -1,0 +1,23 @@
+{
+  "generated": "2026-11-20",
+  "total": 183,
+  "selection": 183,
+  "kinds": {
+    "park": 73,
+    "peak": 81,
+    "lake": 9,
+    "landmark": 7,
+    "waterfall": 6,
+    "coast": 7
+  },
+  "countries": 47,
+  "associated": 846,
+  "trails": 457,
+  "photos": 225,
+  "shards": 16,
+  "inputs": {
+    "destinations": 24474,
+    "withDetails": 24474,
+    "withTrails": 11831
+  }
+}

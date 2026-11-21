@@ -13,9 +13,7 @@ export type SavedExperience = {
   slug: string;
   title: string;
   category: string;
-  difficulty?: string;
   stopCount: number;
-  days: number;
   country?: string;
   region?: string;
   /** When it was saved, for ordering and the date on the list. */
@@ -37,8 +35,6 @@ function valid(value: unknown): value is SavedExperience {
     row.category.length > 0 &&
     typeof row.stopCount === "number" &&
     Number.isFinite(row.stopCount) &&
-    typeof row.days === "number" &&
-    Number.isFinite(row.days) &&
     typeof row.at === "number" &&
     Number.isFinite(row.at)
   );

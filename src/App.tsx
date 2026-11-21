@@ -11,6 +11,8 @@ import Home from "./pages/Home";
 const Place = lazy(() => import("./pages/Place"));
 const Experiences = lazy(() => import("./pages/Experiences"));
 const Experience = lazy(() => import("./pages/Experience"));
+const Collections = lazy(() => import("./pages/Collections"));
+const Collection = lazy(() => import("./pages/Collection"));
 const Saved = lazy(() => import("./pages/Saved"));
 const Coverage = lazy(() => import("./pages/Coverage"));
 
@@ -29,6 +31,10 @@ export default function App() {
         <Experiences />
       ) : route.name === "experience" ? (
         <Experience slug={route.slug} />
+      ) : route.name === "collections" ? (
+        <Collections />
+      ) : route.name === "collection" ? (
+        <Collection slug={route.slug} />
       ) : route.name === "saved" ? (
         <Saved />
       ) : route.name === "coverage" ? (

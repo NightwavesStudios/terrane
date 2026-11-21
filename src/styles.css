@@ -1050,6 +1050,40 @@ button {
   margin-top: 12px;
 }
 
+/* ── the route card ───────────────────────────────────────
+   An experience is not a place, so its card says so: a warmer frame in the
+   category's own tone, the route badge over the ridge art, and the eyebrow
+   naming the experience category before the title. */
+.pick--experience {
+  border-color: rgba(217, 189, 133, 0.32);
+  box-shadow:
+    0 30px 70px -30px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(217, 189, 133, 0.08) inset;
+}
+.pick-art--experience {
+  position: relative;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+.exp-pick-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  padding: 3px 6px;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #f6fbff;
+  background: rgba(3, 6, 11, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.pick--experience .pick-eyebrow {
+  color: rgba(217, 189, 133, 0.95);
+}
+
 /* ── atlas records ───────────────────────────────────────── */
 
 @media (max-width: 860px) {
@@ -1259,6 +1293,25 @@ button {
 .layers-sparse {
   font-style: normal;
   color: rgba(240, 200, 120, 0.75);
+}
+
+/* The routes group is set apart from the pin families: warmer title, its own
+   tint on the master row, and a dot with a halo so it matches the beacons. */
+.layers-group--experiences {
+  margin-bottom: 2px;
+}
+.layers-row--experience .layers-label {
+  color: #fbf3e2;
+}
+.layers-row--experience .layers-note {
+  color: rgba(217, 189, 133, 0.85);
+}
+.cat-dot--experience {
+  width: 9px;
+  height: 9px;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(5, 9, 15, 0.9);
 }
 
 /* ── discover ────────────────────────────────────────────── */
@@ -2232,6 +2285,18 @@ button {
   background: var(--mint);
   color: #06251c;
 }
+.exp-pin--place {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-width: 2px;
+  background: var(--pin, #1d2a20);
+}
+.exp-pin--place.on {
+  width: 24px;
+  height: 24px;
+  background: var(--mint);
+}
 .exp-stops {
   list-style: none;
   padding: 0;
@@ -2246,7 +2311,7 @@ button {
 }
 .exp-stop-main {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
   align-items: start;
   gap: 14px;
   width: 100%;
@@ -2258,9 +2323,21 @@ button {
 }
 .exp-stop-n {
   padding-top: 3px;
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink-3);
+}
+.exp-stop-source {
+  display: block;
+  padding: 0 8px 12px 84px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--moss);
+}
+.exp-stop-source:hover {
+  text-decoration: underline;
 }
 .exp-stop-text {
   display: flex;
@@ -2353,7 +2430,7 @@ button {
   text-transform: uppercase;
   color: var(--ink-3);
 }
-/* Walking days, difficulty and the place filter. */
+/* Collection controls; the place filter. */
 .exp-control-row {
   display: flex;
   flex-wrap: wrap;
@@ -2489,4 +2566,71 @@ button {
   .exp-stop-go {
     display: none;
   }
+}
+
+/* ── curated experiences ─────────────────────────────────── */
+.guide-card-summary {
+  display: block;
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.guide-reasons,
+.guide-trails,
+.guide-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.guide-reasons li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.guide-reasons li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--moss);
+}
+.guide-trails li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-light);
+}
+.guide-trail-name {
+  font-family: var(--serif);
+  font-size: 17px;
+}
+.guide-trail-meta {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: right;
+}
+.guide-sources li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line-light);
+}
+.guide-sources a {
+  font-size: 14px;
+  color: var(--moss);
+}
+.guide-sources a:hover {
+  text-decoration: underline;
 }

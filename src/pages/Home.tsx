@@ -16,6 +16,7 @@ import LayerControl, {
 } from "../components/LayerControl";
 import Discover from "../components/Discover";
 import FeatureCard from "../components/FeatureCard";
+import ExperiencePickCard from "../components/experiences/ExperiencePickCard";
 import { PLACES, bySlug } from "../data/places";
 import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
@@ -235,7 +236,9 @@ export default function Home() {
         />
       </div>
 
-      {pick && (
+      {pick?.cat === "experience" && pick.slug ? (
+        <ExperiencePickCard pick={pick} onClose={closePick} />
+      ) : pick ? (
         <FeatureCard
           pick={pick}
           nearPlace={nearPlace}
@@ -245,7 +248,7 @@ export default function Home() {
           onClose={closePick}
           onOpenPlace={(slug) => navigate(`/place/${slug}`)}
         />
-      )}
+      ) : null}
     </div>
   );
 }

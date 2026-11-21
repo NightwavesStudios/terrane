@@ -2,6 +2,7 @@ import categoriesFile from "./categories.json";
 import bandsFile from "./bands.json";
 import sourcesFile from "./sources.json";
 import type { Place } from "./places";
+import type { GuideKindId } from "./guide";
 
 const BANDS = (bandsFile as unknown as { bands: { dot: number; label: number }[] }).bands;
 
@@ -78,6 +79,12 @@ export interface FeatureRow {
   book?: string;
   difficulty?: string;
   distance?: number;
+  /** The curated destination behind an Experience marker. */
+  experience?: {
+    kind: GuideKindId;
+    places: number;
+    trails: number;
+  };
 }
 
 /** What a click hands back. One shape for every category. */
@@ -100,6 +107,12 @@ export interface Pick {
   book?: string;
   difficulty?: string;
   distance?: number;
+  /** Set only for a curated Experience marker on the map. */
+  experience?: {
+    kind: GuideKindId;
+    places: number;
+    trails: number;
+  };
 }
 
 export function pickOf(
@@ -127,6 +140,14 @@ export function pickOf(
     book: typeof props.book === "string" ? props.book : undefined,
     difficulty: typeof props.diff === "string" ? props.diff : undefined,
     distance: typeof props.dist === "number" ? props.dist : undefined,
+    experience:
+      props.cat === "experience"
+        ? {
+            kind: String(props.kind ?? "landmark") as GuideKindId,
+            places: typeof props.places === "number" ? props.places : 0,
+            trails: typeof props.trails === "number" ? props.trails : 0,
+          }
+        : undefined,
   };
 }
 

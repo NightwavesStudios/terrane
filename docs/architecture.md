@@ -8,29 +8,38 @@ data is the public cell store.
 
 `src/main.tsx` mounts `App` and, on `/`, starts the `Globe` chunk early.
 `src/App.tsx` keeps `Home` in the entry chunk and lazy-loads `Place`,
-`Experiences`, `Experience`, `Saved` and `Coverage`, so a `/place/:slug` visit
-never downloads MapLibre, and the experience catalogue is a separate chunk from
-one experience page.
+`Experiences`, `Experience`, `Collections`, `Collection`, `Saved` and `Coverage`,
+so a `/place/:slug` visit never downloads MapLibre, and each catalogue is a
+separate chunk from its detail page.
 
 `src/lib/router.ts` parses real paths with the History API. `navigate()` pushes a
-path and notifies subscribers; `popstate` is handled. `/saved` is the saved list;
-`/experiences` and `/experiences/:slug` are the generated route catalogue and one
-route; unknown paths fall through to the globe. There is no router dependency.
+path and notifies subscribers; `popstate` is handled. The four tabs are `/`
+(Globe), `/experiences`, `/collections` and `/saved`; detail routes are
+`/experiences/:slug`, `/collections/:slug` and `/place/:slug`. Unknown paths fall
+through to the globe. There is no router dependency.
 
-Experiences load two generated pieces lazily: `experience-index/catalog.json` for
-the list and one first-character shard for a page (`lib/experiences.ts`). The page
-adds `components/experiences/ExperienceMap.tsx`, a flat MapLibre builder that
-reuses `map/style.ts` but none of the globe's runtime layers, and
-`lib/experiencePois.ts`, which fetches the z6 cells covering the route's bounds.
+Experiences are the curated domain. The frozen editorial list is
+`data/guide-selection.json`; `scripts/build-guide.mjs` builds only those slugs
+into `data/guide-index/` (`catalog.json`, one hash-bucket shard per record and
+`meta.json`). The list loads the catalogue and one shard per page
+(`lib/guide.ts`), and the page adds `components/guide/GuideMap.tsx` plus the existing
+`components/experiences/ExperiencePois.tsx` for mapped campsites, huts and
+trailheads from the z6 cells.
+A page has one real destination, associated places within 30 km, nearby named
+trails, credited photographs, official/Wikipedia links and the six-kind
+classification. It does not claim access, facilities, closures or a route.
 
-The route is stored walked: `itinerary` holds one entry per walking day (split by
-Naismith's rule, so a long leg can span several days), `difficulty` is graded
-from the longest day, the climb and the high point, and each day carries the
-recorded trails nearest its stops. `nearestStays` in `lib/experiencePois.ts`
-attaches the nearest mapped campsite, hut or shelter to a stop once the cells
-arrive. The catalogue filters on category, difficulty, free text and a chosen
-place within 150 km (`filterExperiences`), all pure functions in
-`lib/experiences.ts`.
+Collections are the generated domain, preserved from the earlier experience
+model. They load `experience-index/catalog.json` and one hash-bucket shard per
+page (`lib/experiences.ts`), with `components/experiences/ExperienceMap.tsx` and
+`lib/experiencePois.ts`. A record is a group of verified places in one region,
+not an itinerary: there is no `itinerary`, `days`, `durationHours`, `difficulty`
+or `distanceKm`; `spanKm` only states the extent of the group. Collections are
+not saveable and are never added to the globe; only Experiences are.
+
+Both catalogues filter on kind, free text and a chosen place within 150 km, all
+pure functions in their `lib/` module. Practical places are read from the cell
+store and nothing about them is baked into a record.
 
 ## Map
 
@@ -46,6 +55,9 @@ place within 150 km (`filterExperiences`), all pure functions in
 | `src/map/contours.ts` | Client-side marching squares in a blob worker, capped by tiles, levels, segments and time. |
 | `src/map/campIcon.ts` | The camping-kit pictograms drawn into canvases once. |
 | `src/map/camera.ts` | `worldZoom` and `pitchForZoom`, with no MapLibre import so pages can size the opening camera cheaply. |
+| `src/map/experiences.ts` | Curated Experience source, halo/ring/dot/label layers, selection of associated places and the selected place pins. Reads `guide-index`, never Collections. |
+| `src/lib/guide.ts` | Lazy curated catalogue/shard access; search, kind and near-place filters. |
+| `src/lib/experiences.ts` | Lazy generated Collections access and filters. |
 | `src/lib/placePages.ts` | Atlas-immediate / reach-sharded page lookup. |
 | `src/lib/placeDetails.ts` | Lazy detail shard, thumbnail width cap, description and difficulty formatting. |
 | `src/lib/trailLinks.ts` | Lazy per-page trail-link shard. |
@@ -101,7 +113,8 @@ Himalaya. Provenance (`src`, `quality`) survives but never decides prominence.
 ## State and storage
 
 - React state for the selected filter, pick, camera focus and layers.
-- `localStorage` holds the saved places (`lib/saved.ts`), versioned and capped.
+- `localStorage` holds saved places (`lib/saved.ts`) and saved curated Experiences
+  (`lib/savedGuides.ts`), each versioned and capped. Collections are not saved.
 - `sessionStorage` caches the IP-based home lookup per tab (`lib/locate.ts`) and
   the last globe camera (`lib/lastView.ts`).
 - Module-level caches hold loaded cells, the reach chunks and one page/detail/trail
@@ -118,8 +131,9 @@ Himalaya. Provenance (`src`, `quality`) survives but never decides prominence.
    `src/data/atlas-merges.json`.
 5. The manifest totals must agree with the files, and the strict coverage gate
    must pass before a data job publishes.
-6. Generated files are not committed except the bundled manifest, atlas, reach
-   data, place details, stats and the `reports/coverage.json` baseline.
+6. Generated files are committed as data: the manifest, atlas, reach data, place
+   details, trail links, both catalogues and their shards, and the
+   `reports/coverage.json` baseline; reports and POI mirrors are not.
 7. A place page renders from the page index; the detail and trail shards are
    optional and a failure leaves the page intact.
 8. Every detail image carries a credit and a licence; an uncredited image fails

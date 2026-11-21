@@ -1,36 +1,43 @@
 {
   "generated": "2026-11-20",
-  "total": 599,
+  "total": 220,
   "byCategory": {
-    "camping": 92,
-    "hiking": 99,
-    "mountain": 200,
-    "park": 137,
-    "weekend": 71
+    "camping": 33,
+    "hiking": 14,
+    "mountain": 88,
+    "park": 52,
+    "weekend": 33
   },
-  "byDifficulty": {
-    "moderate": 392,
-    "hard": 196,
-    "easy": 11
-  },
-  "stops": 3605,
-  "countries": 109,
-  "shards": 26,
+  "countries": 128,
+  "georgia": 4,
+  "stops": 1317,
+  "sourcedStops": 1317,
+  "photos": 1223,
+  "shards": 16,
   "clusters": {
-    "total": 4011,
+    "total": 226,
     "byCategory": {
-      "mountain": 2391,
-      "park": 432,
-      "hiking": 294,
-      "camping": 478,
-      "weekend": 416
+      "mountain": 91,
+      "park": 54,
+      "hiking": 14,
+      "camping": 34,
+      "weekend": 33
     }
   },
   "inputs": {
     "destinations": 24474,
+    "candidatesWithSourceUrl": 22320,
+    "verifiedCandidates": 1458,
     "withDetails": 24474,
     "withTrails": 11831,
     "trailLinkedDestinations": 11831
   },
-  "rejectedSeeds": 5352
+  "sourceChecks": {
+    "generated": "2026-11-20",
+    "urls": 2885,
+    "verified": 2885,
+    "dead": 0,
+    "unreachable": 0
+  },
+  "rejectedSeeds": 122
 }

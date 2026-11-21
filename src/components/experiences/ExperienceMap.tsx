@@ -10,16 +10,17 @@ import type { ExperienceStop } from "../../data/experiences";
 import { createStyle } from "../../map/style";
 
 /**
- * The experience map: a small, flat MapLibre view of one route.
+ * The experience map: a small, flat MapLibre view of one collection.
  *
  * It reuses the app's basemap but none of the globe's runtime machinery — no 3D
  * mesh, hillshade, DEM protocol, contours, practical layers or trail cells. That
- * is deliberate: this map answers "where are the stops, in what order", and it
- * must stay cheap enough to load with a page.
+ * is deliberate: this map answers "where are these places", not "what order do I
+ * walk them in".
  *
- * Numbered DOM markers rather than a symbol layer: eight stops do not need glyphs
- * or a style reload, and a real button is keyboard- and screen-reader-friendly.
- * Clicking one highlights its row in the stop list.
+ * Each place is a DOM marker in the collection's hue. There is no connecting
+ * line and no numbering: the record holds a group of places, not a route, and
+ * drawing a path between them would invent one. A real button keeps the marker
+ * keyboard- and screen-reader-friendly; clicking one highlights its row.
  */
 export default function ExperienceMap({
   stops,
@@ -50,8 +51,8 @@ export default function ExperienceMap({
     /* The basemap carries a `terranedem://` relief source and its elevation
        tint. The globe installs that protocol; this map deliberately does not,
        and an unregistered protocol leaves the style unloaded, which would take
-       the stops and the route line with it. The tint is the only static layer
-       on that source, so both go. */
+       the markers' basemap with it. The tint is the only static layer on that
+       source, so both go. */
     const base = createStyle();
     const sources = Object.fromEntries(
       Object.entries(base.sources ?? {}).filter(([id]) => id !== "relief"),
@@ -81,50 +82,19 @@ export default function ExperienceMap({
     created.clear();
 
     /* Markers are DOM overlays, so they do not wait for the style or for a tile.
-       A route that appears only after `load` disappears whenever the tile server
-       is slow or throttled — and the stops are the point of the map. */
+       A collection that appears only after `load` disappears whenever the tile
+       server is slow or throttled — and the places are the point of the map. */
     for (const stop of stops) {
       const element = document.createElement("button");
       element.type = "button";
-      element.className = "exp-pin";
-      element.textContent = String(stop.index);
+      element.className = "exp-pin exp-pin--place";
+      element.style.setProperty("--pin", `hsl(${hue} 48% 46%)`);
       element.title = stop.name;
-      element.setAttribute("aria-label", `Stop ${stop.index}: ${stop.name}`);
+      element.setAttribute("aria-label", stop.name);
       element.addEventListener("click", () => onSelectRef.current(stop.slug));
       new Marker({ element }).setLngLat([stop.lon, stop.lat]).addTo(map);
       created.set(stop.slug, element);
     }
-
-    /* The line does need the style. `style.load` fires once the spec is parsed,
-       which is independent of whether the basemap tiles have arrived. */
-    const addRoute = () => {
-      if (!map.getStyle() || map.getSource("exp-route")) return;
-      map.addSource("exp-route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: stops.map((stop) => [stop.lon, stop.lat]),
-          },
-        },
-      });
-      map.addLayer({
-        id: "exp-route-line",
-        type: "line",
-        source: "exp-route",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": `hsl(${hue} 42% 44%)`,
-          "line-width": 2.5,
-          "line-opacity": 0.9,
-        },
-      });
-    };
-    map.once("style.load", addRoute);
-    if (map.isStyleLoaded()) addRoute();
-
 
     return () => {
       created.clear();
@@ -138,5 +108,12 @@ export default function ExperienceMap({
     }
   }, [activeSlug]);
 
-  return <div className="exp-map" ref={container} role="img" aria-label="Map of the stops in this experience" />;
+  return (
+    <div
+      className="exp-map"
+      ref={container}
+      role="img"
+      aria-label="Map of the places in this experience"
+    />
+  );
 }

@@ -9,7 +9,9 @@ which is which before editing.
 | --- | --- |
 | `places.ts` | The typed atlas model and its type labels. `PLACES` is the generated atlas; reach pages use the generated page index. |
 | `categories.json` | The one taxonomy: 16 destination and 13 practical categories, plus trails. |
-| `experience-categories.json` | The five experience categories: weekend, mountain, hiking, camping, park. |
+| `experience-categories.json` | The five generated Collection categories: weekend, mountain, hiking, camping, park. |
+| `guide-selection.json` | The frozen editorial list of 183 curated Experience destination slugs. Membership changes here, not in the generator. |
+| `guide.ts` | The curated Experience model: six kinds, hue hashing and the row/record types. |
 | `bands.json` | Dot/label zooms, radius scale, opacity, label size and per-band cell quota. |
 | `sources.json` | Source registry: ids, names, licences, licence links, attribution, terms, endpoints, cadence, expected counts and publishing gates. |
 | `atlas-merges.json` | The documented duplicate merges that `validate` accepts. |
@@ -26,7 +28,9 @@ which is which before editing.
 | `poi-stats.json` | `scripts/poi-stats.mjs` |
 | `trail-stats.json` | `scripts/merge-sources.py`, then `scripts/trail-quality.mjs` |
 | `trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` |
-| `experience-index/` | `scripts/build-experiences.mjs` (catalog, shards, meta; each route records its walking days, difficulty and nearest named trails) |
+| `guide-index/` | `scripts/build-guide.mjs` (catalog, 16 hash-bucket shards, meta; one curated destination per page, built only from its own details, trails and photos) |
+| `experience-index/` | `scripts/build-experiences.mjs` (catalog, 16 hash-bucket shards, meta; each generated Collection records verified places, sources, nearby named trails and its extent — no itinerary) |
+| `experience-sources.json` | `scripts/check-experience-sources.mjs --write` (networked link verification for both catalogues; the build and validator consume it offline, and the curated generator refuses entries whose sources are not `verified`) |
 | `manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` |
 
 `manifest.json` is bundled into the app and is also the live-update fallback. It
@@ -51,7 +55,8 @@ new counts without a rebuild.
 3. `byCategory` and the total in the manifest must match the files; the build
    fails otherwise.
 4. Every destination page has a page record and a detail record; every image has
-   a credit and a licence.
+   a credit and a licence. Every selected Experience slug resolves to a page, and
+   every shipped source is `verified` in `experience-sources.json`.
 5. Generated reports and POI cell mirrors do not belong in git, except the
    `reports/coverage.json` / `reports/merge.json` baselines and the rebuilt trail
    cells. See the root `.gitignore`.
@@ -61,7 +66,9 @@ new counts without a rebuild.
 The atlas, famous reach tail, manifest and categories are bundled. The rest of
 the reach tail is a lazy chunk. A page loads one `place-index/` shard, one
 `place-details/` shard and one `trail-links/` shard for its slug; it never loads
-all 24,474 records. The experience list loads one compact catalog; an experience
-page loads one `experience-index/` shard. Practical pins and trail routes are fetched per cell from
+all 24,474 records. The curated Experience list loads one compact catalog; an
+Experience page loads one `guide-index/` shard. The generated Collections list
+loads `experience-index/catalog.json`; a Collection page loads one shard from the
+same folder. Practical pins and trail routes are fetched per cell from
 `src/lib/cells.ts`. A cell that has not loaded cannot be searched; the search
 empty state says so.

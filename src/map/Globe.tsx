@@ -41,6 +41,13 @@ import {
   setTrailLayers,
   trailStats,
 } from "./trails";
+import {
+  EXPERIENCE_LAYERS,
+  addExperiences,
+  resetExperiences,
+  setExperienceLayers,
+  showExperience,
+} from "./experiences";
 import { pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
@@ -170,6 +177,7 @@ const RUNTIME_IDS = [
   "features-dot-0",
   "mapped-pin-0",
   "trail-route-line",
+  "experiences-dot",
   "pick-ring",
 ];
 
@@ -378,11 +386,14 @@ export default function Globe({
         setAtlasPlaces(map_, dataRef.current);
         addMapped(map_, layersRef.current);
         addTrails(map_, layersRef.current);
+        /* Routes last: a beacon has to sit above every pin and every label. */
+        addExperiences(map_, layersRef.current);
         addPickRing();
       }
       setDestinationCats(map_, layersRef.current);
       setMappedCats(map_, layersRef.current);
       setTrailLayers(map_, layersRef.current);
+      setExperienceLayers(map_, layersRef.current);
       if (layersRef.current.contours && !map_.getLayer("contours-minor")) {
         contours.current?.reload();
       }
@@ -439,10 +450,15 @@ export default function Globe({
       setReady(true);
     };
 
-    /* One click, one pick. Destination layers are queried first because a
-       destination usually has a page, then the practical pins. */
+    /* One click, one pick. Routes are queried first because they sit above
+       everything, then destinations (which usually have a page), then pins. */
     const featureLayers = () =>
-      [...DEST_LAYERS, ...MAPPED_LAYERS, ...TRAIL_LAYERS].filter((id) => map_.getLayer(id));
+      [
+        ...EXPERIENCE_LAYERS,
+        ...DEST_LAYERS,
+        ...MAPPED_LAYERS,
+        ...TRAIL_LAYERS,
+      ].filter((id) => map_.getLayer(id));
 
     const pickAt = (x: number, y: number): MapGeoJSONFeature | undefined => {
       const layers = featureLayers();
@@ -590,6 +606,7 @@ export default function Globe({
       resetTrails();
       resetMapped();
       resetDestinations();
+      resetExperiences();
       window.clearTimeout(t);
       window.clearTimeout(guard);
       window.clearTimeout(guardRetry);
@@ -624,6 +641,7 @@ export default function Globe({
     setDestinationCats(map_, layers);
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
+    setExperienceLayers(map_, layers);
     layersRef.current = layers;
     applyTerrainTo(map_, layers);
   }, [layers, ready]);
@@ -639,9 +657,12 @@ export default function Globe({
   useEffect(() => {
     const map_ = map.current;
     if (!map_ || !ready) return;
+    /* A route is drawn by its own layer, from its own shard, and framed to its
+       bounds there; a selection ring at one stop would be the wrong shape. */
+    const isExperience = pick?.cat === "experience";
     const src = map_.getSource("pick") as GeoJSONSource | undefined;
     src?.setData(
-      pick
+      pick && !isExperience
         ? {
             type: "FeatureCollection",
             features: [
@@ -655,7 +676,7 @@ export default function Globe({
         : EMPTY,
     );
 
-    if (!pick) return;
+    if (!pick || isExperience) return;
     /* A park is a place you look at from 9.6, a tent from 14.6, and a 4,000 m
        summit from a step further back than its category alone implies. The
        reader's own zoom is kept only when the place is already under the camera
@@ -676,6 +697,13 @@ export default function Globe({
          opposite side would centre the place exactly under the card. */
       padding: flyPadding(window.innerWidth),
     });
+  }, [pick, ready]);
+
+  /* ── the selected route ────────────────────────────── */
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    showExperience(map_, pick?.cat === "experience" ? pick.slug ?? null : null);
   }, [pick, ready]);
 
   /* ── camera travel: pitch follows zoom ───────────────
