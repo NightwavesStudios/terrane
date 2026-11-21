@@ -4,7 +4,7 @@ import {
   CLIMATE,
   FONTS,
   HALO,
-  HILLSHADE_FINE,
+  HILLSHADE_NEAR,
   HILLSHADE_PAINT,
   HYPSOMETRY,
   PALETTE,
@@ -254,13 +254,13 @@ const MAP_STYLE: StyleSpecification = {
           0,
           0.9,
           4,
-          0.85,
+          0.84,
           8,
-          0.75,
+          0.6,
           12,
-          0.72,
+          0.62,
           16,
-          0.68,
+          0.62,
         ],
         resampling: "linear",
         "color-relief-color": elevationRamp,
@@ -277,7 +277,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["==", ["get", "class"], "wood"],
       paint: {
         "fill-color": PALETTE.wood,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, 0.46, 11, 0.4, 14, 0.32],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, 0.46, 11, 0.52, 14, 0.48],
       },
     },
     {
@@ -288,7 +288,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["grass", "scrub"]]],
       paint: {
         "fill-color": PALETTE.grass,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.4, 11, 0.36, 14, 0.28],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.26, 8, 0.4, 11, 0.46, 14, 0.44],
       },
     },
     {
@@ -324,7 +324,7 @@ const MAP_STYLE: StyleSpecification = {
       minzoom: 6,
       paint: {
         "fill-color": PALETTE.rock,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.2, 11, 0.34, 14, 0.42, 16, 0.46],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.2, 11, 0.4, 14, 0.5, 16, 0.54],
       },
     },
     {
@@ -397,14 +397,17 @@ const MAP_STYLE: StyleSpecification = {
       id: "relief-hillshade",
       type: "hillshade",
       source: "relief",
+      /* Four lights for the wide view; one sun once the ground is near enough
+         that each face is its own subject (see HILLSHADE_NEAR). */
+      maxzoom: 8.5,
       paint: HILLSHADE_PAINT,
     },
     {
-      id: "relief-hillshade-fine",
+      id: "relief-hillshade-near",
       type: "hillshade",
       source: "relief",
-      minzoom: 10,
-      paint: HILLSHADE_FINE,
+      minzoom: 8.5,
+      paint: HILLSHADE_NEAR,
     },
     {
       id: "relief-snow",

@@ -373,9 +373,9 @@ export default function Globe({
           "horizon-color": "#1b4d63",
           "fog-color": "#0a1c26",
           "sky-horizon-blend": 0.7,
-          "horizon-fog-blend": 0.42,
-          "fog-ground-blend": 0.26,
-          "atmosphere-blend": 0.6,
+          "horizon-fog-blend": 0.28,
+          "fog-ground-blend": 0.1,
+          "atmosphere-blend": 0.55,
         });
       } catch {
         /* sky unsupported */
@@ -515,8 +515,12 @@ export default function Globe({
       reportView();
       /* Exaggeration follows the camera; the mesh is never re-created. */
       applyTerrain();
-      if (map_.getZoom() >= 6.6) {
-        void loadMoreDestinations().then(() => refreshDuplicates(map_));
+      /* The famous tail is an 8 MB JSON: it can wait until the reader is close
+         enough for it to mean something, and until the frame is idle. */
+      if (map_.getZoom() >= 8.2) {
+        const more = () => void loadMoreDestinations().then(() => refreshDuplicates(map_));
+        const idle = window.requestIdleCallback?.(more, { timeout: 2500 });
+        if (!idle) window.setTimeout(more, 900);
       }
     });
 
@@ -589,7 +593,7 @@ export default function Globe({
 
     setVisible("elevation-tint", layers.relief);
     setVisible("relief-hillshade", layers.relief && layers.hillshade);
-    setVisible("relief-hillshade-fine", layers.relief && layers.hillshade);
+    setVisible("relief-hillshade-near", layers.relief && layers.hillshade);
     setVisible("relief-snow", layers.relief && layers.snow);
     for (const [key, ids] of Object.entries(LAYER_GROUPS)) {
       const on = Boolean(layers[key as keyof LayerState]);

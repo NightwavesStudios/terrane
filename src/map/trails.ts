@@ -223,7 +223,7 @@ export function addTrails(map: MlMap, layers: LayerState): void {
       id: "trail-route-casing",
       type: "line",
       source: SOURCE,
-      minzoom: 8.5,
+      minzoom: 10.2,
       maxzoom: ROUTE_MAX_ZOOM,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
@@ -256,7 +256,7 @@ export function addTrails(map: MlMap, layers: LayerState): void {
       id: "trail-route-line",
       type: "line",
       source: SOURCE,
-      minzoom: 8.5,
+      minzoom: 10.2,
       maxzoom: ROUTE_MAX_ZOOM,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
@@ -329,7 +329,10 @@ export function refreshTrails(map: MlMap): void {
   if (!map.getSource(SOURCE)) return;
   const zoom = map.getZoom();
   applyTrailZoom(map);
-  if (zoom < 8.5) {
+  /* Route cells are 2–4 MB each, and the basemap already carries the paths
+     below this: the named routes can wait until the reader is close enough for
+     them to be the subject rather than a texture. */
+  if (zoom < 10.2) {
     schedulePush(map);
     return;
   }
@@ -341,10 +344,14 @@ export function refreshTrails(map: MlMap): void {
     const r = (Math.max(-85, Math.min(85, lat)) * Math.PI) / 180;
     return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n);
   };
-  const x0 = lon2x(bounds.getWest()) - 1;
-  const x1 = lon2x(bounds.getEast()) + 1;
-  const y0 = lat2y(bounds.getNorth()) - 1;
-  const y1 = lat2y(bounds.getSouth()) + 1;
+  /* A one-cell ring was affordable per request and ruinous per second: at z9.6
+     it turned a two-cell viewport into nine cells of 2–4 MB each. Only widen
+     once the cells are small enough that the ring is cheap. */
+  const ring = zoom >= 10.5 ? 1 : 0;
+  const x0 = lon2x(bounds.getWest()) - ring;
+  const x1 = lon2x(bounds.getEast()) + ring;
+  const y0 = lat2y(bounds.getNorth()) - ring;
+  const y1 = lat2y(bounds.getSouth()) + ring;
 
   const visible: [number, number][] = [];
   for (let x = x0; x <= x1; x += 1) {
@@ -370,50 +377,64 @@ export function refreshTrails(map: MlMap): void {
     return !(until && until > Date.now());
   });
 
-  for (const [x, y] of wanted.slice(0, 6)) {
-    const key = keyOf(x, y);
-    const path = `trails/${CELL}/${x}/${y}.json`;
-    pending.add(key);
-    void cellMayExist(path)
-      .then((present) => {
-        if (!present) {
-          /* The store's index does not list this cell: no routes there, no request,
-             no failed-response noise. Re-checked with the other misses, not sooner. */
-          misses.set(key, Date.now() + MISS_RETRY_MS);
-          return null;
-        }
-        return fetch(cellUrl(path))
-          .then((res) => {
-            if (!res.ok) throw new Error(String(res.status));
-            return res.json() as Promise<Cell>;
-          })
-          .then((cell) => {
-            const features: Loaded[] = [];
-            const seen = new Set<string>();
-            for (const row of cell.items) {
-              for (const f of toFeatures(row, cell.sources ?? [])) {
-                const key = JSON.stringify(f.geometry.coordinates);
-                if (seen.has(key)) continue;
-                seen.add(key);
-                features.push({ f, ...bboxOf(f.geometry.coordinates as [number, number][]) });
-              }
-            }
-            misses.delete(key);
-            loaded.set(key, features);
-            schedulePush(map);
-          });
-      })
-      .catch((err: unknown) => {
-        /* A cell that exists but cannot be read is a real fault, not absence: the
-           store said it is there, so say so once and retry soon. */
-        if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
-        misses.set(key, retryAt(err));
-      })
-      .finally(() => pending.delete(key));
-  }
+  const centre = map.getCenter();
+  const cx = lon2x(centre.lng);
+  const cy = lat2y(centre.lat);
+  const distance = ([x, y]: [number, number]) =>
+    Math.min(Math.abs(x - cx), n - Math.abs(x - cx)) + Math.abs(y - cy);
+  wanted.sort((a, b) => distance(a) - distance(b));
 
-  /* The band or the viewport may have changed even when no cell was fetched. */
-  schedulePush(map);
+  const fetchCells = () => {
+    for (const [x, y] of wanted.slice(0, 2)) {
+      const key = keyOf(x, y);
+      if (loaded.has(key) || pending.has(key)) continue;
+      const path = `trails/${CELL}/${x}/${y}.json`;
+      pending.add(key);
+      void cellMayExist(path)
+        .then((present) => {
+          if (!present) {
+            /* The store's index does not list this cell: no routes there, no request,
+               no failed-response noise. Re-checked with the other misses, not sooner. */
+            misses.set(key, Date.now() + MISS_RETRY_MS);
+            return null;
+          }
+          return fetch(cellUrl(path))
+            .then((res) => {
+              if (!res.ok) throw new Error(String(res.status));
+              return res.json() as Promise<Cell>;
+            })
+            .then((cell) => {
+              const features: Loaded[] = [];
+              const seen = new Set<string>();
+              for (const row of cell.items) {
+                for (const f of toFeatures(row, cell.sources ?? [])) {
+                  const key = JSON.stringify(f.geometry.coordinates);
+                  if (seen.has(key)) continue;
+                  seen.add(key);
+                  features.push({ f, ...bboxOf(f.geometry.coordinates as [number, number][]) });
+                }
+              }
+              misses.delete(key);
+              loaded.set(key, features);
+              schedulePush(map);
+            });
+        })
+        .catch((err: unknown) => {
+          /* A cell that exists but cannot be read is a real fault, not absence: the
+             store said it is there, so say so once and retry soon. */
+          if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
+          misses.set(key, retryAt(err));
+        })
+        .finally(() => pending.delete(key));
+    }
+
+    schedulePush(map);
+  };
+
+  /* Pins are what a reader is looking for; the route lines are what they read
+     once the pins are there. Let the POI cell take the bandwidth first. */
+  const idle = window.requestIdleCallback?.(fetchCells, { timeout: 1800 });
+  if (!idle) window.setTimeout(fetchCells, 700);
 }
 
 export function resetTrails(): void {

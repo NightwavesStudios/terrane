@@ -18,7 +18,7 @@ export const PALETTE = {
      read as a hole in the planet. */
   ocean: "#0a2f42",
   lake: "#0f4157",
-  river: "#2a7d92",
+  river: "#2f6f7e",
   /* The drawn shelf: a broad bloom just outside the shore, then the surf line. */
   shelf: "#2f7f92",
   coastGlow: "#6fc9d4",
@@ -28,13 +28,13 @@ export const PALETTE = {
   /* Land cover: distinct hues, not one green family. Kept translucent in the
      style so the relief reads through, but opaque enough at detail zooms to tell
      a forest from a meadow from a harvested field. */
-  wood: "#1c4d3a",
-  grass: "#54682d",
+  wood: "#183f31",
+  grass: "#5d6f2f",
   farmland: "#7a7336",
   wetland: "#2a5a5e",
   residential: "#3a4757",
   quarry: "#5d5646",
-  rock: "#6b5c45",
+  rock: "#77644b",
   sand: "#cbaa7c",
   ice: "#dce9ee",
   snow: "#eef6f8",
@@ -112,14 +112,14 @@ export const CLIMATE: [number, string][] = [
  */
 export const HYPSOMETRY: [number, string][] = [
   [0, "rgba(90, 105, 80, 0)"],
-  [150, "rgba(122, 132, 86, 0.05)"],
-  [400, "rgba(150, 148, 96, 0.12)"],
-  [800, "rgba(172, 156, 112, 0.22)"],
-  [1400, "rgba(178, 158, 122, 0.34)"],
-  [2000, "rgba(180, 166, 146, 0.46)"],
-  [2600, "rgba(186, 180, 168, 0.58)"],
-  [3200, "rgba(198, 196, 190, 0.7)"],
-  [3800, "rgba(216, 218, 214, 0.8)"],
+  [150, "rgba(96, 108, 74, 0.06)"],
+  [400, "rgba(118, 120, 76, 0.14)"],
+  [800, "rgba(96, 102, 66, 0.26)"],
+  [1400, "rgba(112, 104, 74, 0.42)"],
+  [2000, "rgba(112, 99, 82, 0.54)"],
+  [2600, "rgba(132, 128, 120, 0.64)"],
+  [3200, "rgba(168, 172, 172, 0.74)"],
+  [3800, "rgba(206, 212, 214, 0.82)"],
   [4500, "rgba(234, 240, 240, 0.88)"],
   [5600, "rgba(248, 252, 253, 0.94)"],
 ];
@@ -137,12 +137,12 @@ export const HYPSOMETRY: [number, string][] = [
  * without painting the Norwegian fjords at sea level.
  */
 export const SNOW_TINT: [number, string][] = [
-  [3000, "rgba(228, 238, 241, 0)"],
-  [3400, "rgba(231, 240, 243, 0.28)"],
-  [3800, "rgba(236, 244, 247, 0.52)"],
-  [4400, "rgba(244, 249, 251, 0.74)"],
-  [5000, "rgba(250, 253, 254, 0.85)"],
-  [5800, "rgba(253, 254, 255, 0.9)"],
+  [3300, "rgba(232, 242, 246, 0)"],
+  [3600, "rgba(234, 243, 247, 0.3)"],
+  [4000, "rgba(240, 247, 250, 0.62)"],
+  [4500, "rgba(246, 250, 252, 0.82)"],
+  [5000, "rgba(250, 253, 254, 0.9)"],
+  [5800, "rgba(253, 254, 255, 0.94)"],
 ];
 
 /**
@@ -180,51 +180,52 @@ export const HILLSHADE_PAINT = {
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": [315, 45, 225, 135],
   "hillshade-illumination-altitude": [45, 30, 45, 30],
-  "hillshade-highlight-color": ["#d0c9a0", "#a8b58a", "#9db07f", "#a8b58a"],
-  "hillshade-shadow-color": ["#02090b", "#04100d", "#030d0b", "#04100d"],
+  "hillshade-highlight-color": ["#d3c6a6", "#9aa07f", "#8b9376", "#9aa07f"],
+  "hillshade-shadow-color": ["#04101a", "#06161b", "#051319", "#06161b"],
   "hillshade-accent-color": "#0a2a24",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
     0,
-    0.9,
+    1,
     4,
-    1.2,
+    1.35,
     8,
-    1.15,
-    12,
-    1.05,
-    16,
-    0.95,
+    1.2,
   ],
 } as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;
 
 /**
- * The second light, close in.
+ * The close light.
  *
- * The broad pass above is tuned for a range seen whole: its exaggeration rounds
- * off the small ridges that make a valley floor legible at z12–16. This pass is
- * declared from z10 with a fraction of the exaggeration and a much lower-contrast
- * pair of colours, so it adds micro-shading to the near field without darkening
- * the whole map twice.
+ * Seen range-wide, the four-light pass above is right: no face is left black and
+ * the whole range reads as one body. Close in it is the wrong tool — four lights
+ * each lay their highlight over the ground, and four washes of pale stone turned
+ * every hillside into the same sage felt, which is the flat look this map kept
+ * falling into. So the near field is lit by one sun, northwest at 45°, using the
+ * `combined` method: intensity grows with slope, so valley floors and meadows
+ * keep their own colour and only the faces that catch the light are lit. Steep
+ * ground still gets a strong light/shadow split — the thing that makes close
+ * terrain read as terrain rather than as a tint.
  */
-export const HILLSHADE_FINE = {
-  "hillshade-method": "multidirectional",
+export const HILLSHADE_NEAR = {
+  "hillshade-method": "igor",
   "hillshade-illumination-anchor": "map",
-  "hillshade-illumination-direction": [315, 135],
-  "hillshade-illumination-altitude": [60, 45],
-  "hillshade-highlight-color": ["#c9ccb2", "#9aab90"],
-  "hillshade-shadow-color": ["#06140f", "#0a1a15"],
+  "hillshade-illumination-direction": 315,
+  "hillshade-illumination-altitude": 45,
+  "hillshade-highlight-color": "rgba(246, 236, 208, 0.5)",
+  "hillshade-shadow-color": "rgba(3, 14, 22, 0.85)",
+  "hillshade-accent-color": "rgba(6, 26, 22, 0.6)",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
-    10,
-    0.2,
-    14,
-    0.32,
+    8.5,
+    0.5,
+    12,
+    0.58,
     16,
-    0.38,
+    0.64,
   ],
 } as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;

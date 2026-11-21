@@ -83,7 +83,7 @@ const PARKING_CAT = "parking";
  * cross-source duplicates, which are real pins but should not double a park dot
  * at walking zoom.
  */
-const BAND_ZOOMS = [6.8, 7.8, 8.8, 10.2, 13.5] as const;
+const BAND_ZOOMS = [6.6, 7.4, 8.4, 9.8, 12.5] as const;
 const DUP_BAND = BAND_ZOOMS.length - 1;
 
 /**
@@ -92,12 +92,12 @@ const DUP_BAND = BAND_ZOOMS.length - 1;
  * a band each time this fills.
  */
 const PER_CELL: Record<string, number> = {
-  camp: 8,
-  hut: 6,
-  pass: 10,
-  caravan: 4,
-  trailhead: 10,
-  view: 12,
+  camp: 14,
+  hut: 10,
+  pass: 16,
+  caravan: 6,
+  trailhead: 16,
+  view: 18,
   shelter: 14,
   picnic: 14,
   water: 16,
@@ -146,7 +146,10 @@ type Cell = { z: number; kinds: string[]; items: Row[]; detail?: Detail };
    155,000 information boards), and a budget smaller than that cell would evict it
    on the next `moveend` and fetch its 11 MB again. */
 const MAX_FEATURES = 320_000;
-const MAX_CELLS_PER_PASS = 6;
+/* Two cells at a time, nearest first. Six 3–11 MB cells in parallel was not a
+   faster map: the bytes arrived together, the JSON parse blocked the frame that
+   would have shown them, and the reader saw nothing for seconds. */
+const MAX_CELLS_PER_PASS = 3;
 
 /* Parking is often two thirds of a country's rows and only matters at street
    zoom, so it travels in its own file and its own source. */
@@ -211,6 +214,74 @@ function summary(d: Record<string, string>): string {
   else if (d.access && d.access !== "yes") out.push(d.access);
   if (d.operator) out.push(d.operator);
   return out.slice(0, 3).join(" · ").slice(0, 90);
+}
+
+/** Cells are cut into this many sub-tiles on a side when a cell is trimmed. */
+const TRIM_GRID = 8;
+/** Named rows kept per category per sub-tile; one more unnamed row is kept too. */
+const KEEP_PER_SUB = 4;
+
+/** The lat/lon bounds of a z/x/y tile, for the trim's sub-tile grid. */
+function tileBounds(z: number, x: number, y: number) {
+  const n = 2 ** z;
+  const latOf = (row: number) =>
+    (Math.atan(Math.sinh(Math.PI * (1 - (2 * row) / n))) * 180) / Math.PI;
+  return {
+    west: (x / n) * 360 - 180,
+    east: ((x + 1) / n) * 360 - 180,
+    north: latOf(y),
+    south: latOf(y + 1),
+  };
+}
+
+/**
+ * The rows worth turning into features.
+ *
+ * A z6 cell over the Alps holds 276,000 rows. Materialising all of them — a
+ * GeoJSON object each, then sorting every category and walking the lot for
+ * duplicates — cost seconds of main-thread work the moment the cell landed,
+ * which is why pins arrived long after the download finished and why the map
+ * froze while they did. The map can draw at most a few hundred from one cell, so
+ * the rows are thinned before any object is built.
+ *
+ * The thinning is spatial: a cell is cut into an 8×8 grid of z9-sized sub-tiles
+ * and each category keeps a handful per sub-tile. Keeping the first N rows in
+ * file order would have emptied every part of the cell except the one the
+ * harvester happened to write first — which is how the first version of this
+ * dropped every pin around Zermatt. Search still sees the whole cell:
+ * `indexNamed` reads the raw rows.
+ */
+function trimCell(
+  cell: Cell,
+  meta: Map<number, Record<string, string>>,
+  tile: [number, number],
+): Feature<Point>[] {
+  const out: Feature<Point>[] = [];
+  const bounds = tileBounds(MAPPED_CELL_ZOOM, tile[0], tile[1]);
+  const spanX = bounds.east - bounds.west || 1;
+  const spanY = bounds.north - bounds.south || 1;
+  const counts = new Map<string, number>();
+  const sub = (value: number, min: number, span: number) =>
+    Math.max(0, Math.min(TRIM_GRID - 1, Math.floor(((value - min) / span) * TRIM_GRID)));
+
+  /* Named first: those are the rows a card can describe and the ones the
+     usefulness sort would have put on top anyway. */
+  for (const named of [true, false]) {
+    for (let index = 0; index < cell.items.length; index += 1) {
+      const row = cell.items[index];
+      const cat = MAPPED_CATS[row[2]] ?? "camp";
+      if (!PRACTICAL_CATS.includes(cat)) continue;
+      const tags = meta.get(index);
+      const hasName = Boolean(row[3]) || Boolean(tags?.url || tags?.website || tags?.booking);
+      if (hasName !== named) continue;
+      const key = `${cat}|${sub(row[1], bounds.west, spanX)}|${sub(row[0], bounds.south, spanY)}`;
+      const n = counts.get(key) ?? 0;
+      if (n >= KEEP_PER_SUB) continue;
+      counts.set(key, n + 1);
+      out.push(toFeature(row, tags));
+    }
+  }
+  return out;
 }
 
 function toFeature(row: Row, meta?: Record<string, string>): Feature<Point> {
@@ -713,7 +784,9 @@ export function setMappedCats(map: MlMap, layers: LayerState): void {
 export function refreshMapped(map: MlMap) {
   if (!map.getSource(SOURCE)) return;
   const zoom = map.getZoom();
-  if (zoom < 5.5) return;
+  /* Nothing draws before the first pin band, so a cell fetched at a globe view
+     is megabytes spent to show an empty layer. */
+  if (zoom < 6.2) return;
 
   const n = 2 ** MAPPED_CELL_ZOOM;
   const bounds = map.getBounds();
@@ -739,6 +812,14 @@ export function refreshMapped(map: MlMap) {
 
   const visibleKeys = new Set(visible.map(([x, y]) => cellKey(MAPPED_CELL_ZOOM, x, y)));
 
+  /* A settle can fire several passes in a row (a pitch correction, a resize).
+     Starting another megabyte while two are in flight only queues bytes ahead of
+     the cell the reader is waiting for. */
+  if (pending.size >= 2) {
+    schedulePush(map);
+    return;
+  }
+
   const wanted = visible.filter(([x, y]) => {
     const key = cellKey(MAPPED_CELL_ZOOM, x, y);
     if (loaded.has(key) || pending.has(key)) return false;
@@ -746,10 +827,18 @@ export function refreshMapped(map: MlMap) {
     return !(until && until > Date.now());
   });
 
-  // At country zoom one z6 cell is a large part of the view, and six cells left
-  // most of Europe blank until the next pan. Fetch a wider first ring there.
-  const pass = zoom < 7 ? 24 : MAX_CELLS_PER_PASS;
-  for (const [x, y] of wanted.slice(0, pass)) {
+  /* Nearest cell first: the one under the centre is the one the reader is
+     looking at, and it is the one whose pins must arrive first. */
+  const centre = map.getCenter();
+  const cx = lon2x(centre.lng);
+  const cy = lat2y(centre.lat);
+  const distance = ([x, y]: [number, number]) => {
+    const dx = Math.min(Math.abs(x - cx), n - Math.abs(x - cx));
+    return dx + Math.abs(y - cy);
+  };
+  wanted.sort((a, b) => distance(a) - distance(b));
+
+  for (const [x, y] of wanted.slice(0, MAX_CELLS_PER_PASS)) {
     const key = cellKey(MAPPED_CELL_ZOOM, x, y);
     const path = `poi/${MAPPED_CELL_ZOOM}/${x}/${y}.json`;
     pending.add(key);
@@ -766,11 +855,11 @@ export function refreshMapped(map: MlMap) {
             return res.json() as Promise<Cell>;
           })
           .then((cell) => {
-        const meta = new Map<number, Record<string, string>>();
-        for (const [index, tags] of cell.detail ?? []) meta.set(index, tags);
-        const features = cell.items.map((row, index) => toFeature(row, meta.get(index)));
-        assignBands(features);
-        markCell(key, features, destinationIndex());
+            const meta = new Map<number, Record<string, string>>();
+            for (const [index, tags] of cell.detail ?? []) meta.set(index, tags);
+            const features = trimCell(cell, meta, [x, y]);
+            assignBands(features);
+            markCell(key, features, destinationIndex());
             misses.delete(key);
             loaded.set(key, features);
             banded.set(key, splitBands(features));
@@ -811,7 +900,7 @@ export function refreshMapped(map: MlMap) {
               return res.json() as Promise<Cell>;
             })
             .then((cell) => {
-              const features = cell.items.map((row) => toFeature(row));
+              const features = trimCell(cell, new Map(), [x, y]);
               markCell(key, features, destinationIndex());
               parkingMisses.delete(key);
               parkingLoaded.set(key, features);
