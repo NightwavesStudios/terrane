@@ -3260,3 +3260,766 @@ button {
     user-select: none;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Product experience pass
+   ─────────────────────────────────────────────────────────────
+   One appended layer rather than forty scattered edits: these are the rules
+   that coordinate the shell, the map dock, the panels, the catalogues and the
+   reading pages, and keeping them together is the only way the system stays
+   legible. Everything here is deliberately later in the cascade than the rules
+   it corrects, and the breakpoints match the shell (900 / 620) instead of the
+   old 860 half-step that gave 861–900 px a tab bar with desktop panels. */
+
+:root {
+  /* One gutter for chrome that floats over the map, instead of 6/14/26 px. */
+  --dock-gap: 8px;
+  --side-gutter: 26px;
+  --r-pill: 100px;
+  --r-panel: 16px;
+  --r-sheet: 20px;
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 260ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Named layers. The numbers are the ones already in use; naming them turns an
+     accidental ordering into a decision. */
+  --z-chrome: 12;
+  --z-dock: 13;
+  --z-sheet: 14;
+  --z-panel: 15;
+  --z-tools: 16;
+  --z-nav: 30;
+  --z-toast: 40;
+  --focus-ring: #8ef3d2;
+}
+
+.page {
+  /* Small meta text needs a step between --ink-3 and --ink-2 on the dark shell. */
+  --ink-4: #8b969e;
+}
+
+/* ── keyboard focus, everywhere ──────────────────────────── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="option"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.chip:focus-visible,
+.tabbar-item:focus-visible,
+.discover-row:focus-visible,
+.saved-main:focus-visible,
+.exp-card-open:focus-visible {
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+.maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* ── motion ──────────────────────────────────────────────── */
+.page {
+  animation: route-in var(--dur-3) var(--ease-out) both;
+}
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.chip,
+.tabbar-item,
+.search-open,
+.layers-toggle,
+.back,
+.saved-select,
+.exp-search-clear,
+.catalog-clear {
+  transition:
+    color var(--dur-1) ease,
+    background-color var(--dur-1) ease,
+    border-color var(--dur-1) ease,
+    transform var(--dur-2) var(--ease-out);
+}
+
+/* A mouse deserves the press feedback a finger already gets. */
+@media (hover: hover) {
+  .chip:active,
+  .tabbar-item:active,
+  .btn:active,
+  .exp-card-open:active {
+    transform: scale(0.985);
+  }
+  .back:hover {
+    gap: 10px;
+  }
+}
+
+/* ── the scrollable chip row ─────────────────────────────── */
+.chip-row {
+  position: relative;
+  min-width: 0;
+}
+.chip-row-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 1px;
+  cursor: grab;
+}
+.chip-row-track:active {
+  cursor: grabbing;
+}
+.chip-row-track::-webkit-scrollbar {
+  display: none;
+}
+.chip-row-track > .chip {
+  flex: none;
+}
+.chip-row::before,
+.chip-row::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-2) ease;
+}
+.chip-row::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(6, 10, 17, 0.92), rgba(6, 10, 17, 0));
+}
+.chip-row::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(6, 10, 17, 0.92), rgba(6, 10, 17, 0));
+}
+.chip-row[data-start]::before,
+.chip-row[data-end]::after {
+  opacity: 1;
+}
+.chip--small {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 9.5px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── the map dock: your location first, then destinations ── */
+.globe-filters {
+  padding: 5px;
+  border-radius: var(--r-pill);
+  max-width: min(880px, calc(100vw - 2 * var(--side-gutter)));
+  /* The pill used to scroll itself; the row inside it owns that now, so the
+     pinned scope chip can stay put while the destinations move. */
+  overflow: visible;
+}
+.map-dock {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.map-dock-scope {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 40vw;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(124, 224, 192, 0.34);
+  background: rgba(124, 224, 192, 0.1);
+  color: #d8fff2;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.map-dock-scope:hover {
+  border-color: rgba(124, 224, 192, 0.6);
+}
+.map-dock-scope.on {
+  background: var(--mint);
+  border-color: transparent;
+  color: #06251c;
+}
+.map-dock-pin {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--mint);
+}
+.map-dock-scope.on .map-dock-pin {
+  color: #06251c;
+}
+.map-dock-scope-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-dock-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.map-dock-row .chip-row-track {
+  gap: 2px;
+}
+.map-dock .chip--more {
+  color: rgba(237, 239, 245, 0.48);
+}
+
+/* ── the bottom shelf on phones ──────────────────────────── */
+@media (max-width: 900px) {
+  .globe-filters {
+    left: var(--dock-gap);
+    right: var(--dock-gap);
+    bottom: calc(var(--tabbar-h) + var(--dock-gap));
+    width: auto;
+    max-width: none;
+    margin: 0;
+    transform: none;
+  }
+  .globe-filters .chip {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  .map-dock-scope {
+    max-width: 46vw;
+    min-height: 40px;
+    font-size: 9.5px;
+  }
+  /* The panel is the surface in use: the floating tools step out of its way
+     instead of painting over its header. It keeps its own × and Escape. */
+  .map-tools {
+    transition: opacity var(--dur-2) ease;
+  }
+  .home:has(.discover) .map-tools {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* A tablet: the strip and the tab bar are one width, one above the other. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .globe-filters {
+    left: 0;
+    right: 0;
+    width: min(460px, calc(100vw - 40px));
+    margin: 0 auto;
+    bottom: calc(var(--tabbar-h) + 2px);
+  }
+}
+
+/* A phone: one shelf, edge to edge, instead of two stacked glass pills. */
+@media (max-width: 620px) {
+  .globe-filters {
+    left: 0;
+    right: 0;
+    bottom: var(--tabbar-h);
+    padding: 5px 8px 6px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    background: rgba(5, 8, 14, 0.94);
+  }
+  .globe-filters .chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  .globe-filters .chip:last-child {
+    max-width: none;
+    overflow: visible;
+  }
+  .map-dock-scope {
+    max-width: 44vw;
+  }
+}
+
+@media (max-width: 380px) {
+  .tabbar-label {
+    font-size: 8px;
+    letter-spacing: 0.06em;
+  }
+  .globe-filters .chip {
+    padding: 8px 10px;
+    font-size: 9.5px;
+  }
+  .map-dock-scope {
+    padding: 0 11px 0 10px;
+  }
+}
+
+/* ── layers panel tools ──────────────────────────────────── */
+.layers-tools {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 9px;
+  background: rgba(7, 11, 18, 0.98);
+  border-bottom: 1px solid rgba(237, 239, 245, 0.09);
+}
+.layers-tools input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(237, 239, 245, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef1f7;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.layers-tools input::placeholder {
+  color: rgba(238, 242, 247, 0.32);
+}
+.layers-reset {
+  flex: none;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(237, 239, 245, 0.16);
+  border-radius: 9px;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(237, 239, 245, 0.62);
+}
+.layers-reset:hover {
+  color: #fff;
+  border-color: rgba(124, 224, 192, 0.45);
+}
+
+/* ── catalog controls (Experiences + Collections) ─────────── */
+.catalog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.catalog-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.catalog-field {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+}
+.catalog-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 40px 12px 16px;
+  border: 1px solid var(--line-light);
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 13px;
+}
+.catalog-field input::placeholder {
+  color: var(--ink-3);
+}
+.catalog-field input:focus-visible {
+  outline: 2px solid rgba(124, 224, 192, 0.45);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.catalog-clear {
+  position: absolute;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 15px;
+  color: var(--ink-3);
+}
+.catalog-clear:hover {
+  color: var(--ink);
+}
+.catalog-reset {
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.catalog-reset:hover {
+  color: var(--mint);
+}
+.catalog-near-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  max-height: 300px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--line-light);
+  border-radius: 12px;
+  background: var(--paper-2);
+  box-shadow: 0 26px 60px -28px #000;
+}
+.catalog-near-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.catalog-near-option.on,
+.catalog-near-option:hover {
+  background: rgba(124, 224, 192, 0.12);
+}
+.catalog-near-where {
+  flex: none;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.exp-controls > .catalog-controls {
+  gap: 16px;
+}
+
+/* ── states: loading, empty, error ───────────────────────── */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 62ch;
+  padding: 28px 0;
+  color: var(--ink-2);
+}
+.state--compact {
+  padding: 12px 0;
+}
+.state-title {
+  font-family: var(--serif);
+  font-size: 21px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.state-body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-4, var(--ink-3));
+}
+.state-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.state-mark--error {
+  color: #e7a07a;
+}
+.state-mark--empty {
+  color: var(--mint);
+}
+.state-action {
+  margin-top: 2px;
+}
+.state-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: min(420px, 100%);
+}
+.state-skeleton-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(237, 239, 245, 0.07),
+    rgba(237, 239, 245, 0.16),
+    rgba(237, 239, 245, 0.07)
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+}
+.state-skeleton-bar:nth-child(2) {
+  width: 78%;
+}
+.state-skeleton-bar:nth-child(3) {
+  width: 56%;
+}
+@keyframes skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.home > .state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  text-align: center;
+}
+.home--loading > .state {
+  position: static;
+  transform: none;
+  margin: 0 auto;
+}
+
+/* ── reading pages ───────────────────────────────────────── */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 0;
+}
+.place-aside {
+  align-self: start;
+}
+@media (min-width: 1080px) {
+  .place-aside {
+    position: sticky;
+    top: 22px;
+  }
+}
+.place-title {
+  text-wrap: balance;
+}
+.place-about-text {
+  text-wrap: pretty;
+}
+
+/* ── saved library ───────────────────────────────────────── */
+.saved-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 20px 0 4px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-light);
+}
+.saved-toolbar-group {
+  display: flex;
+  gap: 6px;
+}
+.saved-select {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-light);
+  border-radius: var(--r-pill);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.saved-select.on {
+  color: var(--mint);
+  border-color: rgba(124, 224, 192, 0.45);
+  background: rgba(124, 224, 192, 0.08);
+}
+.saved-bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(124, 224, 192, 0.3);
+  border-radius: 12px;
+  background: rgba(124, 224, 192, 0.07);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.saved-bulk .btn {
+  padding: 9px 14px;
+}
+.saved-bulk .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.saved-row--select {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+.saved-check {
+  display: flex;
+  align-items: center;
+}
+.saved-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #7ce0c0;
+}
+.saved-block-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.saved-block-count {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--mint);
+}
+.saved-empty .state {
+  padding-bottom: 8px;
+}
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + 16px);
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 9px 9px 9px 16px;
+  border: 1px solid rgba(237, 239, 245, 0.16);
+  border-radius: var(--r-pill);
+  background: rgba(10, 14, 22, 0.96);
+  color: #eef1f7;
+  font-size: 12.5px;
+  box-shadow: 0 22px 50px -22px #000;
+  transform: translateX(-50%);
+  animation: toast-in var(--dur-3) var(--ease-out) both;
+}
+.undo-toast > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.undo-action {
+  flex: none;
+  padding: 8px 6px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+.undo-dismiss {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: rgba(237, 239, 245, 0.6);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+/* ── contrast on the small mono chrome ──────────────────── */
+.globe-credits {
+  color: rgba(237, 239, 245, 0.42);
+}
+.discover-row-meta,
+.discover-section-note {
+  color: rgba(237, 239, 245, 0.52);
+}
+.discover-foot {
+  color: rgba(237, 239, 245, 0.46);
+}
+.discover-foot span {
+  color: rgba(237, 239, 245, 0.4);
+}
+.layers-key-title,
+.layers-fixed {
+  color: rgba(237, 239, 245, 0.44);
+}
+.exp-note,
+.exp-count,
+.exp-card-meta,
+.exp-card-stats,
+.saved-meta,
+.saved-date,
+.pick-related-title {
+  color: var(--ink-4, var(--ink-3));
+}
+.exp-note,
+.exp-count {
+  font-size: 9.5px;
+}
+
+/* ── wide screens: the dock keeps its shape, the row breathes ── */
+@media (min-width: 1440px) {
+  .globe-filters .chip {
+    padding-inline: 16px;
+  }
+}
+
+/* ── reduced motion covers everything added above ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    animation: none;
+  }
+  .state-skeleton-bar {
+    animation: none;
+  }
+  .undo-toast {
+    animation: none;
+  }
+  .back:hover {
+    gap: 7px;
+  }
+  .chip:active,
+  .tabbar-item:active,
+  .btn:active,
+  .exp-card-open:active {
+    transform: none;
+  }
+}

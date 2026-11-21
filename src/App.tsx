@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useRoute } from "./lib/router";
 import { HOME_META, setMeta } from "./lib/meta";
+import StateNotice from "./components/StateNotice";
 import Home from "./pages/Home";
 
 /* Home is the landing route, so it stays in the entry chunk; a deep link to a
@@ -23,8 +24,21 @@ export default function App() {
     if (route.name === "home") setMeta(HOME_META);
   }, [route]);
 
+  /* A lazy route used to fall back to an empty div, so a deep link showed a
+     blank page for as long as its chunk took. The fallback now reserves the
+     page shell and says what is loading. */
   return (
-    <Suspense fallback={<div className={route.name === "home" ? "home" : "page"} />}>
+    <Suspense
+      fallback={
+        <div className={route.name === "home" ? "home home--loading" : "page"}>
+          <StateNotice
+            kind="loading"
+            rows={2}
+            title={route.name === "home" ? "Drawing the globe…" : "Opening the page…"}
+          />
+        </div>
+      }
+    >
       {route.name === "place" ? (
         <Place slug={route.slug} />
       ) : route.name === "experiences" ? (

@@ -39,6 +39,9 @@ export default function Home() {
   });
   const [focus, setFocus] = useState<GlobeFocus | null>(null);
   const [layers, setLayers] = useState<LayerState>(DEFAULT_LAYERS);
+  /* The map dock's trailing chip opens the Layers panel; a counter rather than a
+     boolean so the chip can open it again after it was dismissed. */
+  const [layersSignal, setLayersSignal] = useState(0);
   /* `?guide=<slug>` is the Experiences → Globe hand-off: open the map with the
      curated destination already selected, not just centred on its coordinate. */
   const guideSlug = useMemo(
@@ -230,7 +233,12 @@ export default function Home() {
           onOpen={closePick}
           onOpenChange={onDiscoverOpenChange}
         />
-        <LayerControl value={layers} onChange={setLayers} onOpen={closePick} />
+        <LayerControl
+          value={layers}
+          onChange={setLayers}
+          onOpen={closePick}
+          openSignal={layersSignal}
+        />
       </div>
 
       {/* One map, one count. Every point is a category; nothing here separates
@@ -254,6 +262,7 @@ export default function Home() {
           onChange={changeFilter}
           tone="dark"
           scope={scope}
+          onMore={() => setLayersSignal((n) => n + 1)}
         />
       </div>
 

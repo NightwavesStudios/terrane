@@ -69,6 +69,11 @@ function iconFor(cat: Category): string | null {
   return url;
 }
 
+/** A stable DOM id for one option, so the field can point at the active row. */
+function optionId(action: Action): string {
+  return `discover-opt-${action.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 function rankedAction(item: RankedRow): Action {
   return {
     kind: "place",
@@ -84,11 +89,13 @@ function ActionRow({
   active,
   onChoose,
   onHover,
+  optionId,
 }: {
   action: Action;
   active: boolean;
   onChoose: () => void;
   onHover: () => void;
+  optionId: string;
 }) {
   if (action.kind === "area") {
     return (
@@ -96,6 +103,9 @@ function ActionRow({
         className={`discover-row${active ? " is-active" : ""}`}
         onClick={onChoose}
         onMouseEnter={onHover}
+        role="option"
+        aria-selected={active}
+        id={optionId}
       >
         <span className="discover-row-icon discover-row-icon--area" aria-hidden="true">
           ◎
@@ -116,6 +126,9 @@ function ActionRow({
         className={`discover-row${active ? " is-active" : ""}`}
         onClick={onChoose}
         onMouseEnter={onHover}
+        role="option"
+        aria-selected={active}
+        id={optionId}
       >
         <span className="discover-row-icon discover-row-icon--area" aria-hidden="true">
           ✛
@@ -135,6 +148,9 @@ function ActionRow({
       className={`discover-row${active ? " is-active" : ""}`}
       onClick={onChoose}
       onMouseEnter={onHover}
+      role="option"
+      aria-selected={active}
+      id={optionId}
     >
       <span className="discover-row-icon" aria-hidden="true">
         {icon ? (
@@ -168,7 +184,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="discover-section">
+    <section className="discover-section" role="group" aria-label={title}>
       <div className="discover-section-head">
         <h2 className="mono">{title}</h2>
         {note ? <span className="discover-section-note mono">{note}</span> : null}
@@ -399,11 +415,11 @@ export default function Discover({
           if (open) setOpen(false);
           else openPanel();
         }}
-        aria-label="Discover places"
+        aria-label="Search places"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <span className="search-open-label">Discover</span>
+        <span className="search-open-label">Search places</span>
         <kbd>⌘K</kbd>
       </button>
 
@@ -431,6 +447,13 @@ export default function Discover({
               onKeyDown={onFieldKey}
               placeholder="Peak, lake, camp, country, 46.5, 8.0…"
               aria-label="Search places by name, category or country"
+              role="combobox"
+              aria-expanded
+              aria-controls="discover-results"
+              aria-autocomplete="list"
+              aria-activedescendant={
+                actions[active] ? optionId(actions[active]) : undefined
+              }
               spellCheck={false}
               autoComplete="off"
             />
@@ -461,7 +484,12 @@ export default function Discover({
             ))}
           </div>
 
-          <div className="discover-body">
+          <div
+            className="discover-body"
+            id="discover-results"
+            role="listbox"
+            aria-label="Places and areas"
+          >
             {searching ? (
               <>
                 {result && result.hits.length > 0 ? (
@@ -471,6 +499,7 @@ export default function Discover({
                         key={action.key}
                         action={action}
                         active={index === active}
+                        optionId={optionId(action)}
                         onChoose={() => choose(action)}
                         onHover={() => setCursor(index)}
                       />
@@ -507,6 +536,7 @@ export default function Discover({
                                 key={action.key}
                                 action={action}
                                 active={offsetNearby + index === active}
+                                optionId={optionId(action)}
                                 onChoose={() => choose(action)}
                                 onHover={() => setCursor(offsetNearby + index)}
                               />
@@ -532,6 +562,7 @@ export default function Discover({
                                 key={action.key}
                                 action={action}
                                 active={offsetNotable + index === active}
+                                optionId={optionId(action)}
                                 onChoose={() => choose(action)}
                                 onHover={() => setCursor(offsetNotable + index)}
                               />
@@ -555,6 +586,7 @@ export default function Discover({
                                 key={action.key}
                                 action={action}
                                 active={offsetGems + index === active}
+                                optionId={optionId(action)}
                                 onChoose={() => choose(action)}
                                 onHover={() => setCursor(offsetGems + index)}
                               />

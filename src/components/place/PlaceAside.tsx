@@ -2,12 +2,14 @@ import { useState } from "react";
 import type { PlaceImage } from "../../lib/placeDetails";
 
 /**
- * The sticky column: the two actions a reader actually needs, then the
- * provenance links, then the credit for the photograph.
+ * The sticky column on a place page: one save, one jump to the globe, the
+ * coordinates, provenance and the photograph credit.
+ *
+ * It used to carry a second save button with a different label from the one on
+ * the hero, which read as a different action on the same record. Saving belongs
+ * to the hero; this column keeps the secondary work.
  */
 export default function PlaceAside({
-  saved,
-  onToggleSave,
   onOpenGlobe,
   coordinatesText,
   site,
@@ -16,8 +18,6 @@ export default function PlaceAside({
   wd,
   photo,
 }: {
-  saved: boolean;
-  onToggleSave: () => void;
   onOpenGlobe: () => void;
   coordinatesText: string;
   site?: string;
@@ -42,13 +42,6 @@ export default function PlaceAside({
   return (
     <aside className="place-aside">
       <div className="aside-card">
-        <button
-          className={`btn btn-dark btn-full${saved ? " btn-saved" : ""}`}
-          onClick={onToggleSave}
-          aria-pressed={saved}
-        >
-          {saved ? "Saved ✓" : "Save this place"}
-        </button>
         <button className="btn btn-light btn-full" onClick={onOpenGlobe}>
           See it on the globe →
         </button>

@@ -67,8 +67,9 @@ export default function PlaceHero({
         className={`place-save${saved ? " on" : ""}`}
         onClick={onToggleSave}
         aria-pressed={saved}
+        aria-label={saved ? "Remove from Saved" : "Save this place"}
       >
-        {saved ? "Saved ✓" : "Save"}
+        {saved ? "Saved ✓" : "Save place"}
       </button>
 
       {photo && photo.credit ? (

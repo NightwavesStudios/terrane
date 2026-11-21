@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import Header from "../components/Header";
+import BackLink from "../components/BackLink";
 import GuideCard from "../components/guide/GuideCard";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
@@ -155,9 +156,7 @@ export default function Collection({ slug }: { slug: string }) {
       <Header tone="light" />
 
       <article className="place">
-        <button className="back" onClick={() => navigate("/collections")}>
-          ← Collections
-        </button>
+        <BackLink to="/collections" label="Collections" />
 
         <div className="place-hero">
           {hero && !heroFailed ? (

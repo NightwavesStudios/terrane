@@ -1,46 +1,35 @@
+import { NAV, activeNav, type NavId } from "./nav";
 import { navigate, useRoute } from "../lib/router";
 import { useSaved } from "../lib/saved";
 import { useSavedGuides } from "../lib/savedGuides";
 
-type TabId = "globe" | "experiences" | "collections" | "saved";
-
-const TABS: { id: TabId; label: string; to: string }[] = [
-  { id: "globe", label: "Globe", to: "/" },
-  { id: "experiences", label: "Experiences", to: "/experiences" },
-  { id: "collections", label: "Collections", to: "/collections" },
-  { id: "saved", label: "Saved", to: "/saved" },
-];
-
 /**
  * The app bar for phones and tablets.
  *
- * The four destinations are the same four the header carries on a desktop, but
+ * The four destinations are exactly the header's four, from the same table, but
  * a thumb reaches the bottom of a phone and never the top-right corner, so under
- * 900 px the nav moves down here and the header keeps only the wordmark. It is
- * rendered by Header, so every route has it; the stylesheet decides whether it
- * is visible. A place page belongs to the Globe tab because that is where it
- * came from and where its back link returns.
+ * 900 px the nav moves down here and the header keeps only the wordmark.
+ *
+ * Under 620 px the map's filter strip sits directly on top of this bar with the
+ * same edge-to-edge shape: one shelf at the bottom, not two floating glass
+ * pills at different widths. The stylesheet owns that geometry.
  */
 export default function TabBar() {
   const route = useRoute();
   const places = useSaved();
   const guides = useSavedGuides();
   const savedCount = places.length + guides.length;
-
-  let active: TabId | null = null;
-  if (route.name === "home" || route.name === "place") active = "globe";
-  else if (route.name === "experiences" || route.name === "experience") active = "experiences";
-  else if (route.name === "collections" || route.name === "collection") active = "collections";
-  else if (route.name === "saved") active = "saved";
+  const active = activeNav(route);
 
   return (
     <nav className="tabbar" aria-label="Main">
-      {TABS.map((tab) => (
+      {NAV.map((tab) => (
         <button
           key={tab.id}
           className={`tabbar-item${active === tab.id ? " on" : ""}`}
           onClick={() => navigate(tab.to)}
           aria-current={active === tab.id ? "page" : undefined}
+          title={tab.hint}
         >
           <TabIcon id={tab.id} />
           <span className="tabbar-label">{tab.label}</span>
@@ -53,7 +42,7 @@ export default function TabBar() {
   );
 }
 
-function TabIcon({ id }: { id: TabId }) {
+function TabIcon({ id }: { id: NavId }) {
   const common = {
     width: 22,
     height: 22,
@@ -67,7 +56,7 @@ function TabIcon({ id }: { id: TabId }) {
     focusable: false,
   };
 
-  if (id === "globe") {
+  if (id === "discover") {
     return (
       <svg {...common}>
         <circle cx="12" cy="12" r="9" />

@@ -1,5 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import Header from "../components/Header";
+import BackLink from "../components/BackLink";
+import SaveButton from "../components/SaveButton";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
 import RidgeArt from "../components/RidgeArt";
@@ -168,9 +170,7 @@ export default function Experience({ slug }: { slug: string }) {
       <Header tone="light" />
 
       <article className="place">
-        <button className="back" onClick={() => navigate("/experiences")}>
-          ← Experiences
-        </button>
+        <BackLink to="/experiences" label="Experiences" />
 
         <div className="place-hero">
           {hero && !heroFailed ? (
@@ -197,13 +197,12 @@ export default function Experience({ slug }: { slug: string }) {
             <p className="place-tagline">{guide.summary}</p>
           </div>
 
-          <button
-            className={`place-save${saved ? " on" : ""}`}
-            onClick={onToggleSave}
-            aria-pressed={saved}
-          >
-            {saved ? "Saved ✓" : "Save"}
-          </button>
+          <SaveButton
+            saved={saved}
+            onToggle={onToggleSave}
+            label="Save"
+            variant="float"
+          />
 
           {hero?.credit ? (
             <a
@@ -392,12 +391,6 @@ export default function Experience({ slug }: { slug: string }) {
             <div className="aside-card">
               <p className="mono k">This Experience</p>
               <p className="exp-aside-line">{guide.summary}</p>
-              <button
-                className={`btn btn-light${saved ? " btn-saved" : ""}`}
-                onClick={onToggleSave}
-              >
-                {saved ? "Saved ✓" : "Save this Experience"}
-              </button>
               <button
                 className="btn btn-light"
                 onClick={() => navigate(`/?guide=${guide.slug}`)}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import Header from "../components/Header";
+import BackLink from "../components/BackLink";
 import PlaceAside from "../components/place/PlaceAside";
 import PlaceAssociationRow from "../components/place/PlaceAssociationRow";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
@@ -199,12 +200,7 @@ export default function Place({ slug }: { slug: string }) {
       <Header tone="light" />
 
       <article className="place">
-        <button
-          className="back"
-          onClick={() => navigate(globeHref(readLastView()))}
-        >
-          ← Globe
-        </button>
+        <BackLink to={globeHref(readLastView())} label="Discover" />
 
         <PlaceHero
           name={place.name}
@@ -329,8 +325,6 @@ export default function Place({ slug }: { slug: string }) {
           </div>
 
           <PlaceAside
-            saved={saved}
-            onToggleSave={onToggleSave}
             onOpenGlobe={() => navigate(`/?place=${place.slug}`)}
             coordinatesText={coordinates(place.lat, place.lon)}
             site={detail?.site}

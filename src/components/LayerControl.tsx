@@ -81,13 +81,17 @@ export default function LayerControl({
   value,
   onChange,
   onOpen,
+  openSignal = 0,
 }: {
   value: LayerState;
   onChange: (next: LayerState) => void;
   /** Called when the panel opens, so a place card does not sit behind it. */
   onOpen?: () => void;
+  /** Bumped by the map dock's "All categories" chip to open this panel. */
+  openSignal?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const manifest = useManifest();
   const experience = useGuideCatalog();
   const expCounts = useMemo(() => {
@@ -102,6 +106,14 @@ export default function LayerControl({
   const count = (id: string) => compact.format(rawCount(id));
   const box = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+
+  /* The map dock's trailing chip opens this panel. The counter means the second
+     tap opens it again after it was dismissed. */
+  useEffect(() => {
+    if (!openSignal) return;
+    onOpen?.();
+    setOpen(true);
+  }, [openSignal, onOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,6 +190,15 @@ export default function LayerControl({
   const total = BASE_ROWS.length + CATEGORIES.length + 1;
   const activeExp = GUIDE_KINDS.filter((c) => value.expCats[c.id]).length;
 
+  /* The panel lists 30-odd switches in a column. A query narrows the rows in
+     place rather than making the reader scroll a wall of checkboxes. */
+  const q = query.trim().toLowerCase();
+  const match = (label: string) => !q || label.toLowerCase().includes(q);
+  const baseRows = BASE_ROWS.filter((row) => match(row.label));
+  const expKinds = q
+    ? GUIDE_KINDS.filter((c) => match(c.label) || match("Experiences"))
+    : GUIDE_KINDS;
+
   function setExpCat(id: string, on: boolean) {
     onChange({ ...value, expCats: { ...value.expCats, [id]: on } });
   }
@@ -189,7 +210,12 @@ export default function LayerControl({
   }
 
   function group(id: Family) {
+    const family = FAMILIES.find((f) => f.id === id);
     const cats = CATEGORIES.filter((c) => c.family === id);
+    const shown = q
+      ? cats.filter((c) => match(c.label) || match(family?.label ?? ""))
+      : cats;
+    if (shown.length === 0) return null;
     const on = cats.filter((c) => value.cats[c.id]).length;
     const all = on === cats.length;
     return (
@@ -209,7 +235,7 @@ export default function LayerControl({
             </span>
           </span>
         </label>
-        {cats.map((cat) => (
+        {shown.map((cat) => (
           <label className="layers-row layers-row--cat" key={cat.id}>
             <input
               type="checkbox"
@@ -260,6 +286,28 @@ export default function LayerControl({
 
       {open && (
         <div className="layers-panel" role="group" aria-label="Map layers" ref={panel}>
+          <div className="layers-tools">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Find a layer…"
+              aria-label="Find a layer"
+              spellCheck={false}
+              autoComplete="off"
+            />
+            {query || active !== total ? (
+              <button
+                className="layers-reset mono"
+                onClick={() => {
+                  onChange(DEFAULT_LAYERS);
+                  setQuery("");
+                }}
+              >
+                Reset
+              </button>
+            ) : null}
+          </div>
+
           {/* Routes first and on their own: an experience is not a pin, and the
               panel says so before the lists of peaks and campsites. */}
           <div className="layers-group layers-group--experiences">
@@ -278,7 +326,7 @@ export default function LayerControl({
                 </span>
               </span>
             </label>
-            {GUIDE_KINDS.map((cat) => (
+            {expKinds.map((cat) => (
               <label className="layers-row layers-row--cat" key={cat.id}>
                 <input
                   type="checkbox"
@@ -298,7 +346,7 @@ export default function LayerControl({
             ))}
           </div>
 
-          {BASE_ROWS.map((row) => (
+          {baseRows.map((row) => (
             <Fragment key={row.key}>
               <label className="layers-row">
                 <input

@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import GuideCard from "../components/guide/GuideCard";
-import { PLACES } from "../data/places";
+import CatalogControls, {
+  type CatalogNear,
+} from "../components/catalog/CatalogControls";
+import StateNotice from "../components/StateNotice";
 import { GUIDE_KINDS, type GuideKindId } from "../data/guide";
-import { filterGuides, useGuideCatalog, type GuideNear } from "../lib/guide";
+import { filterGuides, useGuideCatalog } from "../lib/guide";
 import { setMeta } from "../lib/meta";
-
-const nearLabel = (place: (typeof PLACES)[number]) =>
-  `${place.name} — ${place.country}`;
 
 /**
  * The curated Experiences catalogue.
  *
  * These are the destinations Terrane has chosen to feature: a few hundred of the
  * most significant peaks, parks, falls, lakes and coastlines in the destination
- * database, each with its own editorial page. The full database remains on the
- * Globe. Collections are elsewhere, and gather Experiences at wide scope.
+ * database, each with its own editorial page. The full database remains on
+ * Discover. Collections are elsewhere, and gather Experiences at wide scope.
+ *
+ * The search field, the nearby-place combobox and the kind row are the shared
+ * catalogue controls, so this page and Collections cannot drift apart.
  */
 export default function Experiences() {
   const catalog = useGuideCatalog();
@@ -23,7 +26,7 @@ export default function Experiences() {
   const [query, setQuery] = useState("");
   const [activeKind, setActiveKind] = useState<GuideKindId | null>(null);
   const [nearTerm, setNearTerm] = useState("");
-  const [near, setNear] = useState<GuideNear | null>(null);
+  const [near, setNear] = useState<CatalogNear | null>(null);
 
   useEffect(() => {
     setMeta({
@@ -46,20 +49,17 @@ export default function Experiences() {
 
   const searching = query.trim().length > 0;
 
-  const chooseNear = (value: string) => {
-    setNearTerm(value);
-    const place = PLACES.find((candidate) => nearLabel(candidate) === value);
-    setNear(
-      place ? { lat: place.lat, lon: place.lon, label: place.name } : null,
-    );
-  };
-
   const resetAll = () => {
     setTerm("");
+    setQuery("");
     setActiveKind(null);
     setNearTerm("");
     setNear(null);
   };
+
+  const kindLabel = activeKind
+    ? GUIDE_KINDS.find((kind) => kind.id === activeKind)?.label
+    : null;
 
   return (
     <div className="page">
@@ -72,115 +72,70 @@ export default function Experiences() {
           A curated catalogue of significant outdoor destinations — not every
           mountain, lake or waterfall on the map. Each Experience is one real
           place, chosen for its scale, recorded features or protected status, and
-          given a page built from its own geography. The Globe remains the full
+          given a page built from its own geography. Discover remains the full
           database; Collections gather these Experiences by country, great range,
           area or recorded long-distance trail.
         </p>
       </div>
 
       <div className="exp-controls">
-        <div className="exp-control-row">
-          <div className="exp-search">
-            <input
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search an Experience, country or nearby place…"
-              aria-label="Search Experiences"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            {term ? (
-              <button
-                className="exp-search-clear mono"
-                onClick={() => setTerm("")}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-
-          <div className="exp-search exp-search--near">
-            <input
-              value={nearTerm}
-              onChange={(event) => chooseNear(event.target.value)}
-              placeholder="Near a place — town, park or peak…"
-              aria-label="Filter Experiences by a nearby place"
-              list="guide-near-options"
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <datalist id="guide-near-options">
-              {PLACES.map((place) => (
-                <option key={place.slug} value={nearLabel(place)} />
-              ))}
-            </datalist>
-            {near ? (
-              <button
-                className="exp-search-clear mono"
-                onClick={() => {
-                  setNearTerm("");
-                  setNear(null);
-                }}
-                aria-label="Clear the nearby place"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="chips chips--light" role="group" aria-label="Filter Experiences by kind">
-          <button
-            className={`chip${activeKind ? "" : " on"}`}
-            aria-pressed={!activeKind}
-            onClick={() => setActiveKind(null)}
-          >
-            All
-          </button>
-          {GUIDE_KINDS.map((kind) => (
-            <button
-              key={kind.id}
-              className={`chip${activeKind === kind.id ? " on" : ""}`}
-              aria-pressed={activeKind === kind.id}
-              onClick={() => setActiveKind(activeKind === kind.id ? null : kind.id)}
-              title={kind.blurb}
-            >
-              {kind.label}
-            </button>
-          ))}
-        </div>
-
-        {nearTerm && !near ? (
-          <p className="mono exp-note">Pick a place from the list to measure from it.</p>
-        ) : null}
+        <CatalogControls
+          searchLabel="Search Experiences"
+          searchPlaceholder="Search an Experience, country or nearby place…"
+          term={term}
+          onTerm={setTerm}
+          nearPlaceholder="Near a place — town, park or peak…"
+          nearTerm={nearTerm}
+          onNearTerm={setNearTerm}
+          near={near}
+          onNear={setNear}
+          chipsLabel="Filter Experiences by kind"
+          chips={GUIDE_KINDS.map((kind) => ({
+            id: kind.id,
+            label: kind.label,
+            title: kind.blurb,
+          }))}
+          activeChip={activeKind}
+          onChip={(id) => setActiveKind(id as GuideKindId | null)}
+          onReset={resetAll}
+        />
       </div>
 
       <div className="exp-results">
         {catalog.status === "loading" ? (
-          <p className="mono exp-note">Loading the curated catalogue…</p>
+          <StateNotice
+            kind="loading"
+            title="Loading the curated catalogue"
+            rows={3}
+          />
         ) : catalog.status === "error" ? (
-          <p className="mono exp-note">
-            The Experience index could not be loaded. The globe is unaffected.
-          </p>
+          <StateNotice
+            kind="error"
+            title="The Experience index could not be loaded"
+            body="Discover and its places are unaffected; this list is the only surface that needs it."
+            action={{ label: "Back to Discover →", onClick: () => resetAll() }}
+          />
         ) : rows.length === 0 ? (
-          <div className="exp-empty">
-            <p>
-              {searching
+          <StateNotice
+            kind="empty"
+            title={
+              searching
                 ? `Nothing matches “${query.trim()}”.`
-                : "No Experiences match these filters."}
-            </p>
-            <button className="btn btn-dark" onClick={resetAll}>
-              All Experiences →
-            </button>
-          </div>
+                : "No Experiences match these filters."
+            }
+            body={
+              searching
+                ? "Try a country, a range or the name of a nearby place."
+                : "Widen the kind or the distance, or clear everything."
+            }
+            action={{ label: "All Experiences →", onClick: resetAll }}
+          />
         ) : (
           <>
-            <p className="mono exp-count">
-              {rows.length.toLocaleString()} Experience{rows.length === 1 ? "" : "s"}
-              {activeKind
-                ? ` · ${GUIDE_KINDS.find((kind) => kind.id === activeKind)?.label}`
-                : ""}
+            <p className="mono exp-count" role="status">
+              {rows.length.toLocaleString()} Experience
+              {rows.length === 1 ? "" : "s"}
+              {kindLabel ? ` · ${kindLabel}` : ""}
               {near ? ` · within 250 km of ${near.label}` : ""}
               {searching ? ` · matching “${query.trim()}”` : ""}
               {catalog.generated ? ` · data ${catalog.generated}` : ""}
