@@ -349,7 +349,7 @@ const MAP_STYLE: StyleSpecification = {
          two snow layers would double the white and show both edges. */
       paint: {
         "fill-color": PALETTE.ice,
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.42, 11, 0.22, 12.5, 0.1, 13.6, 0],
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.72, 8, 0.42, 11, 0.34, 12.5, 0.26, 14, 0],
         "fill-outline-color": "rgba(228, 237, 239, 0)",
       },
     },

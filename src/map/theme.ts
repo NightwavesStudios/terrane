@@ -17,10 +17,10 @@ export const PALETTE = {
      navy, because every other colour on this map is warm and a blue-black sea
      read as a hole in the planet. */
   ocean: "#0d4b64",
-  lake: "#1796ab",
-  river: "#2f8fa2",
+  lake: "#14a9bf",
+  river: "#2b9fb4",
   /* The drawn shelf: a broad bloom just outside the shore, then the surf line. */
-  shelf: "#4fc6d4",
+  shelf: "#5ad2de",
   coastGlow: "#8fe6ee",
   coastLine: "#5cc2d2",
   surf: "#cfeeee",
@@ -28,15 +28,15 @@ export const PALETTE = {
   /* Land cover: distinct hues, not one green family. Kept translucent in the
      style so the relief reads through, but opaque enough at detail zooms to tell
      a forest from a meadow from a harvested field. */
-  wood: "#1d5c38",
-  grass: "#4f7629",
-  farmland: "#94873f",
+  wood: "#1c6339",
+  grass: "#4f7d24",
+  farmland: "#9c8b3a",
   wetland: "#2a5a5e",
   residential: "#3a4757",
   quarry: "#5d5646",
-  rock: "#a2957a",
+  rock: "#b08a63",
   sand: "#cbaa7c",
-  ice: "#e8f4f7",
+  ice: "#c9ecf7",
   snow: "#eef6f8",
   building: "#6a6153",
 
@@ -116,12 +116,13 @@ export const HYPSOMETRY: [number, string][] = [
   [400, "rgba(118, 120, 76, 0.14)"],
   [800, "rgba(96, 102, 66, 0.26)"],
   [1400, "rgba(96, 110, 72, 0.34)"],
-  [2000, "rgba(138, 132, 108, 0.52)"],
-  [2600, "rgba(160, 170, 176, 0.5)"],
-  [3200, "rgba(198, 206, 210, 0.68)"],
-  [3800, "rgba(222, 230, 234, 0.78)"],
-  [4500, "rgba(234, 240, 240, 0.88)"],
-  [5600, "rgba(248, 252, 253, 0.94)"],
+  [2000, "rgba(140, 124, 96, 0.5)"],
+  [2600, "rgba(158, 140, 116, 0.52)"],
+  [3000, "rgba(150, 140, 128, 0.36)"],
+  [3400, "rgba(146, 160, 176, 0.32)"],
+  [4000, "rgba(160, 178, 196, 0.3)"],
+  [4700, "rgba(178, 196, 214, 0.28)"],
+  [5600, "rgba(196, 212, 228, 0.26)"],
 ];
 
 /**
@@ -138,11 +139,11 @@ export const HYPSOMETRY: [number, string][] = [
  */
 export const SNOW_TINT: [number, string][] = [
   [3300, "rgba(232, 242, 246, 0)"],
-  [3600, "rgba(232, 242, 248, 0.24)"],
-  [4000, "rgba(234, 244, 250, 0.4)"],
-  [4500, "rgba(239, 247, 252, 0.55)"],
-  [5000, "rgba(244, 250, 253, 0.65)"],
-  [5800, "rgba(248, 252, 255, 0.72)"],
+  [3600, "rgba(216, 232, 244, 0.2)"],
+  [4000, "rgba(222, 236, 246, 0.32)"],
+  [4500, "rgba(230, 241, 249, 0.42)"],
+  [5000, "rgba(237, 246, 251, 0.5)"],
+  [5800, "rgba(242, 249, 253, 0.56)"],
 ];
 
 /**
@@ -214,9 +215,9 @@ export const HILLSHADE_NEAR = {
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": 315,
   "hillshade-illumination-altitude": 45,
-  "hillshade-highlight-color": "rgba(255, 248, 226, 0.34)",
-  "hillshade-shadow-color": "rgba(1, 9, 13, 0.72)",
-  "hillshade-accent-color": "rgba(4, 20, 18, 0.6)",
+  "hillshade-highlight-color": "rgba(255, 232, 186, 0.52)",
+  "hillshade-shadow-color": "rgba(8, 28, 62, 0.74)",
+  "hillshade-accent-color": "rgba(8, 26, 40, 0.55)",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
