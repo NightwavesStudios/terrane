@@ -52,6 +52,10 @@ export default function GuideMap({
       attributionControl: false,
     });
 
+    if (import.meta.env.DEV) {
+      (window as unknown as { __terraneDetailMap?: MlMap }).__terraneDetailMap = map;
+    }
+
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.addControl(
       new AttributionControl({
