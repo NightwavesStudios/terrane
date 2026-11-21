@@ -241,13 +241,17 @@ export default function Globe({
     installDemProtocol();
 
     const camera = readCamera();
+    /* The opening camera is built, not animated, so its tilt has to be part of
+       the constructor: the pitch effect below only corrects a camera that has
+       settled after a move, and a phone opening on a deep link never moves. */
+    const startZoom =
+      camera.zoom ?? worldZoom(holder.current.clientWidth, holder.current.clientHeight);
     const map_ = new MlMap({
       container: holder.current,
       style: createStyle(),
       center: camera.center,
-      zoom:
-        camera.zoom ??
-        worldZoom(holder.current.clientWidth, holder.current.clientHeight),
+      zoom: startZoom,
+      pitch: pitchForZoom(startZoom),
       minZoom: 0.4,
       maxZoom: 16,
       attributionControl: false,
@@ -371,10 +375,10 @@ export default function Globe({
         map_.setSky({
           "sky-color": "#05070d",
           "horizon-color": "#2b6c82",
-          "fog-color": "#153b4a",
+          "fog-color": "#12333f",
           "sky-horizon-blend": 0.7,
-          "horizon-fog-blend": 0.4,
-          "fog-ground-blend": 0.18,
+          "horizon-fog-blend": 0.25,
+          "fog-ground-blend": 0.06,
           "atmosphere-blend": 0.55,
         });
       } catch {
@@ -696,10 +700,16 @@ export default function Globe({
 
     map_.on("pitchstart", onPitchStart);
     map_.on("moveend", applyPitch);
+    /* A deep link sets its camera at construction, and a phone that lands on one
+       never fires that first move: without these two the relief sat under a
+       straight-down view until the reader moved the map themselves. */
+    map_.on("load", applyPitch);
+    map_.once("idle", applyPitch);
 
     return () => {
       map_.off("moveend", applyPitch);
       map_.off("pitchstart", onPitchStart);
+      map_.off("load", applyPitch);
     };
   }, [ready]);
 

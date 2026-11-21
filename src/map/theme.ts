@@ -117,9 +117,9 @@ export const HYPSOMETRY: [number, string][] = [
   [800, "rgba(96, 102, 66, 0.26)"],
   [1400, "rgba(96, 110, 72, 0.34)"],
   [2000, "rgba(138, 132, 108, 0.52)"],
-  [2600, "rgba(178, 172, 158, 0.6)"],
-  [3200, "rgba(206, 206, 200, 0.7)"],
-  [3800, "rgba(228, 232, 232, 0.8)"],
+  [2600, "rgba(160, 170, 176, 0.5)"],
+  [3200, "rgba(198, 206, 210, 0.68)"],
+  [3800, "rgba(222, 230, 234, 0.78)"],
   [4500, "rgba(234, 240, 240, 0.88)"],
   [5600, "rgba(248, 252, 253, 0.94)"],
 ];
@@ -138,11 +138,11 @@ export const HYPSOMETRY: [number, string][] = [
  */
 export const SNOW_TINT: [number, string][] = [
   [3300, "rgba(232, 242, 246, 0)"],
-  [3600, "rgba(234, 243, 247, 0.3)"],
-  [4000, "rgba(240, 247, 250, 0.62)"],
-  [4500, "rgba(246, 250, 252, 0.82)"],
-  [5000, "rgba(250, 253, 254, 0.9)"],
-  [5800, "rgba(253, 254, 255, 0.94)"],
+  [3600, "rgba(232, 242, 248, 0.24)"],
+  [4000, "rgba(234, 244, 250, 0.4)"],
+  [4500, "rgba(239, 247, 252, 0.55)"],
+  [5000, "rgba(244, 250, 253, 0.65)"],
+  [5800, "rgba(248, 252, 255, 0.72)"],
 ];
 
 /**
@@ -210,22 +210,22 @@ export const HILLSHADE_PAINT = {
  * terrain read as terrain rather than as a tint.
  */
 export const HILLSHADE_NEAR = {
-  "hillshade-method": "igor",
+  "hillshade-method": "standard",
   "hillshade-illumination-anchor": "map",
   "hillshade-illumination-direction": 315,
   "hillshade-illumination-altitude": 45,
-  "hillshade-highlight-color": "rgba(255, 247, 222, 0.38)",
-  "hillshade-shadow-color": "rgba(1, 10, 14, 0.8)",
-  "hillshade-accent-color": "rgba(4, 20, 18, 0.7)",
+  "hillshade-highlight-color": "rgba(255, 248, 226, 0.34)",
+  "hillshade-shadow-color": "rgba(1, 9, 13, 0.72)",
+  "hillshade-accent-color": "rgba(4, 20, 18, 0.6)",
   "hillshade-exaggeration": [
     "interpolate",
     ["linear"],
     ["zoom"],
     8.5,
-    0.62,
+    0.5,
     12,
-    0.78,
+    0.7,
     16,
-    0.88,
+    0.8,
   ],
 } as unknown as NonNullable<HillshadeLayerSpecification["paint"]>;
