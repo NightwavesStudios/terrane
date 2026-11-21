@@ -157,8 +157,8 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": ["get", "colour"],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 7, 5, 9, 9, 12, 14, 16],
-        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1.5, 0.14, 5, 0.18, 14, 0.24],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 8, 5, 10.5, 9, 14, 14, 18],
+        "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1.5, 0.18, 5, 0.24, 14, 0.3],
         "circle-blur": 0.9,
       },
     } as unknown as LayerSpecification,
@@ -168,9 +168,9 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": "rgba(0, 0, 0, 0)",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 4, 5, 5.5, 9, 6.5, 14, 8],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 4.5, 5, 6, 9, 7.2, 14, 9],
         "circle-stroke-color": ["get", "colour"],
-        "circle-stroke-width": 1.3,
+        "circle-stroke-width": 1.9,
         "circle-stroke-opacity": 0.92,
       },
     } as unknown as LayerSpecification,
@@ -180,9 +180,9 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       source: SOURCE,
       paint: {
         "circle-color": "#f8fdff",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 1.7, 5, 2, 9, 2.6, 14, 3.2],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 1.5, 2, 5, 2.4, 9, 3.1, 14, 3.8],
         "circle-stroke-color": ["get", "colour"],
-        "circle-stroke-width": 1.2,
+        "circle-stroke-width": 1.5,
       },
     } as unknown as LayerSpecification,
     {
@@ -195,7 +195,7 @@ export function experienceLayerSpecs(): LayerSpecification[] {
         "text-font": FONTS.regular,
         // Smaller, quieter and later than the destinations: the curated catalogue
         // is a layer of lights on the globe, not a wall of cards covering it.
-        "text-size": ["interpolate", ["linear"], ["zoom"], 3.2, 9.5, 6, 11, 12, 12.5],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 3.2, 10.5, 6, 12, 12, 13.5],
         "text-anchor": "top",
         "text-offset": [0, 1.35],
         "text-max-width": 9,
@@ -206,7 +206,7 @@ export function experienceLayerSpecs(): LayerSpecification[] {
       paint: {
         "text-color": ["get", "colour"],
         "text-halo-color": PALETTE.halo,
-        "text-halo-width": 1.6,
+        "text-halo-width": 2,
         "text-halo-blur": 0.6,
         "text-opacity": 0.94,
       },

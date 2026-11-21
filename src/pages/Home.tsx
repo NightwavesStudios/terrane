@@ -86,6 +86,20 @@ export default function Home() {
     [filter, scope],
   );
 
+  /* The dock picks what the map is mainly showing, not just which dots the atlas
+     list keeps. A destination kind hides the curated Experiences layer and the
+     Experiences mode hides every destination pin; "all" and a location scope
+     show both. Layers still owns the practical pins and the base map. */
+  const mapLayers = useMemo<LayerState>(() => {
+    if (filter === "experience") {
+      return { ...layers, features: false, experience: true };
+    }
+    if (filter === "peak" || filter === "park" || filter === "landmark") {
+      return { ...layers, experience: false };
+    }
+    return layers;
+  }, [layers, filter]);
+
   /* The nearest destination to a practical pin: baked into the record when the
      harvest recorded one, otherwise one pass over the atlas on the click. */
   const nearPlace = useMemo(() => {
@@ -157,13 +171,13 @@ export default function Home() {
       if (root.getPropertyValue("--filters-h") !== filters) root.setProperty("--filters-h", filters);
     };
     measure();
-    /* Chips arrive with the scope and the bar re-wraps as they do, so watch it
-       for a few seconds as well as on every resize. */
-    let frames = 0;
-    let raf = window.requestAnimationFrame(function tick() {
-      measure();
-      if (++frames < 180) raf = window.requestAnimationFrame(tick);
-    });
+    /* The chips that arrive late — the scope after the IP lookup, a long region
+       name — change the bar's height once. Two settled reads cover that. The
+       earlier version measured on animation frames for three seconds, forcing a
+       layout on every one of them while the globe was trying to parse tiles;
+       that was a large part of how slow the first seconds felt on a phone. */
+    const later = window.setTimeout(measure, 400);
+    const settled = window.setTimeout(measure, 1400);
     const ro = new ResizeObserver(measure);
     for (const sel of [".globe-filters", ".globe-filters .chips", ".globe"]) {
       const el = document.querySelector(sel);
@@ -172,7 +186,8 @@ export default function Home() {
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
     return () => {
-      window.cancelAnimationFrame(raf);
+      window.clearTimeout(later);
+      window.clearTimeout(settled);
       ro.disconnect();
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
@@ -217,7 +232,7 @@ export default function Home() {
           onPick={setPick}
           onView={onView}
           focus={focus}
-          layers={layers}
+          layers={mapLayers}
         />
       </Suspense>
       <div className="vignette" aria-hidden="true" />

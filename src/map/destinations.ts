@@ -161,9 +161,9 @@ export function addDestinations(map: MlMap): void {
     ] as unknown as ExpressionSpecification,
     paint: {
       "circle-color": DEST_COLOUR,
-      "circle-radius": radius(2.2),
+      "circle-radius": radius(2.6),
       "circle-blur": 1,
-      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.14, 3, 0.17, 6, 0.1],
+      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.2, 3, 0.24, 6, 0.14],
     },
   });
 
@@ -172,7 +172,7 @@ export function addDestinations(map: MlMap): void {
        as a survey station rather than a paint dot, and the category survives at
        three pixels because the ring is the outside, where the eye looks. */
     const early = b.band <= 2;
-    const dotOpacity = Number((b.opacity * (b.band >= 4 ? 0.62 : 1)).toFixed(2));
+    const dotOpacity = Number((b.opacity * (b.band >= 4 ? 0.8 : 1)).toFixed(2));
     const isFirst = b.band === 0;
     const rampStart = isFirst ? 0 : b.dot;
     map.addLayer({
@@ -183,19 +183,19 @@ export function addDestinations(map: MlMap): void {
       filter: ["all", ["==", ["get", "dot"], b.dot], catFilter(enabled)],
       paint: {
         "circle-color": PALETTE.dot,
-        "circle-radius": radius(b.scale * 0.85),
+        "circle-radius": radius(b.scale * 1.02),
         "circle-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           rampStart,
-          isFirst ? 0.55 : 0,
+          isFirst ? 0.72 : 0,
           isFirst ? 2.6 : b.dot + 1.2,
           dotOpacity,
         ],
         "circle-stroke-color": DEST_COLOUR,
         // Heavier, brighter rings on the early bands; the tail is nearly a speck.
-        "circle-stroke-width": Number(Math.max(0.8, 1.45 - b.band * 0.1).toFixed(2)),
+        "circle-stroke-width": Number(Math.max(1, 1.8 - b.band * 0.1).toFixed(2)),
         // Fade the ring with the fill: a constant ring drew hollow ghosts for
         // the first zoom of every new band.
         "circle-stroke-opacity": [
@@ -203,9 +203,9 @@ export function addDestinations(map: MlMap): void {
           ["linear"],
           ["zoom"],
           rampStart,
-          isFirst ? 0.2 : 0,
+          isFirst ? 0.32 : 0,
           isFirst ? 2.6 : b.dot + 1.2,
-          Number(((early ? 0.95 : 0.7) * dotOpacity).toFixed(2)),
+          Number(((early ? 1 : 0.85) * dotOpacity).toFixed(2)),
         ],
       },
     });
@@ -215,7 +215,7 @@ export function addDestinations(map: MlMap): void {
     const isFirst = b.band === 0;
     // Planet scale is deliberately quiet: the globe is the subject there, and a
     // 10.5 px label repeated over every continent competes with it.
-    const labelSize = isFirst ? 9.5 : b.labelSize;
+    const labelSize = isFirst ? 10 : b.labelSize + 0.5;
     map.addLayer({
       id: `features-label-${b.label}`,
       type: "symbol",
@@ -267,7 +267,7 @@ export function addDestinations(map: MlMap): void {
       paint: {
         "text-color": PALETTE.label,
         "text-halo-color": PALETTE.halo,
-        "text-halo-width": 1.2,
+        "text-halo-width": 1.5,
         "text-halo-blur": 0.6,
         "text-opacity": [
           "interpolate",

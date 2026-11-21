@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-11-21 — The dock decides what the map shows; the map stops freezing
+
+- The map dock leads with **Experiences**, and the strip is exclusive: picking
+  Experiences hides the destination pins, picking a kind hides the curated
+  beacons, and All destinations shows both. A location scope only narrows the
+  pins. Checked in the browser against the live MapLibre filters — the layer that
+  should be gone reads `__none__`.
+- Every point got easier to see without changing the palette: destination dots
+  ~20 % larger with a stronger ring and halo, practical pins 0.42 → 0.56 at
+  their first zoom and 0.78 → 0.96 at z16, labels +1 px at full opacity, and the
+  Experience beacons larger with a 1.9 px ring.
+- Phone first load, measured on the production build under 4× CPU throttle and
+  3G: the worst single blocking task fell from 3.7 s to 1.1 s and total blocking
+  in the first 8 s from 10.3 s to 7.6 s. The dock no longer measures itself on
+  180 animation frames, the 3D mesh is armed after the first idle instead of
+  during bootstrap (`DEFAULT_LAYERS.terrain` is on, so the DEM fetch, the
+  render-to-texture pass and the mesh built were all in the first seconds), and
+  `coverage.json` waits for idle. First paint is unchanged — it is bundle-bound.
+
 ## 2026-11-21 — One navigation, one dock, one set of states
 
 - Added `src/components/nav.ts`: the header and the phone tab bar now read one

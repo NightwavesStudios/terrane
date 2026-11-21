@@ -29,7 +29,12 @@ export default function FilterChips({
   /** Opens the Layers panel, where every category lives. */
   onMore?: () => void;
 }) {
+  /* One answer at a time. Experiences lead because they are the curated
+     surface; then the whole destination database; then each kind. Selecting a
+     kind hides the Experiences layer and selecting Experiences hides the pins,
+     so the chip that is lit is the layer that is talking. */
   const filters: { id: Filter; label: string }[] = [
+    { id: "experience", label: "Experiences" },
     { id: "all", label: "All destinations" },
     ...(Object.keys(TYPE_LABEL_PLURAL) as PlaceType[]).map((id) => ({
       id: id as Filter,

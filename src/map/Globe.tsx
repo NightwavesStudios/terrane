@@ -223,6 +223,11 @@ export default function Globe({
   const pickRef = useRef(onPick);
   const viewRef = useRef(onView);
   const booted = useRef(false);
+  /* The 3D mesh is the most expensive thing the map can start, and it is not
+     needed to paint the first frame. It is armed after the first idle. */
+  const terrainArmed = useRef(false);
+  const terrainIdle = useRef<number | null>(null);
+  const terrainTimer = useRef<number | null>(null);
   const dataRef = useRef(places);
   const [ready, setReady] = useState(false);
   const [stalled, setStalled] = useState(false);
@@ -331,7 +336,10 @@ export default function Globe({
       }
     };
 
-    const applyTerrain = () => applyTerrainTo(map_, layersRef.current);
+    const applyTerrain = () => {
+      if (!terrainArmed.current) return;
+      applyTerrainTo(map_, layersRef.current);
+    };
 
     /** Re-adds everything the style does not declare. Idempotent and cheap when whole. */
     const ensureRuntimeLayers = () => {
@@ -393,6 +401,19 @@ export default function Globe({
 
       /* Two chunks, both after first paint: the famous half of the long tail and
          the practical cells. The atlas dots are already on screen. */
+      /* The mesh waits for the first idle frame: the planet paints flat and
+         shaded, then the relief comes in. On a phone this is the difference
+         between a map that appears and a map that grinds through a
+         render-to-texture pass before it shows anything. */
+      const armTerrain = () => {
+        if (terrainArmed.current) return;
+        terrainArmed.current = true;
+        applyTerrainTo(map_, layersRef.current);
+      };
+      const idleTerrain = window.requestIdleCallback?.(armTerrain, { timeout: 2200 });
+      terrainIdle.current = idleTerrain ?? null;
+      terrainTimer.current = idleTerrain ? null : window.setTimeout(armTerrain, 1100);
+
       const loadCore = () => void loadDestinations().then(() => refreshDuplicates(map_));
       const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
       if (!idle) window.setTimeout(loadCore, 1600);
@@ -576,6 +597,11 @@ export default function Globe({
       window.clearTimeout(t);
       window.clearTimeout(guard);
       window.clearTimeout(guardRetry);
+      if (terrainIdle.current != null) window.cancelIdleCallback?.(terrainIdle.current);
+      if (terrainTimer.current != null) window.clearTimeout(terrainTimer.current);
+      terrainArmed.current = false;
+      terrainIdle.current = null;
+      terrainTimer.current = null;
       document.removeEventListener("visibilitychange", onVisibility);
       contours.current?.destroy();
       contours.current = null;
@@ -611,7 +637,7 @@ export default function Globe({
     setTrailLayers(map_, layers);
     setExperienceLayers(map_, layers);
     layersRef.current = layers;
-    applyTerrainTo(map_, layers);
+    if (terrainArmed.current) applyTerrainTo(map_, layers);
   }, [layers, ready]);
 
   /* ── data updates (ranked atlas rows) ──────────────── */

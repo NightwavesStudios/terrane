@@ -426,3 +426,38 @@ they are the latitude-band base geometry (`LAND_BANDS` in `style.ts`), a few
 coast-sized triangles that terrain drapes from inland heights out over the water.
 Fixing that means subdividing the band rings or keeping that layer out of the
 draped pass — a style change this pass deliberately did not make.
+
+## Phone first load, 2026-11-21
+
+Protocol: production build served as static files, 390×844, CDP CPU throttling
+4×, network 1.2 Mbps / 80 ms / 3G, browser cache cleared before each run, three
+runs, median. `FCP` is first-contentful-paint; `canvas` is the first
+`.maplibregl-canvas` in the DOM; long tasks come from
+`PerformanceObserver({ type: "longtask" })`.
+
+| Measure | before (`fb811c7`) | after |
+| --- | ---: | ---: |
+| first contentful paint | 2 212 ms | 2 196 ms |
+| map canvas mounted | 2 511 ms | 2 495 ms |
+| worst single long task | 3 703 ms | 1 128 ms |
+| total long-task time, first 8 s | 10 286 ms | 7 578 ms |
+
+What moved the blocking numbers:
+
+- `Home` measured the dock on every animation frame for 180 frames — three
+  seconds of forced layout on every load. It now takes two settled reads plus the
+  existing `ResizeObserver`.
+- The 3D mesh is armed after the first idle instead of during bootstrap.
+  `DEFAULT_LAYERS.terrain` is `true`, so the DEM fetch, the render-to-texture
+  pass and the mesh build were all inside the first seconds; that is the single
+  task that fell from ~3.7 s to ~1.1 s.
+- `coverage.json` is a page-sized report that feeds one badge; it now loads on
+  idle rather than alongside the first manifest fetch.
+
+First paint and canvas time did not move: over 1.2 Mbps they are bound by the
+entry bundle (see the chunk table above), not by main-thread work. The win is
+that the map is not frozen once it appears.
+
+For contrast, the development server on the same profile reported
+`__terraneReadyMs` ≈ 6.0 s across 85 module requests. That is a dev-server
+number and not comparable with a production build.

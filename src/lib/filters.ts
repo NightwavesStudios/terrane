@@ -2,7 +2,14 @@ import { PLACES, type Place, type PlaceType } from "../data/places";
 import { kmBetween } from "./geo";
 import type { Home } from "./locate";
 
-export type Filter = "all" | PlaceType | "home";
+/**
+ * What the map is mainly showing.
+ *
+ * `experience` is the curated catalogue as a mode of its own: the destination
+ * pins step back and the beacons are the subject. A kind narrows the database and
+ * drops the curated layer, so one answer is on screen at a time.
+ */
+export type Filter = "all" | PlaceType | "home" | "experience";
 
 /** What the visitor's own chip is called, and which places answer to it. */
 export type HomeScope = {
@@ -79,6 +86,8 @@ export function homeScope(home: Home | null): HomeScope | null {
 
 export function matches(place: Place, filter: Filter, scope: HomeScope | null) {
   if (filter === "all") return true;
+  /* No atlas row is an Experience: the curated catalogue is its own layer. */
+  if (filter === "experience") return false;
   if (filter === "home") return scope ? scope.test(place) : true;
   return place.type === filter;
 }

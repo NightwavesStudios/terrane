@@ -127,15 +127,22 @@ function start() {
       emit();
     }
   });
-  void liveJson("coverage.json").then((data) => {
-    if (isCoverage(data)) {
-      coverage = data;
-      coverageStatus = "ready";
-    } else {
-      coverageStatus = "error";
-    }
-    emit();
-  });
+  /* The coverage report is a page-sized document and the globe needs one badge
+     from it. It waits for the first idle frame instead of competing with the
+     map's tiles, fonts and DEM for the first seconds of a phone load. */
+  const loadCoverage = () => {
+    void liveJson("coverage.json").then((data) => {
+      if (isCoverage(data)) {
+        coverage = data;
+        coverageStatus = "ready";
+      } else {
+        coverageStatus = "error";
+      }
+      emit();
+    });
+  };
+  const idle = window.requestIdleCallback?.(loadCoverage, { timeout: 3500 });
+  if (!idle) window.setTimeout(loadCoverage, 1500);
 }
 
 function subscribe(fn: () => void) {
