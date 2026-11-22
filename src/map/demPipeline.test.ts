@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  demCell,
+  FALLBACK,
   isPlaceholder,
   LOWLAND_M,
+  needsProbe,
+  PRIMARY,
   lowlandWeight,
   OUT_SIZE,
   SEA_FLAT_M,
@@ -74,6 +78,45 @@ describe("sharpenAmountFor", () => {
   it("cannot amplify facets where there is no detail", () => {
     expect(sharpenAmountFor(OUT_SIZE / 2)).toBe(0);
     expect(sharpenAmountFor(128)).toBe(0);
+  });
+});
+
+/* The coverage cache is the part of the pipeline that decides *which level* a
+   tile comes from. A wrong key is not a slow tile, it is a wrong surface for the
+   rest of the session, so the cell maths is pinned here. */
+describe("demCell", () => {
+  it("keeps a level at or below the global max on its own tile", () => {
+    expect(demCell(PRIMARY, 2, 1, 1)).toBe("mapterhorn:2/1/1");
+    expect(demCell(PRIMARY, 11, 1024, 700)).toBe("mapterhorn:11/1024/700");
+    expect(demCell(PRIMARY, 12, 1024, 700)).toBe("mapterhorn:12/1024/700");
+    expect(demCell(FALLBACK, 11, 1024, 700)).toBe("aws:11/1024/700");
+  });
+
+  it("groups the deep levels by the global-max cell", () => {
+    expect(demCell(PRIMARY, 13, 2048, 1400)).toBe("mapterhorn:12/1024/700");
+    expect(demCell(PRIMARY, 14, 4096, 2800)).toBe("mapterhorn:12/1024/700");
+    expect(demCell(FALLBACK, 13, 4096, 0)).toBe("aws:11/1024/0");
+  });
+
+  it("probes only where a mask can exist", () => {
+    /* Nothing to learn below the global level, for either provider. */
+    expect(needsProbe(PRIMARY, 2)).toBe(false);
+    expect(needsProbe(PRIMARY, 11)).toBe(false);
+    expect(needsProbe(FALLBACK, 11)).toBe(false);
+    /* Mapterhorn keeps going above z12 on national data, so its global level
+       can be a blank plate and must still be checked. AWS stops at z11, so its
+       z11 cannot be one. */
+    expect(needsProbe(PRIMARY, 12)).toBe(true);
+    expect(needsProbe(PRIMARY, 13)).toBe(true);
+    expect(needsProbe(FALLBACK, 12)).toBe(true);
+  });
+
+  it("never collapses different levels onto one cell", () => {
+    /* The regression: a negative shift wrapped modulo 32, so every level from
+       z1 to z11 hashed to mapterhorn:12/0/0 and one globe tile capped the
+       whole session at z1. */
+    const keys = new Set([2, 4, 8, 11, 12].map((z) => demCell(PRIMARY, z, 3, 5)));
+    expect(keys.size).toBe(5);
   });
 });
 

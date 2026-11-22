@@ -8,7 +8,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
 import { addCampIcons } from "./campIcon";
-import { installDemProtocol } from "./dem";
+import { installDemProtocol, noteDemCamera } from "./dem";
 import { focusFor, pitchForZoom, readCamera, terrainExaggeration, worldZoom } from "./camera";
 import { kmBetween } from "../lib/geo";
 import { shouldShowBootFailure } from "./bootGuard";
@@ -49,6 +49,9 @@ import {
 import { pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
+
+/** Dev, or a build made with `VITE_BENCH=1` for the browser bench. */
+const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
 
 export interface GlobeFocus {
   lon: number;
@@ -226,7 +229,7 @@ export default function Globe({
   /* The 3D mesh is the most expensive thing the map can start, and it is not
      needed to paint the first frame. It is armed after the first idle. */
   const terrainArmed = useRef(false);
-  const terrainIdle = useRef<number | null>(null);
+  const terrainFrame = useRef<number | null>(null);
   const terrainTimer = useRef<number | null>(null);
   const dataRef = useRef(places);
   const [ready, setReady] = useState(false);
@@ -245,6 +248,13 @@ export default function Globe({
 
     installDemProtocol();
 
+    /* The stage stays veiled until the map has a whole frame to show. The cap
+       is for the case where MapLibre never reaches idle: a hidden tab, or a
+       style that failed, must still end up showing something. */
+    const stage = holder.current.closest(".home");
+    const reveal = () => stage?.setAttribute("data-map", "ready");
+    const revealTimer = window.setTimeout(reveal, 6000);
+
     const camera = readCamera();
     /* The opening camera is built, not animated, so its tilt has to be part of
        the constructor: the pitch effect below only corrects a camera that has
@@ -253,7 +263,7 @@ export default function Globe({
       camera.zoom ?? worldZoom(holder.current.clientWidth, holder.current.clientHeight);
     const map_ = new MlMap({
       container: holder.current,
-      style: createStyle(),
+      style: createStyle({ globe: true }),
       center: camera.center,
       zoom: startZoom,
       pitch: pitchForZoom(startZoom),
@@ -270,9 +280,54 @@ export default function Globe({
       cooperativeGestures: false,
       doubleClickZoom: true,
       keyboard: true,
-      pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+      /* Bench builds only: the canvas keeps its buffer after presentation so
+         the bench can read the frame back itself, instead of asking the
+         compositor for a screenshot (which times out under a software
+         rasteriser). Costs a buffer copy; never set in a normal build. */
+      canvasContextAttributes: BENCH ? { preserveDrawingBuffer: true } : undefined,
+      /* The cloud bench box renders on a software rasteriser and refuses to be
+         resized below its own window size, so the deep-zoom runs pin the
+         drawing buffer to roughly a 360 px wide stage instead. Scene graph,
+         tiles and terrain are untouched — only the pixel count drops. Never
+         set in a normal build. */
+      pixelRatio: BENCH ? 0.25 : Math.min(window.devicePixelRatio || 1, 1.5),
     });
     map.current = map_;
+
+    /* Dev-only probes for the browser bench: how many times the app asks for a
+       projection after the map exists (it should be never — the style declares
+       the globe), when the first frame actually painted, and when the mesh was
+       armed relative to it. */
+    if (BENCH) {
+      const scope = window as unknown as {
+        __terraneProjectionCalls?: number;
+        __terraneFirstFrame?: { ms: number; projection: string; frame?: number };
+        __terraneArmMs?: number;
+        __terraneFrames?: number;
+      };
+      scope.__terraneProjectionCalls = 0;
+      scope.__terraneFrames = 0;
+      const setProjection = map_.setProjection.bind(map_);
+      map_.setProjection = (...args: Parameters<MlMap["setProjection"]>) => {
+        scope.__terraneProjectionCalls = (scope.__terraneProjectionCalls ?? 0) + 1;
+        return setProjection(...args);
+      };
+      scope.__terraneFirstFrame = undefined;
+      map_.on("render", () => {
+        scope.__terraneFrames = (scope.__terraneFrames ?? 0) + 1;
+        /* The first frame that has a style at all: a frame before the style is
+           parsed has no projection to report, and reading one would call it
+           Mercator by default. */
+        const projection = map_.getStyle()?.projection?.type;
+        if (!scope.__terraneFirstFrame && projection) {
+          scope.__terraneFirstFrame = {
+            ms: Math.round(performance.now()),
+            projection: String(projection),
+            frame: scope.__terraneFrames,
+          };
+        }
+      });
+    }
 
     /* The settled centre and zoom, rounded to ~1 km. Discover recomputes its
        nearby lists from this, and a sub-kilometre camera jitter is not a new
@@ -313,7 +368,7 @@ export default function Globe({
     canvas.setAttribute("tabindex", "0");
     canvas.setAttribute("aria-label", "Map — arrow keys pan, + and − zoom");
 
-    if (import.meta.env.DEV) {
+    if (BENCH) {
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
     }
 
@@ -369,11 +424,9 @@ export default function Globe({
       booted.current = true;
       setStalled(false);
 
-      try {
-        map_.setProjection({ type: "globe" });
-      } catch {
-        /* mercator fallback */
-      }
+      /* The projection is declared in the style, so the first frame is already
+         the globe. Asking for it here reprojected a map that had painted. */
+      map_.once("idle", reveal);
 
       /* Blue hour: a deeper space, a brighter limb and a longer ground haze.
          The atmosphere is what gives the sphere its edge; the fog blend is what
@@ -401,18 +454,32 @@ export default function Globe({
 
       /* Two chunks, both after first paint: the famous half of the long tail and
          the practical cells. The atlas dots are already on screen. */
-      /* The mesh waits for the first idle frame: the planet paints flat and
-         shaded, then the relief comes in. On a phone this is the difference
-         between a map that appears and a map that grinds through a
-         render-to-texture pass before it shows anything. */
+      /* The mesh is created one frame after the planet first paints, not after
+         an idle callback. The DEM tiles the hillshade needs are already in
+         flight from the style itself, so the mesh costs a render-to-texture
+         pass rather than a new download — while waiting for an idle frame meant
+         a busy phone armed it at the 2.2 s fallback, and that wait is exactly
+         why the relief arrived so late. One flat, shaded frame, then relief. */
       const armTerrain = () => {
+        if (terrainFrame.current != null) window.cancelAnimationFrame(terrainFrame.current);
+        if (terrainTimer.current != null) window.clearTimeout(terrainTimer.current);
+        terrainFrame.current = null;
+        terrainTimer.current = null;
         if (terrainArmed.current) return;
         terrainArmed.current = true;
+        if (BENCH) {
+          (window as unknown as { __terraneArmMs?: number }).__terraneArmMs =
+            Math.round(performance.now());
+        }
         applyTerrainTo(map_, layersRef.current);
       };
-      const idleTerrain = window.requestIdleCallback?.(armTerrain, { timeout: 2200 });
-      terrainIdle.current = idleTerrain ?? null;
-      terrainTimer.current = idleTerrain ? null : window.setTimeout(armTerrain, 1100);
+      const armAfterPaint = () => {
+        if (terrainFrame.current != null) return;
+        terrainFrame.current = window.requestAnimationFrame(armTerrain);
+      };
+      if (map_.loaded()) armAfterPaint();
+      else map_.once("render", armAfterPaint);
+      terrainTimer.current = window.setTimeout(armTerrain, 1500);
 
       const loadCore = () => void loadDestinations().then(() => refreshDuplicates(map_));
       const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
@@ -422,7 +489,7 @@ export default function Globe({
       refreshTrails(map_);
       /* Time from navigation start to the first interactive frame, read by the
          dev bench. `performance.now()` is measured from the navigation start. */
-      if (import.meta.env.DEV) {
+      if (BENCH) {
         (window as unknown as { __terraneReadyMs?: number }).__terraneReadyMs = Math.round(
           performance.now(),
         );
@@ -534,10 +601,17 @@ export default function Globe({
       if (map_.isStyleLoaded()) bootstrap();
     }, 2500);
 
+    /* Which level the camera is actually on, and whether it is still: the DEM
+       protocol uses both to tell an ideal tile from a backfill. */
+    const reportDemCamera = () => noteDemCamera(map_.getZoom(), map_.isMoving());
+    map_.on("zoom", reportDemCamera);
+    reportDemCamera();
+
     map_.on("styledata", ensureRuntimeLayers);
     map_.on("moveend", () => {
       writeCamera();
       reportView();
+      reportDemCamera();
       /* Exaggeration follows the camera; the mesh is never re-created. */
       applyTerrain();
       /* The famous tail is an 8 MB JSON: it can wait until the reader is close
@@ -597,11 +671,13 @@ export default function Globe({
       window.clearTimeout(t);
       window.clearTimeout(guard);
       window.clearTimeout(guardRetry);
-      if (terrainIdle.current != null) window.cancelIdleCallback?.(terrainIdle.current);
+      if (terrainFrame.current != null) window.cancelAnimationFrame(terrainFrame.current);
       if (terrainTimer.current != null) window.clearTimeout(terrainTimer.current);
       terrainArmed.current = false;
-      terrainIdle.current = null;
+      terrainFrame.current = null;
       terrainTimer.current = null;
+      window.clearTimeout(revealTimer);
+      stage?.removeAttribute("data-map");
       document.removeEventListener("visibilitychange", onVisibility);
       contours.current?.destroy();
       contours.current = null;

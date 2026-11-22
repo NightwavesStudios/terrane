@@ -855,6 +855,36 @@ button {
   }
 }
 
+/* ── loading veil ────────────────────────────────────────── */
+/* The lazy Globe chunk, its stylesheet and the first vector tiles all take a
+   moment on a phone, and the stage used to be empty until they landed: chrome
+   floating over black, then a jump. A dim limb stands in for the planet and
+   fades out under the real one at the map's first idle. Static gradients only,
+   so it costs nothing per frame. */
+.globe-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      40% 40% at 50% 46%,
+      rgba(24, 66, 82, 0.5) 0%,
+      rgba(12, 33, 43, 0.34) 60%,
+      rgba(5, 7, 12, 0) 72%
+    ),
+    radial-gradient(
+      125% 95% at 50% 46%,
+      rgba(5, 7, 12, 0) 42%,
+      rgba(3, 5, 10, 0.88) 100%
+    );
+  opacity: 1;
+  transition: opacity 520ms ease 60ms;
+}
+.home[data-map="ready"] .globe-veil {
+  opacity: 0;
+}
+
 /* ── globe-first home ────────────────────────────────────── */
 .globe-hint {
   position: absolute;
@@ -880,6 +910,19 @@ button {
   color: rgba(237, 239, 245, 0.28);
   pointer-events: none;
   text-align: right;
+}
+
+/* The caption is left and the credits are right, and both are one line of mono:
+   on a wide window they used to grow into each other. Cap each at a share of the
+   width so a two-line caption ends before the credits begin. */
+@media (min-width: 861px) {
+  .globe-hint {
+    max-width: min(620px, 52vw);
+    line-height: 1.55;
+  }
+  .globe-credits {
+    max-width: min(400px, 32vw);
+  }
 }
 
 /* Chrome over close terrain.
@@ -916,6 +959,9 @@ button {
   .globe-hint,
   .globe-credits,
   .home .header--dark .pill {
+    transition: none;
+  }
+  .globe-veil {
     transition: none;
   }
 }

@@ -167,8 +167,19 @@ const TERRAIN_SOURCE = {
   attribution: DEM_ATTRIBUTION,
 };
 
-export function createStyle(): StyleSpecification {
-  return structuredClone(MAP_STYLE);
+/**
+ * A copy of the style.
+ *
+ * `globe` has to be declared here rather than switched on with
+ * `setProjection` after the style loads: the first frames then render in
+ * Mercator and the map reprojects, which is a visible snap and a full re-render
+ * for nothing. The two small detail maps keep the default, because they are
+ * crops, not planets.
+ */
+export function createStyle({ globe = false }: { globe?: boolean } = {}): StyleSpecification {
+  const style = structuredClone(MAP_STYLE);
+  if (globe) style.projection = { type: "globe" };
+  return style;
 }
 
 const MAP_STYLE: StyleSpecification = {

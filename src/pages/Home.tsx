@@ -248,6 +248,10 @@ export default function Home() {
           layers={mapLayers}
         />
       </Suspense>
+      {/* The stage is not empty while the map chunk and its first tiles load:
+          a dim limb stands in for the planet, and the real globe fades up
+          through it at MapLibre's first idle. */}
+      <div className="globe-veil" aria-hidden="true" />
       <div className="vignette" aria-hidden="true" />
 
       <Header tone="dark" />

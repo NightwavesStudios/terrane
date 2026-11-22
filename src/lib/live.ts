@@ -121,12 +121,19 @@ function isCoverage(value: unknown): value is Coverage {
 function start() {
   if (started) return;
   started = true;
-  void liveJson("manifest.json").then((data) => {
-    if (isManifest(data)) {
-      manifest = newerManifest(data, BUNDLED as Manifest);
-      emit();
-    }
-  });
+  /* The bundled manifest is already on screen, so the live one is a correction,
+     not the first paint. Fetched eagerly it put a `no-store` request in front of
+     the map's own tiles on a phone — the same reason coverage waits. */
+  const loadManifest = () => {
+    void liveJson("manifest.json").then((data) => {
+      if (isManifest(data)) {
+        manifest = newerManifest(data, BUNDLED as Manifest);
+        emit();
+      }
+    });
+  };
+  const idleManifest = window.requestIdleCallback?.(loadManifest, { timeout: 2500 });
+  if (!idleManifest) window.setTimeout(loadManifest, 900);
   /* The coverage report is a page-sized document and the globe needs one badge
      from it. It waits for the first idle frame instead of competing with the
      map's tiles, fonts and DEM for the first seconds of a phone load. */

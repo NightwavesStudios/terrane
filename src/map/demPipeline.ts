@@ -77,6 +77,45 @@ export const FALLBACK: Provider = {
   globalMax: 11,
 };
 
+/**
+ * The coverage cell a tile belongs to.
+ *
+ * The cell is the tile itself at or above the provider's global level, and the
+ * provider's global-max ancestor below it. The shift therefore has to be
+ * clamped: `z - globalMax` is negative at z2, and a negative shift in JS wraps
+ * modulo 32, so every level under the global max used to hash to the same cell.
+ * One z1 globe tile then recorded "level 1 here" for the whole world, and every
+ * later z6–11 request was answered from z1 and resampled up: the smooth mush
+ * the relief turned into after the globe opened.
+ *
+ * `coverage` and `blankCoverage` are both keyed by this, so they cannot drift
+ * apart the way the two hand-written expressions did.
+ */
+export function demCell(p: Provider, z: number, x: number, y: number): string {
+  const level = Math.min(z, p.globalMax);
+  const shift = z - level;
+  return `${p.id}:${level}/${x >> shift}/${y >> shift}`;
+}
+
+/**
+ * Whether this request has anything to learn about coverage.
+ *
+ * Below the global level there is nothing to learn anywhere: the provider has
+ * every tile there. At the global level it depends on the provider — Mapterhorn
+ * keeps going to z14 on national datasets, so its z12 can be a blank plate over
+ * a country it does not cover, and that level still has to be checked. AWS stops
+ * at its global level, so a zero there is sea level and not a mask.
+ *
+ * Getting this wrong is not a slow tile: skipping the check at Mapterhorn z12
+ * paints a 0 m plate under a 1 500 m ridge, which is the coastal wedge the
+ * blank-tile handling exists to prevent.
+ */
+export function needsProbe(p: Provider, z: number): boolean {
+  if (z < p.globalMax) return false;
+  if (z === p.globalMax && p.nativeMax <= p.globalMax) return false;
+  return true;
+}
+
 /** Plain HTTP templates, for consumers that cannot use the MapLibre protocol. */
 export const PRIMARY_HTTP_TILE_URL = PRIMARY.template;
 
@@ -96,15 +135,53 @@ export type TileResult = {
 };
 
 /** Worker message shapes, shared so the two sides cannot drift apart. */
-export type DemJob = { id: number; z: number; x: number; y: number };
+export type DemTileJob = {
+  id: number;
+  z: number;
+  x: number;
+  y: number;
+  /** A parent of the camera's own level: one fetch, no probe walk, no hole
+   *  fill. MapLibre only draws it while the camera's tiles load. */
+  shallow?: boolean;
+  cancel?: boolean;
+};
+/** Dev-only: ask the worker what it actually fetched. */
+export type DemStatsJob = { id: number; stats: true };
+export type DemJob = DemTileJob | DemStatsJob;
 
 export type DemReply =
-  | { id: number; bitmap: ImageBitmap; kind: TileKind; computeMs: number }
+  | {
+      id: number;
+      bitmap: ImageBitmap;
+      kind: TileKind;
+      computeMs: number;
+      /** The level the surface actually came from. */
+      from?: number;
+    }
+  | { id: number; cancelled: true }
+  | { id: number; trace: DemTrace }
   | { id: number; error: string };
+
+/**
+ * What the worker actually did, for the dev bench. Fetch counts per level are
+ * the only honest way to show that a zoom no longer probes the pyramid: the
+ * resolved-tile log alone would look the same either way.
+ */
+export type DemTrace = {
+  fetches: { provider: string; level: number }[];
+  /** One entry per coverage probe, with the zoom that asked for it. */
+  probes: { provider: string; root: number; level: number }[];
+  /** One entry per tile produced: the level it came from and the elevation
+   *  spread of the surface encoded. `min === max` means a flat plate, so this
+   *  is what tells a real ridge from the resampled mush. */
+  tiles: { z: number; kind: string; from?: number; min: number; max: number }[];
+};
 
 type Grid = { el: Float32Array; dim: number };
 
 const GRID_LIMIT = 16;
+/** Probe bitmaps parked for a caller that may never come back, at most. */
+const RECENT_LIMIT = 24;
 const DOWN_MS = 5 * 60_000;
 
 /* ── surface conditioning ───────────────────────────────────────────────
@@ -182,26 +259,72 @@ export function isPlaceholder(el: Float32Array): boolean {
   return true;
 }
 
-/** A 2d surface in the worker (OffscreenCanvas) or on the main thread (fallback). */
-function surface(size: number) {
+type Surface = {
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+  take: () => Promise<ImageBitmap>;
+};
+
+/** One canvas per size, reused for the life of the pipeline. */
+const surfaces = new Map<number, Surface>();
+
+/** A 2d surface in the worker (OffscreenCanvas) or on the main thread (fallback).
+ *
+ *  Two things here were the deep-zoom stall. The context was created with no
+ *  options, so it was GPU-backed and every `getImageData` was a readback through
+ *  the same GPU process the main thread is drawing the globe with: six parallel
+ *  tiles per worker meant six readbacks queued behind the frame in progress, and
+ *  at z9–z11 that pushed every tile past the 20 s timeout, so none of them ever
+ *  resolved. `willReadFrequently` keeps the surface CPU-side, where the read is a
+ *  copy, and the canvas is kept instead of allocated per call, which is what made
+ *  each of those readbacks also pay for a fresh GPU texture.
+ *
+ *  Every caller paints the whole surface before taking it, so one canvas per size
+ *  can be shared: `take` snapshots synchronously, before any await. */
+function surface(size: number): Surface {
+  const cached = surfaces.get(size);
+  if (cached) return cached;
+  const options: CanvasRenderingContext2DSettings = { willReadFrequently: true };
   if (typeof OffscreenCanvas !== "undefined") {
     const canvas = new OffscreenCanvas(size, size);
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", options);
     if (!ctx) throw new Error("dem: no 2d context");
-    return { ctx, take: async () => canvas.transferToImageBitmap() };
+    const made: Surface = { ctx, take: async () => canvas.transferToImageBitmap() };
+    surfaces.set(size, made);
+    return made;
   }
   if (typeof document !== "undefined") {
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", options);
     if (!ctx) throw new Error("dem: no 2d context");
-    return { ctx, take: () => createImageBitmap(canvas) };
+    const made: Surface = { ctx, take: () => createImageBitmap(canvas) };
+    surfaces.set(size, made);
+    return made;
   }
   throw new Error("dem: no canvas available");
 }
 
+/** How long one tile fetch may take before we stop waiting on the socket. */
+const FETCH_DEADLINE_MS = 8000;
+
+/** The caller's abort signal, plus a deadline of our own. */
+function boundedSignal(signal?: AbortSignal): AbortSignal | undefined {
+  const api = AbortSignal as unknown as {
+    timeout?: (ms: number) => AbortSignal;
+    any?: (signals: AbortSignal[]) => AbortSignal;
+  };
+  const deadline = api.timeout?.(FETCH_DEADLINE_MS);
+  if (!deadline) return signal;
+  if (!signal) return deadline;
+  return api.any ? api.any([signal, deadline]) : signal;
+}
+
 export function createDemPipeline() {
+  /* Dev counters, and the browser bench's production build (VITE_BENCH=1).
+     Without the flag the pushes are compiled out of the bundle entirely. */
+  const TRACE = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
+  const trace: DemTrace = { fetches: [], probes: [], tiles: [] };
   const grids = new Map<string, Grid>();
   /** Exact tiles known to 404, so a pan back over a gap costs nothing. */
   const missing = new Set<string>();
@@ -237,15 +360,23 @@ export function createDemPipeline() {
     z: number,
     x: number,
     y: number,
+    signal?: AbortSignal,
   ): Promise<{ bitmap: ImageBitmap; bytes: number } | null> {
+    if (signal?.aborted) return null;
     const key = `${p.id}:${z}/${x}/${y}`;
     if (missing.has(key)) return null;
+    if (TRACE) trace.fetches.push({ provider: p.id, level: z });
     const url = p.template
       .replace("{z}", String(z))
       .replace("{x}", String(x))
       .replace("{y}", String(y));
+    /* A request that never answers used to hold its job forever: the timeout in
+       the client stops waiting, but the worker stayed inside this await, so the
+       next tile queued behind a connection nobody was going to close. Bounded
+       here, the job always reaches its end. */
+    const bound = boundedSignal(signal);
     try {
-      const res = await fetch(url, { mode: "cors" });
+      const res = await fetch(url, { mode: "cors", signal: bound });
       if (!res.ok) {
         if (res.status >= 500) noteFailure(p);
         else noteSuccess(p);
@@ -256,10 +387,17 @@ export function createDemPipeline() {
          it and detaches our copy, so a cached one would be dead on reuse. What
          is worth caching is the decoded grid below, not the image. */
       const blob = await res.blob();
+      if (signal?.aborted) return null;
       const bitmap = await createImageBitmap(blob);
       noteSuccess(p);
       return { bitmap, bytes: blob.size };
     } catch {
+      /* A tile the camera left behind is not a provider failure: zooming away
+         twice must not take Mapterhorn out of service for five minutes. */
+      if (signal?.aborted) return null;
+      /* Our own deadline, not the network's answer: one stalled connection must
+         not read as a provider outage. */
+      if (bound?.aborted) return null;
       // Network-level failure: no response at all.
       noteFailure(p);
       return null;
@@ -269,16 +407,21 @@ export function createDemPipeline() {
   /** Turn a fetched bitmap into elevations. The tile is decoded once here and
    *  the grid is what gets cached: the bitmap itself is handed to MapLibre and
    *  detached. */
-  function gridFromBitmap(p: Provider, bitmap: ImageBitmap): Grid {
-    const { ctx } = surface(p.dim);
-    ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0);
-    const data = ctx.getImageData(0, 0, p.dim, p.dim).data;
-    const plain = p.dim * p.dim;
+  function gridFromBitmap(p: Provider, bitmap: ImageBitmap, dim = p.dim): Grid {
+    /* Read at the grid this zoom actually emits, not always at the provider's
+       full size. Every `getImageData` is a GPU readback, the most expensive
+       thing in the worker on a software rasteriser, and below z12 the surface
+       is emitted at 256 anyway: reading 512 and throwing three quarters of it
+       away was paying four times the readback for the same result. */
+    const { ctx } = surface(dim);
+    ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0, dim, dim);
+    const data = ctx.getImageData(0, 0, dim, dim).data;
+    const plain = dim * dim;
     const el = new Float32Array(plain);
     for (let i = 0, q = 0; q < plain; i += 4, q += 1) {
       el[q] = data[i] * 256 + data[i + 1] + data[i + 2] / 256 - 32768;
     }
-    return { el, dim: p.dim };
+    return { el, dim };
   }
 
   /** One cheap thumbnail read: the decision, not the surface. */
@@ -316,21 +459,61 @@ export function createDemPipeline() {
     }
   }
 
+  /** Keep a probe's bitmap for the caller, but never without a bound.
+   *
+   * A z13 request probes z12, accepts it, and then resamples it — so nothing
+   * ever reads the bitmap the probe parked under the z12 key. Unbounded, that
+   * is a megabyte of decoded tile per cell for the life of the worker, and a
+   * phone panning a range collects enough of them to be evicted mid-gesture. */
+  function keepRecent(key: string, hit: { bitmap: ImageBitmap; bytes: number }) {
+    recent.set(key, hit);
+    while (recent.size > RECENT_LIMIT) {
+      const oldest = recent.keys().next().value;
+      if (oldest === undefined) break;
+      const stale = recent.get(oldest);
+      recent.delete(oldest);
+      stale?.bitmap.close();
+    }
+  }
+
+  /** A tile that is being decoded right now. Six adjacent deep tiles all want
+   *  the same parent, and every one of them used to fetch and decode it again:
+   *  at z9–z11 the hole fill was re-requesting the same ancestor six times over,
+   *  which is what put every deep tile past its timeout. */
+  const decoding = new Map<string, Promise<Grid | null>>();
+
   /** Decode a tile to elevations, cached per tile so four children share one. */
   async function gridAt(
     p: Provider,
     z: number,
     x: number,
     y: number,
+    signal?: AbortSignal,
+    dim = p.dim,
   ): Promise<Grid | null> {
-    const key = `${p.id}:${z}/${x}/${y}`;
+    /* The grid is read at the resolution the caller's output actually needs,
+       and the cache key says which, so a 256 read never shadows a 512 one. An
+       ancestor is only ever sampled into a grid of that size anyway, and a 512
+       readback for a 256 output was four times the most expensive step in the
+       worker for no extra detail. */
+    const key = `${p.id}:${z}/${x}/${y}@${dim}`;
     const cached = grids.get(key);
     if (cached) return cached;
-    const hit = await fetchBitmap(p, z, x, y);
-    if (!hit) return null;
-    const grid = gridFromBitmap(p, hit.bitmap);
-    remember(key, grid);
-    return grid;
+    const shared = decoding.get(key);
+    if (shared) return shared;
+    const job = (async () => {
+      const hit = await fetchBitmap(p, z, x, y, signal);
+      if (!hit) return null;
+      const grid = gridFromBitmap(p, hit.bitmap, dim);
+      remember(key, grid);
+      return grid;
+    })();
+    decoding.set(key, job);
+    try {
+      return await job;
+    } finally {
+      decoding.delete(key);
+    }
   }
 
   /**
@@ -344,10 +527,13 @@ export function createDemPipeline() {
     z: number,
     x: number,
     y: number,
+    signal?: AbortSignal,
   ): Promise<number> {
+    /* Probing used to cost a fetch per level and then cache the answer on a
+       cell that every level shared — see `demCell`. */
+    if (!needsProbe(p, z)) return z;
     const capped = Math.min(z, p.nativeMax);
-    const shift = z - p.globalMax;
-    const key = `${p.id}:${p.globalMax}/${x >> shift}/${y >> shift}`;
+    const key = demCell(p, z, x, y);
     const known = coverage.get(key);
     if (known !== undefined) return Math.min(capped, known);
 
@@ -361,13 +547,14 @@ export function createDemPipeline() {
     let blank = false;
     for (let probe = capped, budget = 6; probe >= 0 && budget > 0; probe -= 1, budget -= 1) {
       const s = z - probe;
-      const hit = await fetchBitmap(p, probe, x >> s, y >> s);
+      if (TRACE) trace.probes.push({ provider: p.id, root: z, level: probe });
+      const hit = await fetchBitmap(p, probe, x >> s, y >> s, signal);
       if (!hit) continue;
       best = probe;
       blank = hit.bytes < BLANK_TILE_BYTES;
       /* The bitmap is kept: at the level it accepts, the caller needs exactly
          this tile, and fetching it twice would decode it twice. */
-      if (!blank) recent.set(`${p.id}:${probe}/${x >> s}/${y >> s}`, hit);
+      if (!blank) keepRecent(`${p.id}:${probe}/${x >> s}/${y >> s}`, hit);
       if (!blank) break;
     }
     coverage.set(key, best);
@@ -428,6 +615,7 @@ export function createDemPipeline() {
     y: number,
     size: number,
     apron: number,
+    signal?: AbortSignal,
   ): Promise<boolean> {
     let holes = 0;
     for (let i = 0; i < out.length; i += 1) {
@@ -440,7 +628,7 @@ export function createDemPipeline() {
        consulted: past that the surface is a different landscape. */
     for (let level = pz - 1, tries = 0; level >= 0 && tries < 2; level -= 1, tries += 1) {
       const s = z - level;
-      const g = await gridAt(p, level, x >> s, y >> s);
+      const g = await gridAt(p, level, x >> s, y >> s, signal, size);
       if (!g) continue;
       const ref = project(g, z, level, x, y, size, apron);
       let filled = 0;
@@ -464,6 +652,7 @@ export function createDemPipeline() {
     size: number,
     apron: number,
     from: number,
+    z: number,
   ): Promise<TileResult> {
     const started = performance.now();
     const N = size + 2 * apron;
@@ -505,6 +694,17 @@ export function createDemPipeline() {
       }
     }
 
+    if (TRACE) {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let i = 0; i < settled.length; i += 1) {
+        const v = settled[i];
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      trace.tiles.push({ z, kind: "resample", from, min: Math.round(lo), max: Math.round(hi) });
+    }
+
     const { ctx, take } = surface(size);
     const image = ctx.createImageData(size, size);
     const pixels = image.data;
@@ -528,6 +728,7 @@ export function createDemPipeline() {
     pz: number,
     x: number,
     y: number,
+    signal?: AbortSignal,
   ): Promise<TileResult | null> {
     const levels = z - pz;
     const children = 2 ** levels;
@@ -580,19 +781,25 @@ export function createDemPipeline() {
       }
     }
 
-    await fillHoles(p, out, z, pz, x, y, size, 1);
+    if (signal?.aborted) return null;
+    await fillHoles(p, out, z, pz, x, y, size, 1, signal);
     /* A surface that is still mostly zero after refilling is a provider mask,
        not a coastline: the coastal strip Mapterhorn leaves empty is one. The
        other provider has real relief there, so hand the tile over rather than
        painting a flat plate beside an 800 m neighbour. */
-    if (p === PRIMARY) {
+    /* Only above the global level: that is where a provider can mask a region
+       it has no dataset for. At or below it the global dataset covers the whole
+       planet, so a mostly-zero surface is a coastline — and rejecting it sent
+       every coastal tile of the opening view to the coarser provider, paying
+       for the fetch twice. */
+    if (p === PRIMARY && z >= p.globalMax) {
       let zeros = 0;
       for (let i = 0; i < out.length; i += 1) {
         if (out[i] > -1 && out[i] < 1) zeros += 1;
       }
       if (zeros / out.length > 0.4) return null;
     }
-    return encode(out, size, 1, pz);
+    return encode(out, size, 1, pz, z);
   }
 
   async function resolveFrom(
@@ -600,13 +807,40 @@ export function createDemPipeline() {
     z: number,
     x: number,
     y: number,
+    signal?: AbortSignal,
+    shallow = false,
   ): Promise<TileResult | null> {
-    const nz = await nativeZoomFor(p, z, x, y);
+    /* A parent of the camera's level, answered with exactly one fetch.
+
+       The full path is right for the surface the camera is on and wasteful for a
+       fallback: it probes coverage, then walks the pyramid a level at a time if
+       the tile is missing, and every attempt may burn an eight second fetch
+       deadline. At z11 that turned two z6 parents into 72 and 84 second tiles,
+       long after every visible tile had arrived — the last thing keeping the
+       source from reporting loaded. A parent needs one honest surface, not the
+       best available ancestor. */
+    if (shallow) {
+      const hit = await fetchBitmap(p, z, x, y, signal);
+      if (!hit) return null;
+      const size = gridForZoom(z);
+      const sample = sampleTile(hit.bitmap);
+      if (sample.max < 5 || (sample.min > LOWLAND_M && sample.zeros < 0.01)) {
+        const bitmap = p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+        if (TRACE) {
+          trace.tiles.push({ z, kind: "native", from: z, min: Math.round(sample.min), max: Math.round(sample.max) });
+        }
+        return { bitmap, kind: "native", from: z, computeMs: 0 };
+      }
+      const grid = gridFromBitmap(p, hit.bitmap, size);
+      return encode(grid.el, size, 0, z, z);
+    }
+    const nz = await nativeZoomFor(p, z, x, y, signal);
+    if (signal?.aborted) return null;
     if (nz >= z) {
       const reuseKey = `${p.id}:${z}/${x}/${y}`;
       const reused = recent.get(reuseKey);
       if (reused) recent.delete(reuseKey);
-      const hit = reused ?? (await fetchBitmap(p, z, x, y));
+      const hit = reused ?? (await fetchBitmap(p, z, x, y, signal));
       if (hit) {
         const size = gridForZoom(z);
         const sample = sampleTile(hit.bitmap);
@@ -616,19 +850,40 @@ export function createDemPipeline() {
         if (sample.max < 5 || (sample.min > LOWLAND_M && sample.zeros < 0.01)) {
           const bitmap =
             p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+          if (TRACE) {
+            trace.tiles.push({
+              z,
+              kind: "native",
+              from: z,
+              min: Math.round(sample.min),
+              max: Math.round(sample.max),
+            });
+          }
           return { bitmap, kind: "native", from: z, computeMs: 0 };
         }
-        const grid = gridFromBitmap(p, hit.bitmap);
+        const grid = gridFromBitmap(p, hit.bitmap, size);
         const scaled =
           grid.dim === size ? grid.el : project(grid, z, z, x, y, size, 0);
-        const hadHoles = await fillHoles(p, scaled, z, z, x, y, size, 0);
-        if (p === PRIMARY && sample.zeros > 0.4) return null;
+        const hadHoles = await fillHoles(p, scaled, z, z, x, y, size, 0, signal);
+        /* Same rule as the remap path: a mask cannot exist below the global
+           level, so zeros there are water and Mapterhorn's own tile is the
+           right answer. */
+        if (p === PRIMARY && z >= p.globalMax && sample.zeros > 0.4) return null;
         if (!hadHoles && !touchesLowland(scaled)) {
           const bitmap =
             p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+          if (TRACE) {
+            trace.tiles.push({
+              z,
+              kind: "native",
+              from: z,
+              min: Math.round(sample.min),
+              max: Math.round(sample.max),
+            });
+          }
           return { bitmap, kind: "native", from: z, computeMs: 0 };
         }
-        return encode(scaled, size, 0, z);
+        return encode(scaled, size, 0, z, z);
       }
     }
     /* Every level this provider has is blank. That is water over open sea, but
@@ -636,16 +891,17 @@ export function createDemPipeline() {
        before calling it flat, let the other provider answer — AWS keeps real
        relief there, and a flat plate beside an 800 m neighbour is the wedge.
        Only the last provider in the chain may conclude "water". */
-    const cellKey = `${p.id}:${p.globalMax}/${x >> Math.max(0, z - p.globalMax)}/${y >> Math.max(0, z - p.globalMax)}`;
+    const cellKey = demCell(p, z, x, y);
     if (blankCoverage.has(cellKey)) {
       if (p === PRIMARY) return null;
+      if (TRACE) trace.tiles.push({ z, kind: "flat", from: nz, min: 0, max: 0 });
       return { bitmap: await flatTile(z), kind: "flat", from: nz, computeMs: 0 };
     }
     for (let pz = Math.min(nz, z - 1); pz >= 0; pz -= 1) {
       const s = z - pz;
-      const grid = await gridAt(p, pz, x >> s, y >> s);
+      const grid = await gridAt(p, pz, x >> s, y >> s, signal);
       if (grid) {
-        const tile = await remap(p, grid, z, pz, x, y);
+        const tile = await remap(p, grid, z, pz, x, y, signal);
         if (tile) return tile;
       }
     }
@@ -663,14 +919,26 @@ export function createDemPipeline() {
   }
 
   return {
+    /** Dev-only: the fetches and probes this pipeline has run. */
+    trace: () => trace,
     /** A blank tile for the client's timeout path, without running a request. */
     flatTile,
-    async resolve(z: number, x: number, y: number): Promise<TileResult> {
+    async resolve(
+      z: number,
+      x: number,
+      y: number,
+      signal?: AbortSignal,
+      opts?: { shallow?: boolean },
+    ): Promise<TileResult | null> {
       for (const provider of [PRIMARY, FALLBACK]) {
         if (!isUp(provider)) continue;
-        const result = await resolveFrom(provider, z, x, y);
+        if (signal?.aborted) return null;
+        const result = await resolveFrom(provider, z, x, y, signal, opts?.shallow ?? false);
         if (result) return result;
       }
+      /* An abandoned tile is answered by not answering: the caller has already
+         stopped caring, and a flat plate would only cost an encode. */
+      if (signal?.aborted) return null;
       return { bitmap: await flatTile(z), kind: "flat", computeMs: 0 };
     },
   };
