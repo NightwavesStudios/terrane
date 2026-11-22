@@ -122,6 +122,32 @@ export const PRIMARY_HTTP_TILE_URL = PRIMARY.template;
 /** Extra credit the fallback provider asks for. */
 export const DEM_FALLBACK_ATTRIBUTION = "AWS Terrain Tiles";
 
+/** One coverage probe that actually answered, and how much it carried. */
+export type CoverageProbe = { level: number; bytes: number };
+
+/** What a coverage walk learned: the deepest level that answered, whether that
+ *  level was a blank plate, and whether anything answered at all.
+ *
+ *  `learned` is the part that matters. A walk whose probes all failed — a 404,
+ *  a 5xx, a socket that never came back — learned nothing about the ground, and
+ *  caching that as "level 0 here" pinned the whole cell to a planet-scale grid:
+ *  every later tile in it was remapped from a z0 tile, i.e. a kilometre or two
+ *  of height in the wrong place. That is a spike, and it lasts for the session. */
+export type CoverageVerdict = { level: number; blank: boolean; learned: boolean };
+
+export function coverageVerdict(probes: CoverageProbe[]): CoverageVerdict {
+  let level = 0;
+  let blank = false;
+  for (const probe of probes) {
+    /* The walk descends, so the last entry is the deepest level that answered;
+       the first one carrying real data is the one to use. */
+    level = probe.level;
+    blank = probe.bytes < BLANK_TILE_BYTES;
+    if (!blank) break;
+  }
+  return { level, blank: probes.length > 0 ? blank : false, learned: probes.length > 0 };
+}
+
 export type TileKind = "native" | "resample" | "flat";
 
 export type TileResult = {
@@ -566,24 +592,35 @@ export function createDemPipeline() {
        shelves that used to hang over the Ligurian coast. Descend until a tile
        carries data; the budget stops a flat sea cell walking the whole
        pyramid, and the answer is cached per cell either way. */
-    let best = 0;
-    let blank = false;
+    const probes: CoverageProbe[] = [];
+    let accepted: { bitmap: ImageBitmap; bytes: number; level: number } | null = null;
     for (let probe = capped, budget = 6; probe >= 0 && budget > 0; probe -= 1, budget -= 1) {
       const s = z - probe;
       if (TRACE) trace.probes.push({ provider: p.id, root: z, level: probe });
       const hit = await fetchBitmap(p, probe, x >> s, y >> s, signal);
       if (!hit) continue;
-      best = probe;
-      blank = hit.bytes < BLANK_TILE_BYTES;
-      /* The bitmap is kept: at the level it accepts, the caller needs exactly
-         this tile, and fetching it twice would decode it twice. */
-      if (!blank) keepRecent(`${p.id}:${probe}/${x >> s}/${y >> s}`, hit);
-      if (!blank) break;
+      probes.push({ level: probe, bytes: hit.bytes });
+      if (hit.bytes >= BLANK_TILE_BYTES) {
+        accepted = { bitmap: hit.bitmap, bytes: hit.bytes, level: probe };
+        break;
+      }
     }
-    coverage.set(key, best);
-    if (blank) blankCoverage.add(key);
+    if (signal?.aborted) return Math.min(z, p.nativeMax);
+    const verdict = coverageVerdict(probes);
+    /* Nothing answered, so nothing was learned. Ask for the native level and let
+       this tile fail honestly: the caller then walks real ancestors, one fetch
+       each, instead of resampling the cell from a z0 tile for the session. */
+    if (!verdict.learned) return Math.min(z, p.nativeMax);
+    coverage.set(key, verdict.level);
+    if (verdict.blank) blankCoverage.add(key);
     else blankCoverage.delete(key);
-    return best;
+    /* The bitmap is kept: at the level it accepts, the caller needs exactly
+       this tile, and fetching it twice would decode it twice. */
+    if (accepted) {
+      const s = z - accepted.level;
+      keepRecent(`${p.id}:${accepted.level}/${x >> s}/${y >> s}`, accepted);
+    }
+    return verdict.level;
   }
 
   /** Bilinear projection of an ancestor grid onto this tile's pixel grid.

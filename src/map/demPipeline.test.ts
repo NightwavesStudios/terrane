@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  coverageVerdict,
   demCell,
   FALLBACK,
   isPlaceholder,
@@ -109,6 +110,36 @@ describe("demCell", () => {
     expect(needsProbe(PRIMARY, 12)).toBe(true);
     expect(needsProbe(PRIMARY, 13)).toBe(true);
     expect(needsProbe(FALLBACK, 12)).toBe(true);
+  });
+
+  it("learns nothing from a walk whose probes all failed", () => {
+    /* The regression: a probe that never answered left `best` at 0, that was
+       cached as the cell's coverage, and every later tile in the cell was
+       resampled from a z0 planet-scale grid — a spike that outlived the tile. */
+    expect(coverageVerdict([])).toEqual({ level: 0, blank: false, learned: false });
+  });
+
+  it("takes the deepest level that answered with data", () => {
+    expect(coverageVerdict([{ level: 13, bytes: 150_000 }])).toEqual({
+      level: 13,
+      blank: false,
+      learned: true,
+    });
+    expect(
+      coverageVerdict([
+        { level: 13, bytes: 90 },
+        { level: 12, bytes: 140_000 },
+      ]),
+    ).toEqual({ level: 12, blank: false, learned: true });
+  });
+
+  it("calls a cell blank only when every answering level was blank", () => {
+    expect(
+      coverageVerdict([
+        { level: 13, bytes: 90 },
+        { level: 12, bytes: 110 },
+      ]),
+    ).toEqual({ level: 12, blank: true, learned: true });
   });
 
   it("never collapses different levels onto one cell", () => {
