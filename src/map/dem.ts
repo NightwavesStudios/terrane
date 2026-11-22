@@ -59,6 +59,11 @@ export const DEM_ATTRIBUTION = `© Mapterhorn · Copernicus DEM · ${DEM_FALLBAC
 
 const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
 
+/* Which level a request is, and what may stand in for it, lives in ./tileRole so
+   the rule can be tested against a real ledger without MapLibre in the way. */
+import { allowsCoarseStandIn, needsNativeSurface, tileRole } from "./tileRole";
+export { allowsCoarseStandIn, needsNativeSurface, tileRole, type TileRole } from "./tileRole";
+
 /* Bounded concurrency: each in-flight tile can hold a decoded parent grid plus a
    512² float buffer in the worker, so a phone zooming fast must not queue fifty
    of them. MapLibre's own image queue is wider than this.
@@ -603,13 +608,17 @@ async function requestTile(
   /* Not the camera's own level, and the camera is still: this is a backfill,
      and a coarser bitmap already in hand answers it without a request. */
   const ideal = cameraZoom >= 0 ? Math.round(cameraZoom) : -1;
+  const role = tileRole(z, cameraZoom, cameraMoving);
   /* A coarse parent of the camera's level. MapLibre draws it only while the
      camera's own tiles load, so it is answered with one fetch — not with the
      probe-and-walk the visible surface gets. */
-  const shallow = !cameraMoving && ideal >= 0 && z < ideal;
+  const shallow = role === "under";
   /* The level one deeper than the camera: mesh refinement only. */
-  const child = !cameraMoving && ideal >= 0 && z === ideal + 1;
-  if (!cameraMoving && ideal >= 0 && z !== ideal) {
+  const child = role === "child";
+  /* Camera and child tiles are the surface a skirt wall would be built against,
+     so they may only be answered natively: no ancestor crop, no second provider. */
+  const strict = needsNativeSurface(role);
+  if (allowsCoarseStandIn(role, cameraMoving) && ideal >= 0 && z !== ideal) {
     phase("backfill");
     /* Only the camera's child level waits: its parent is the level the camera
        is on, which MapLibre is loading right now. A coarser backfill has no such
@@ -625,7 +634,7 @@ async function requestTile(
        — one request on a wire that answers in a tenth of a second — so waiting
        longer than the parent usually takes is the slower path, and eighteen of
        those waits in a row were most of the tail. */
-    const near = await ancestorWhenReady(z, x, y, 3, z === ideal + 1 ? 2500 : 0);
+    const near = await ancestorWhenReady(z, x, y, 3, 0);
     if (near) {
       record(z, `ancestor:from${near.from}`, performance.now() - t0, 0, near.from);
       settle(`ancestor:from${near.from}`);
@@ -649,7 +658,7 @@ async function requestTile(
        and resizes off the main thread, so this path allocates no decode and sets
        no timer — it cannot starve anything. */
     phase("noslot");
-    const near = await fromAncestor(z, x, y, 6);
+    const near = allowsCoarseStandIn(role, cameraMoving) ? await fromAncestor(z, x, y, 6) : null;
     if (near) {
       record(z, `ancestor:from${near.from}`, performance.now() - t0, 0, near.from);
       settle(`ancestor:from${near.from}`);
@@ -662,7 +671,7 @@ async function requestTile(
        reported unloaded. After this the request settles with a plate instead of
        holding the set open forever. */
     const fallback = await Promise.race([
-      localPipeline().resolve(z, x, y, signal, { shallow, child }),
+      localPipeline().resolve(z, x, y, signal, { shallow, child, strict }),
       new Promise<null>((resolve) => {
         window.setTimeout(() => resolve(null), 8000);
       }),
@@ -685,7 +694,7 @@ async function requestTile(
     phase("worker");
     const instance = ensureWorker();
     if (!instance) {
-      const result = await localPipeline().resolve(z, x, y, signal, { shallow, child });
+      const result = await localPipeline().resolve(z, x, y, signal, { shallow, child, strict });
       if (!result) return null;
       record(z, `${result.kind}:local`, performance.now() - started, result.computeMs, result.from);
       settle(`local:${result.kind}`);
@@ -747,7 +756,7 @@ async function requestTile(
       });
       signal?.addEventListener("abort", onAbort, { once: true });
       posted.set(id, { z, x, y });
-      instance.postMessage({ id, z, x, y, shallow, child });
+      instance.postMessage({ id, z, x, y, shallow, child, strict });
     });
     if (settled.kind === "reply" && settled.result) {
       timeoutStreak = 0;
@@ -823,11 +832,21 @@ export function installDemProtocol() {
     const signal = abortController?.signal;
     if (signal?.aborted) throw new Error("aborted");
     const z = Number(match[1]);
-    const result = await requestTile(z, Number(match[2]), Number(match[3]), signal);
+    const x = Number(match[2]);
+    const y = Number(match[3]);
+    const result = await requestTile(z, x, y, signal);
     if (!result) {
       /* MapLibre abandoned this tile: say so, and let it drop the request. */
       if (signal?.aborted) throw new Error("aborted");
-      /* Not a cancellation, so a plate rather than a hole in the relief. */
+      /* A camera or child tile with no native surface must fail, not be filled.
+         A sea-level plate under a mountain is the cliff the skirt wall is built
+         on, and MapLibre keeps whatever it is handed, so the wall outlives the
+         request. Failing leaves the parent tile visible underneath and lets
+         MapLibre ask again. Coarser levels still get a plate: they sit behind
+         the camera surface, where a hole is worse than a flat stand-in. */
+      if (needsNativeSurface(tileRole(z, cameraZoom, cameraMoving))) {
+        throw new Error(`dem: no native surface for ${z}/${x}/${y}`);
+      }
       const blank = await localPipeline().flatTile(z);
       return { data: blank } as unknown as GetResourceResponse<ArrayBuffer>;
     }

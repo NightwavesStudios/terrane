@@ -172,6 +172,9 @@ export type DemTileJob = {
   /** The level one deeper than the camera: mesh refinement only, so the
    *  provider's bitmap is passed through instead of being conditioned. */
   child?: boolean;
+  /** On-screen tile: answer it natively or not at all. No ancestor remap, no
+   *  second provider, no flat plate — a mixed-resolution neighbour is a seam. */
+  strict?: boolean;
   cancel?: boolean;
 };
 /** Dev-only: ask the worker what it actually fetched. */
@@ -870,6 +873,7 @@ export function createDemPipeline() {
     signal?: AbortSignal,
     shallow = false,
     child = false,
+    strict = false,
   ): Promise<TileResult | null> {
     /* A parent of the camera's level, answered with exactly one fetch.
 
@@ -978,6 +982,9 @@ export function createDemPipeline() {
       if (TRACE) trace.tiles.push({ z, kind: "flat", from: nz, min: 0, max: 0 });
       return { bitmap: await flatTile(z), kind: "flat", from: nz, computeMs: 0 };
     }
+    /* The on-screen surface is never remapped up from an ancestor: that is the
+       coarse neighbour beside native tiles MapLibre draws a skirt wall on. */
+    if (strict) return null;
     for (let pz = Math.min(nz, z - 1); pz >= 0; pz -= 1) {
       const s = z - pz;
       const grid = await gridAt(p, pz, x >> s, y >> s, signal);
@@ -1009,9 +1016,13 @@ export function createDemPipeline() {
       x: number,
       y: number,
       signal?: AbortSignal,
-      opts?: { shallow?: boolean; child?: boolean },
+      opts?: { shallow?: boolean; child?: boolean; strict?: boolean },
     ): Promise<TileResult | null> {
-      for (const provider of [PRIMARY, FALLBACK]) {
+      /* One provider for the on-screen surface. Switching DEMs mid-view changes
+         the heights by metres to tens of metres at every boundary, which is the
+         same skirt wall from the other direction. */
+      const chain = opts?.strict ? [PRIMARY] : [PRIMARY, FALLBACK];
+      for (const provider of chain) {
         if (!isUp(provider)) continue;
         if (signal?.aborted) return null;
         const result = await resolveFrom(
@@ -1022,12 +1033,16 @@ export function createDemPipeline() {
           signal,
           opts?.shallow ?? false,
           opts?.child ?? false,
+          opts?.strict ?? false,
         );
         if (result) return result;
       }
       /* An abandoned tile is answered by not answering: the caller has already
          stopped caring, and a flat plate would only cost an encode. */
       if (signal?.aborted) return null;
+      /* An on-screen tile with nothing native behind it fails honestly: the
+         caller keeps the parent visible and asks again. */
+      if (opts?.strict) return null;
       return { bitmap: await flatTile(z), kind: "flat", computeMs: 0 };
     },
   };

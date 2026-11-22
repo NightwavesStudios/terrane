@@ -63,7 +63,7 @@ self.onmessage = async (event: MessageEvent<DemJob>) => {
     (self as unknown as Worker).postMessage(reply);
     return;
   }
-  const { id, z, x, y, shallow, child, cancel } = event.data;
+  const { id, z, x, y, shallow, child, strict, cancel } = event.data;
   if (cancel) {
     running.get(id)?.abort();
     return;
@@ -79,7 +79,7 @@ self.onmessage = async (event: MessageEvent<DemJob>) => {
       (self as unknown as Worker).postMessage(reply);
       return;
     }
-    const result = await pipeline.resolve(z, x, y, controller.signal, { shallow, child });
+    const result = await pipeline.resolve(z, x, y, controller.signal, { shallow, child, strict });
     if (!result) {
       const reply: DemReply = { id, cancelled: true };
       (self as unknown as Worker).postMessage(reply);
