@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-22 — The map preload that bought nothing, measured on a compressed host
+
+- Removed the build plugin that appended a `modulepreload` for the map chunk to
+  the end of `<body>`. Served compressed, it starts the chunk 273 ms earlier,
+  but the chunk takes 219 ms longer to arrive, so it finishes 61 ms earlier and
+  the canvas mounts 53 ms earlier — inside the run-to-run spread — while first
+  paint pays about 50 ms. A head-preload control was no better.
+- Measured both builds through a brotli/gzip server instead of an uncompressed
+  one. Isolated from third-party tile traffic: first contentful paint
+  **1 628 → 1 068 ms (−34 %)** and map canvas **1 947 → 1 604 ms (−18 %)**
+  against `9c811ce`, medians of eleven cold runs at 390×844, 4× CPU,
+  1 MB/s + 80 ms. With live tile traffic the same builds measure
+  1 676 → 1 244 ms and 1 892 → 1 747 ms.
+- The first-paint win survives compression; the remaining canvas gap is
+  0.15–0.34 s, not the seconds the uncompressed harness implied.
+
 ## 2026-11-21 — A phone paints in half the time, and the atlas gets out of the way
 
 - The entry no longer drags the map's style module into first paint.

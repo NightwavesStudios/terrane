@@ -481,7 +481,8 @@ What changed:
   when the rows land.
 - `vite.config.ts` emits a `modulepreload` for the map chunk at the end of
   `<body>`: the megabyte is in flight while React renders, but it is not in
-  front of first paint.
+  front of first paint. (Removed on 2026-11-22 after it measured inside the
+  run-to-run spread — see the compressed pass below.)
 
 Protocol, unchanged from the pass above: production build, static file server
 (`python3 -m http.server`), 390×844, CDP CPU throttling 4×, 1.2 MB/s + 80 ms,
@@ -509,6 +510,10 @@ the map engine owns. The realistic options are to serve the assets compressed
 against 1 067 kB here), or to replace MapLibre, which is a product decision
 rather than a build one.
 
+The compressed pass below takes the first option: over brotli the map chunk is
+251 kB, and the canvas gap to `9c811ce` is 0.34 s without third-party traffic
+(0.15 s with it) rather than the ~1.4 s the uncompressed harness implied.
+
 ### Function after the deferral
 
 On the dev server at 390×844: `querySourceFeatures("features")` returns 9 316
@@ -516,3 +521,71 @@ atlas points at world zoom once the deferred chunk lands (2 845 before the tiles
 fill in), the experiences source holds 408 beacons, and dock exclusivity still
 reads on the live filters — Experiences filters the pins to `__none__`, Peaks
 filters the beacons to `__none__`, All destinations restores both.
+
+## Compressed serving: the gap a phone actually sees, 2026-11-22
+
+The passes above measured `python3 -m http.server`, which sends every asset
+uncompressed and one HTTP/1.0 connection at a time. That is not how the site is
+served, and it flatters an architecture change whose subject is bytes: the
+1.07 MB map chunk is 251 kB over brotli, so the old `<head>` preload cost a
+quarter of what the uncompressed harness charged it.
+
+This pass re-measured `9c811ce` and the current build through a server that
+behaves like a host: brotli when the browser accepts it, gzip otherwise,
+HTTP/1.1 keep-alive, `immutable` caching for hashed assets, SPA fallback.
+
+Protocol: production builds, 390×844, DPR 2, CDP 4× CPU, 1.0 MB/s down /
+0.5 MB/s up / 80 ms latency, browser cache cleared **and disabled** before every
+load, eleven interleaved rounds per build (the order rotates each round), median.
+Off-origin tile, DEM and cell requests are aborted so the numbers describe the
+origin's own payload; the live-traffic control follows.
+
+| Measure | `9c811ce` | current | change |
+| --- | ---: | ---: | ---: |
+| first contentful paint | 1 628 ms | **1 068 ms** | −34 % |
+| map canvas in the DOM | 1 947 ms | **1 604 ms** | −18 % |
+| entry JS, brotli | 114.2 kB | **81.4 kB** | −29 % |
+| map chunk, brotli | 251.9 kB | 251.1 kB | — |
+
+With the tile, DEM and cell traffic left on — nine rounds, same conditions — the
+same builds measure 1 676 → 1 244 ms for first paint (−26 %) and 1 892 →
+1 747 ms for the canvas (−8 %). Tile traffic shares the 1 MB/s pipe and hides
+part of the difference; both runs agree on the ordering.
+
+### The preload plugin did nothing measurable, and is gone
+
+Four builds, same protocol, eleven rounds each. "Map starts" and "map done" are
+the map chunk's `startTime` and `responseEnd` relative to navigation start;
+"entry done" is the entry's `responseEnd`.
+
+| Build | FCP | canvas | map starts | entry done | map done |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `9c811ce`, head preload | 1 628 | 1 947 | 887 | 1 250 | 1 472 |
+| current + body-end preload | 1 120 | 1 551 | 751 | 1 047 | 1 395 |
+| current, no plugin (shipped) | **1 068** | 1 604 | 1 024 | 1 002 | 1 456 |
+| current + head-preload control | 1 176 | 1 554 | 703 | 1 080 | 1 336 |
+
+The body-end preload does start the map chunk 273 ms earlier, but it shares the
+pipe with the entry: the chunk's own transfer grows 425 → 644 ms, so it finishes
+61 ms earlier and the canvas 53 ms earlier — inside the ±150 ms spread between
+runs — while first paint pays about 50 ms. Moving the same link into `<head>`
+starts the chunk 320 ms earlier still and buys no canvas time, because MapLibre
+cannot be constructed until the entry has executed. The plugin was removed; the
+no-plugin row is the shipped configuration.
+
+### What the canvas gap means now
+
+Compressed, the remaining canvas difference between `9c811ce` and this build is
+**0.34 s** isolated and **0.15 s** with live tile traffic, against a first-paint
+difference of **0.56 s**. The canvas is no longer a multi-second wait behind a
+megabyte; it is the 251 kB map chunk plus MapLibre's parse and WebGL init.
+Preloads do not move it. Anything further has to take bytes out of that chunk or
+change the engine, which is the same conclusion as before — now with the
+compressed numbers that show how little is left on the table.
+
+Run-to-run spread is ±150–400 ms. A five-round pilot on a freshly restarted
+server reversed the canvas ordering; that is why the table uses eleven rounds
+with the origin isolated, and why the live-traffic figures are a cross-check
+rather than the headline. These absolute numbers are also not comparable with
+the tables above: the server compresses, and the browser is a local headless
+Chromium (SwiftShader) rather than the preview browser.
