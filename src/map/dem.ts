@@ -198,15 +198,28 @@ async function fromAncestor(z: number, x: number, y: number, maxShift: number) {
   return { bitmap, kind: "resample" as TileKind, from: hit.z, computeMs: 0 };
 }
 
+/** What the main-thread bitmap copies cost, for the bench. */
+const copyStats = { n: 0, total: 0, max: 0, missed: 0 };
+
 /** `createImageBitmap` behind a saturated rasteriser can queue and never come
  *  back. It is a copy, not the request: the tile must not wait on it forever. */
 async function boundedBitmap(work: Promise<ImageBitmap>, ms = 1200) {
-  return Promise.race([
+  const t0 = performance.now();
+  const out = await Promise.race([
     work.catch(() => null),
     new Promise<null>((resolve) => {
       window.setTimeout(() => resolve(null), ms);
     }),
   ]);
+  if (import.meta.env.DEV || import.meta.env.VITE_BENCH === "1") {
+    const ms = performance.now() - t0;
+    copyStats.n += 1;
+    copyStats.total += ms;
+    copyStats.max = Math.max(copyStats.max, ms);
+    if (!out) copyStats.missed += 1;
+    (window as unknown as { __demCopy?: typeof copyStats }).__demCopy = copyStats;
+  }
+  return out;
 }
 
 /** The same, but able to wait for a decode that is already on its way.
@@ -255,7 +268,7 @@ const traceWaiters = new Map<number, (trace: DemTrace) => void>();
 let nextId = 1;
 let inFlight = 0;
 /** Jobs waiting for a slot, ordered by what the view actually needs. */
-type Waiting = { z: number; queuedAt: number; start: () => void };
+type Waiting = { z: number; backfill: boolean; queuedAt: number; start: () => void };
 
 /** How long a queued tile may wait for a slot before it gives up.
  *
@@ -309,6 +322,8 @@ function takeNext(): Waiting | undefined {
     }
     if (starvedA) {
       if (a.queuedAt < b.queuedAt) best = i;
+    } else if (a.backfill !== b.backfill) {
+      if (!a.backfill) best = i;
     } else if (a.z > b.z) best = i;
   }
   return queue.splice(best, 1)[0];
@@ -424,14 +439,14 @@ function ensureWorker(): Worker | null {
   }
 }
 
-async function acquire(z: number, signal?: AbortSignal): Promise<boolean> {
+async function acquire(z: number, signal?: AbortSignal, backfill = false): Promise<boolean> {
   if (signal?.aborted) return false;
   if (inFlight < MAX_IN_FLIGHT) {
     inFlight += 1;
     return true;
   }
   return new Promise<boolean>((resolve) => {
-    const entry: Waiting = { z, queuedAt: performance.now(), start: () => {
+    const entry: Waiting = { z, backfill, queuedAt: performance.now(), start: () => {
       window.clearTimeout(deadline);
       const at = queue.indexOf(entry);
       if (at >= 0) queue.splice(at, 1);
@@ -472,12 +487,42 @@ function release() {
   if (next) next.start();
 }
 
+/** Control mode: answer every request with a 1×1 sea-level plate.
+ *
+ *  Bench only, and not a product path. It removes every fetch, decode and
+ *  encode this pipeline does — leaving MapLibre with the same number of tiles
+ *  to prepare and nothing of ours to pay for. The settle time it measures is
+ *  therefore the page's own floor, which is what separates “our DEM work is
+ *  slow” from “this rasteriser cannot prepare this many tiles”. */
+const PLATE_CONTROL = (() => {
+  if (!import.meta.env.DEV && import.meta.env.VITE_BENCH !== "1") return false;
+  try {
+    return new URLSearchParams(window.location.search).get("demcontrol") === "1";
+  } catch {
+    return false;
+  }
+})();
+
+const PLATE_SIZE = 4;
+/** A fresh plate every time: MapLibre transfers the bitmap it is handed, so a
+ *  shared one would be closed under the next tile. */
+function plateTile(): ImageBitmap {
+  const canvas = new OffscreenCanvas(PLATE_SIZE, PLATE_SIZE);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "rgb(128, 0, 0)";
+  ctx.fillRect(0, 0, PLATE_SIZE, PLATE_SIZE);
+  return canvas.transferToImageBitmap();
+}
+
 async function requestTile(
   z: number,
   x: number,
   y: number,
   signal?: AbortSignal,
 ): Promise<TileResult | null> {
+  if (PLATE_CONTROL) {
+    return { bitmap: plateTile(), kind: "native", from: z, computeMs: 0 };
+  }
   /* Bench: the levels MapLibre actually ASKS for. `__demStats` only records
      finished tiles, so a level whose jobs are still queued looks like a level
      that was never requested — which is exactly the question this answers. */
@@ -503,9 +548,19 @@ async function requestTile(
         state: string;
         ms: number;
         phase: string;
+        at: number;
       }[];
     };
-    const e = { url, z, x, y, state: "queued", ms: 0, phase: "start" };
+    const e = {
+      url,
+      z,
+      x,
+      y,
+      state: "queued",
+      ms: 0,
+      phase: "start",
+      at: Math.round(performance.now()),
+    };
     (s.__demLedger ??= []).push(e);
     return e;
   })();
@@ -552,6 +607,8 @@ async function requestTile(
      camera's own tiles load, so it is answered with one fetch — not with the
      probe-and-walk the visible surface gets. */
   const shallow = !cameraMoving && ideal >= 0 && z < ideal;
+  /* The level one deeper than the camera: mesh refinement only. */
+  const child = !cameraMoving && ideal >= 0 && z === ideal + 1;
   if (!cameraMoving && ideal >= 0 && z !== ideal) {
     phase("backfill");
     /* Only the camera's child level waits: its parent is the level the camera
@@ -562,7 +619,13 @@ async function requestTile(
        seconds and the child level was sixteen 500 px encodes, the single
        biggest cost in the run. A window shorter than the parent's own latency
        turned every child into a second fetch of the same ground. */
-    const near = await ancestorWhenReady(z, x, y, 3, z === ideal + 1 ? 12000 : 0);
+    /* The child level does not wait long for its parent any more. It used to
+       wait twelve seconds, from when answering a child meant a 512 px encode:
+       waiting was cheaper than the work. The child is now a pass-through fetch
+       — one request on a wire that answers in a tenth of a second — so waiting
+       longer than the parent usually takes is the slower path, and eighteen of
+       those waits in a row were most of the tail. */
+    const near = await ancestorWhenReady(z, x, y, 3, z === ideal + 1 ? 2500 : 0);
     if (near) {
       record(z, `ancestor:from${near.from}`, performance.now() - t0, 0, near.from);
       settle(`ancestor:from${near.from}`);
@@ -570,7 +633,7 @@ async function requestTile(
     }
   }
   phase("acquire");
-  if (!(await acquire(z, signal))) {
+  if (!(await acquire(z, signal, shallow || child))) {
     /* Never answer a DEM request without data. This used to return null, and a
        single dropped backfill tile was enough to leave `relief` reporting
        unloaded for the rest of the session: 61 of 61 requests terminal, zero
@@ -599,7 +662,7 @@ async function requestTile(
        reported unloaded. After this the request settles with a plate instead of
        holding the set open forever. */
     const fallback = await Promise.race([
-      localPipeline().resolve(z, x, y, signal, { shallow }),
+      localPipeline().resolve(z, x, y, signal, { shallow, child }),
       new Promise<null>((resolve) => {
         window.setTimeout(() => resolve(null), 8000);
       }),
@@ -622,7 +685,7 @@ async function requestTile(
     phase("worker");
     const instance = ensureWorker();
     if (!instance) {
-      const result = await localPipeline().resolve(z, x, y, signal, { shallow });
+      const result = await localPipeline().resolve(z, x, y, signal, { shallow, child });
       if (!result) return null;
       record(z, `${result.kind}:local`, performance.now() - started, result.computeMs, result.from);
       settle(`local:${result.kind}`);
@@ -684,7 +747,7 @@ async function requestTile(
       });
       signal?.addEventListener("abort", onAbort, { once: true });
       posted.set(id, { z, x, y });
-      instance.postMessage({ id, z, x, y, shallow });
+      instance.postMessage({ id, z, x, y, shallow, child });
     });
     if (settled.kind === "reply" && settled.result) {
       timeoutStreak = 0;

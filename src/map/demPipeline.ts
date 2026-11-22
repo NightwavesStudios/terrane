@@ -143,6 +143,9 @@ export type DemTileJob = {
   /** A parent of the camera's own level: one fetch, no probe walk, no hole
    *  fill. MapLibre only draws it while the camera's tiles load. */
   shallow?: boolean;
+  /** The level one deeper than the camera: mesh refinement only, so the
+   *  provider's bitmap is passed through instead of being conditioned. */
+  child?: boolean;
   cancel?: boolean;
 };
 /** Dev-only: ask the worker what it actually fetched. */
@@ -361,6 +364,7 @@ export function createDemPipeline() {
     x: number,
     y: number,
     signal?: AbortSignal,
+    size?: number,
   ): Promise<{ bitmap: ImageBitmap; bytes: number } | null> {
     if (signal?.aborted) return null;
     const key = `${p.id}:${z}/${x}/${y}`;
@@ -388,7 +392,21 @@ export function createDemPipeline() {
          is worth caching is the decoded grid below, not the image. */
       const blob = await res.blob();
       if (signal?.aborted) return null;
-      const bitmap = await createImageBitmap(blob);
+      /* Decode straight to the grid this request will emit.
+
+         Every surface below z12 is a 256 grid, and the browser can scale during
+         the decode: without this the worker decoded a 512×512 image, then drew
+         it down and read a quarter of it back — the decode and the readback are
+         the two most expensive steps in the whole pipeline on a software
+         rasteriser, and both were being paid for pixels that were thrown away. */
+      const bitmap =
+        size && size !== p.dim
+          ? await createImageBitmap(blob, {
+              resizeWidth: size,
+              resizeHeight: size,
+              resizeQuality: "medium",
+            })
+          : await createImageBitmap(blob);
       noteSuccess(p);
       return { bitmap, bytes: blob.size };
     } catch {
@@ -449,6 +467,11 @@ export function createDemPipeline() {
     const { ctx, take } = surface(size);
     ctx.drawImage(bitmap as unknown as CanvasImageSource, 0, 0, size, size);
     return take();
+  }
+
+  /** The bitmap at `size`, copying only when the decode did not already do it. */
+  async function atSize(bitmap: ImageBitmap, size: number): Promise<ImageBitmap> {
+    return bitmap.width === size ? bitmap : scaleBitmap(bitmap, size);
   }
 
   function remember(key: string, grid: Grid) {
@@ -809,6 +832,7 @@ export function createDemPipeline() {
     y: number,
     signal?: AbortSignal,
     shallow = false,
+    child = false,
   ): Promise<TileResult | null> {
     /* A parent of the camera's level, answered with exactly one fetch.
 
@@ -820,12 +844,12 @@ export function createDemPipeline() {
        source from reporting loaded. A parent needs one honest surface, not the
        best available ancestor. */
     if (shallow) {
-      const hit = await fetchBitmap(p, z, x, y, signal);
-      if (!hit) return null;
       const size = gridForZoom(z);
+      const hit = await fetchBitmap(p, z, x, y, signal, size);
+      if (!hit) return null;
       const sample = sampleTile(hit.bitmap);
       if (sample.max < 5 || (sample.min > LOWLAND_M && sample.zeros < 0.01)) {
-        const bitmap = p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+        const bitmap = await atSize(hit.bitmap, size);
         if (TRACE) {
           trace.tiles.push({ z, kind: "native", from: z, min: Math.round(sample.min), max: Math.round(sample.max) });
         }
@@ -834,22 +858,43 @@ export function createDemPipeline() {
       const grid = gridFromBitmap(p, hit.bitmap, size);
       return encode(grid.el, size, 0, z, z);
     }
+    /* The level one deeper than the camera: MapLibre builds its mesh
+       refinement from it, and it is never the surface on screen. The parent
+       tile has already been conditioned for this ground, so this one is passed
+       through as the provider drew it — no readback, no sharpening, no 512
+       encode. A blank plate is the one thing it may not pass on: that is a
+       coverage hole, and the parent is the right answer there. */
+    if (child) {
+      const size = gridForZoom(z);
+      const hit = await fetchBitmap(p, z, x, y, signal, size);
+      if (!hit || hit.bytes < BLANK_TILE_BYTES) return null;
+      const sample = sampleTile(hit.bitmap);
+      if (TRACE) {
+        trace.tiles.push({
+          z,
+          kind: "native",
+          from: z,
+          min: Math.round(sample.min),
+          max: Math.round(sample.max),
+        });
+      }
+      return { bitmap: await atSize(hit.bitmap, size), kind: "native", from: z, computeMs: 0 };
+    }
     const nz = await nativeZoomFor(p, z, x, y, signal);
     if (signal?.aborted) return null;
     if (nz >= z) {
       const reuseKey = `${p.id}:${z}/${x}/${y}`;
       const reused = recent.get(reuseKey);
       if (reused) recent.delete(reuseKey);
-      const hit = reused ?? (await fetchBitmap(p, z, x, y, signal));
+      const size = gridForZoom(z);
+      const hit = reused ?? (await fetchBitmap(p, z, x, y, signal, size));
       if (hit) {
-        const size = gridForZoom(z);
         const sample = sampleTile(hit.bitmap);
         /* Open water, or ground that never comes near the shore: nothing the
            conditioning would change, so the provider's bitmap is the surface —
            at this zoom's grid, not the provider's. */
         if (sample.max < 5 || (sample.min > LOWLAND_M && sample.zeros < 0.01)) {
-          const bitmap =
-            p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+          const bitmap = await atSize(hit.bitmap, size);
           if (TRACE) {
             trace.tiles.push({
               z,
@@ -870,8 +915,7 @@ export function createDemPipeline() {
            right answer. */
         if (p === PRIMARY && z >= p.globalMax && sample.zeros > 0.4) return null;
         if (!hadHoles && !touchesLowland(scaled)) {
-          const bitmap =
-            p.dim === size ? hit.bitmap : await scaleBitmap(hit.bitmap, size);
+          const bitmap = await atSize(hit.bitmap, size);
           if (TRACE) {
             trace.tiles.push({
               z,
@@ -928,12 +972,20 @@ export function createDemPipeline() {
       x: number,
       y: number,
       signal?: AbortSignal,
-      opts?: { shallow?: boolean },
+      opts?: { shallow?: boolean; child?: boolean },
     ): Promise<TileResult | null> {
       for (const provider of [PRIMARY, FALLBACK]) {
         if (!isUp(provider)) continue;
         if (signal?.aborted) return null;
-        const result = await resolveFrom(provider, z, x, y, signal, opts?.shallow ?? false);
+        const result = await resolveFrom(
+          provider,
+          z,
+          x,
+          y,
+          signal,
+          opts?.shallow ?? false,
+          opts?.child ?? false,
+        );
         if (result) return result;
       }
       /* An abandoned tile is answered by not answering: the caller has already

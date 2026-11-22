@@ -53,6 +53,12 @@ import type { Place } from "../data/places";
 /** Dev, or a build made with `VITE_BENCH=1` for the browser bench. */
 const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
 
+/** Bench-only timeline mark. The long-task log says the main thread was blocked;
+ *  these say which phase was running when it was. */
+const mark = (name: string) => {
+  if (BENCH) performance.mark(name);
+};
+
 export interface GlobeFocus {
   lon: number;
   lat: number;
@@ -402,7 +408,9 @@ export default function Globe({
       if (!RUNTIME_IDS.every((id) => map_.getLayer(id))) {
         addCampIcons(map_);
         addDestinations(map_);
+        mark("atlas:start");
         setAtlasPlaces(map_, dataRef.current);
+        mark("atlas:end");
         addMapped(map_, layersRef.current);
         addTrails(map_, layersRef.current);
         /* Routes last: a beacon has to sit above every pin and every label. */
@@ -481,12 +489,22 @@ export default function Globe({
       else map_.once("render", armAfterPaint);
       terrainTimer.current = window.setTimeout(armTerrain, 1500);
 
-      const loadCore = () => void loadDestinations().then(() => refreshDuplicates(map_));
+      const loadCore = () => {
+      mark("core:start");
+      void loadDestinations().then(() => {
+        mark("core:end");
+        refreshDuplicates(map_);
+      });
+    };
       const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
       if (!idle) window.setTimeout(loadCore, 1600);
 
+      mark("mapped:start");
       refreshMapped(map_);
+      mark("mapped:end");
+      mark("trails:start");
       refreshTrails(map_);
+      mark("trails:end");
       /* Time from navigation start to the first interactive frame, read by the
          dev bench. `performance.now()` is measured from the navigation start. */
       if (BENCH) {
@@ -617,7 +635,13 @@ export default function Globe({
       /* The famous tail is an 8 MB JSON: it can wait until the reader is close
          enough for it to mean something, and until the frame is idle. */
       if (map_.getZoom() >= 8.2) {
-        const more = () => void loadMoreDestinations().then(() => refreshDuplicates(map_));
+        const more = () => {
+          mark("tail:start");
+          void loadMoreDestinations().then(() => {
+            mark("tail:end");
+            refreshDuplicates(map_);
+          });
+        };
         const idle = window.requestIdleCallback?.(more, { timeout: 2500 });
         if (!idle) window.setTimeout(more, 900);
       }
