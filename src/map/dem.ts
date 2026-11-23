@@ -227,31 +227,6 @@ async function boundedBitmap(work: Promise<ImageBitmap>, ms = 1200) {
   return out;
 }
 
-/** The same, but able to wait for a decode that is already on its way.
- *
- *  The level one deeper than the camera is the terrain's own refinement, and
- *  MapLibre asks for it while the camera's own tiles are still loading — so the
- *  parent is always already in flight. Fetching the child means paying for the
- *  same ground twice, through the same slow connection; waiting a bounded while
- *  and cropping the parent costs nothing and lands sooner. */
-async function ancestorWhenReady(
-  z: number,
-  x: number,
-  y: number,
-  maxShift: number,
-  waitMs: number,
-) {
-  const until = performance.now() + waitMs;
-  for (;;) {
-    const hit = await fromAncestor(z, x, y, maxShift);
-    if (hit) return hit;
-    if (performance.now() >= until) return null;
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 120);
-    });
-  }
-}
-
 /** The camera the map is looking through.
  *
  *  A request that is not the camera's own level is a backfill: MapLibre asks
@@ -620,21 +595,13 @@ async function requestTile(
   const strict = needsNativeSurface(role);
   if (allowsCoarseStandIn(role, cameraMoving) && ideal >= 0 && z !== ideal) {
     phase("backfill");
-    /* Only the camera's child level waits: its parent is the level the camera
-       is on, which MapLibre is loading right now. A coarser backfill has no such
-       guarantee — waiting for a z3 nobody asked for is just a stall.
-
-       Twelve seconds, not six: at z11 the camera's own tiles averaged five
-       seconds and the child level was sixteen 500 px encodes, the single
-       biggest cost in the run. A window shorter than the parent's own latency
-       turned every child into a second fetch of the same ground. */
-    /* The child level does not wait long for its parent any more. It used to
-       wait twelve seconds, from when answering a child meant a 512 px encode:
-       waiting was cheaper than the work. The child is now a pass-through fetch
-       — one request on a wire that answers in a tenth of a second — so waiting
-       longer than the parent usually takes is the slower path, and eighteen of
-       those waits in a row were most of the tail. */
-    const near = await ancestorWhenReady(z, x, y, 3, 0);
+    /* One look, never a wait: a coarser level behind the camera takes the crop
+       if one is already decoded, and otherwise goes to the queue like any other
+       tile. Waiting for a parent to land was the old child-level path, and it
+       is gone with the rule that made children answerable from a crop — the two
+       on-screen levels fetch their own surface now, so nothing waits on a
+       parent that is no longer allowed to stand in. */
+    const near = await fromAncestor(z, x, y, 3);
     if (near) {
       record(z, `ancestor:from${near.from}`, performance.now() - t0, 0, near.from);
       settle(`ancestor:from${near.from}`);
