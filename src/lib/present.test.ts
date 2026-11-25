@@ -68,6 +68,14 @@ describe("pickFacts", () => {
       pickFacts({ ...base, note: "4,478 m" }),
     ).toEqual(["Valais, Switzerland", "4,478 m"]);
   });
+
+  it("adds prominence after elevation when the record has it", () => {
+    expect(pickFacts({ ...base, prom: 1042 })).toEqual([
+      "Valais, Switzerland",
+      "4,478 m",
+      "1,042 m prominence",
+    ]);
+  });
 });
 
 describe("pickTitle", () => {

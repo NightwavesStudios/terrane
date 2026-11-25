@@ -30,10 +30,19 @@ export interface BandDef {
 export const BANDS = (bandsFile as unknown as { bands: BandDef[] }).bands;
 
 function heightShare(p: Place): number {
-  if (p.type === "peak") return Math.min(1, Math.max(0, (p.elevation ?? 0) / 5000));
-  if (p.type === "park") return 0.62;
-  if (p.type === "landmark") return 0.55;
-  return 0.4;
+  /* Terrane is a mountain app first: a peak keeps a floor above every park and
+     landmark, then earns its place with elevation and prominence. A 4,000-foot
+     summit with a clean 900 m of prominence now beats a low foothill with none,
+     which is the order a reader looking for mountains expects. The caps keep the
+     scale comparable to the other types. */
+  if (p.type === "peak") {
+    const height = Math.min(1, Math.max(0, (p.elevation ?? 0) / 5000));
+    const prominence = Math.min(1, Math.max(0, (p.prominence ?? 0) / 1500));
+    return 0.55 + 0.3 * height + 0.15 * prominence;
+  }
+  if (p.type === "park") return 0.5;
+  if (p.type === "landmark") return 0.45;
+  return 0.3;
 }
 
 /** Deterministic: same input, same order. No provenance bonus. */

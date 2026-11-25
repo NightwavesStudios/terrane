@@ -6,11 +6,12 @@ Terrane is an interactive globe of places worth going outside for: peaks, ranges
 parks, coastlines, campsites, water and parking. Spin the planet, click a point,
 read what is around it.
 
-**9,440,520 places in 30 categories**, one model: 24,474 destinations (1,213
-Wikidata atlas rows and a 23,261-row Wikidata long tail), 9,416,046 mapped places
-from OpenStreetMap and agency inventories, and 485,798 trail segments in 1,017 z7
-cells. Every one of the 24,474 destinations has a `/place/:slug` page; practical
-POIs remain map-only. Coverage is uneven; the [Data page](/coverage) and
+**9,440,520 places in 30 categories**, one model: 24,474 destinations (7,643 of
+them peaks and high points), 9,416,046 mapped places from OpenStreetMap and
+agency inventories, and 485,798 trail segments in 1,017 z7 cells. Every one of
+the 24,474 destinations has a `/place/:slug` page; practical POIs remain
+map-only. The summit ledger adds four complete club lists (184 named peaks) with
+local progress tracking. Coverage is uneven; the [Data page](/coverage) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md) say exactly where.
 
 > **Facts only.** Place pages show type, high point, country, coordinates and a
@@ -60,6 +61,8 @@ it needs a rebuild, not a restart.
 | `/experiences/:slug` | `Experience` | One curated destination: overview, why it is worth visiting, recorded features, associated places and trails, a map, practical places from the cell store, photographs, official/source links and save. |
 | `/collections` | `Collections` | Wide groups of curated Experiences: search, filter by scope and by a nearby place. Collections are not saved and do not appear on the globe. |
 | `/collections/:slug` | `Collection` | One collection: its member Experiences, each with its own page and source, the shared trail thread where recorded, a map of the group and photographs. |
+| `/summits` | `Summits` | The summit ledger: four classic club lists (Georgia 4,000, NH 48, Adirondack 46ers, Colorado 14ers), overall progress and recent ascents, kept in this browser. |
+| `/summits/:list` | `Summits` | One summit list: every peak, its elevation, a local climb tick and a link to the globe where the summit has a place page. |
 | `/saved` | `Saved` | The places and curated Experiences saved in this browser. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
 | anything else | `Home` | Unknown paths fall through to the globe. |

@@ -8,7 +8,7 @@ import type { Route } from "../lib/router";
  * with no active tab in the header. Both now read this list; a rename or a new
  * destination is one edit, not three.
  */
-export type NavId = "discover" | "experiences" | "collections" | "saved";
+export type NavId = "discover" | "summits" | "experiences" | "collections" | "saved";
 
 export type NavItem = {
   id: NavId;
@@ -25,6 +25,12 @@ export const NAV: NavItem[] = [
     label: "Discover",
     to: "/",
     hint: "The globe and its search",
+  },
+  {
+    id: "summits",
+    label: "Summits",
+    to: "/summits",
+    hint: "Your peak ledger and the classic club lists",
   },
   {
     id: "experiences",
@@ -62,6 +68,8 @@ export function activeNav(route: Route): NavId | null {
     case "collections":
     case "collection":
       return "collections";
+    case "summits":
+      return "summits";
     case "saved":
       return "saved";
     default:

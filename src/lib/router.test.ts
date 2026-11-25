@@ -18,6 +18,15 @@ describe("parseRoute", () => {
     });
   });
 
+  it("reads the summit ledger routes", () => {
+    expect(parseRoute("/summits")).toEqual({ name: "summits" });
+    expect(parseRoute("/summits/georgia-4000")).toEqual({
+      name: "summits",
+      list: "georgia-4000",
+    });
+    expect(parseRoute("/summits/nope/extra")).toEqual({ name: "home" });
+  });
+
   it("reads the experience routes", () => {
     expect(parseRoute("/experiences")).toEqual({ name: "experiences" });
     expect(parseRoute("/experiences/")).toEqual({ name: "experiences" });

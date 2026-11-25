@@ -14,6 +14,7 @@ const Experiences = lazy(() => import("./pages/Experiences"));
 const Experience = lazy(() => import("./pages/Experience"));
 const Collections = lazy(() => import("./pages/Collections"));
 const Collection = lazy(() => import("./pages/Collection"));
+const Summits = lazy(() => import("./pages/Summits"));
 const Saved = lazy(() => import("./pages/Saved"));
 const Coverage = lazy(() => import("./pages/Coverage"));
 
@@ -49,6 +50,8 @@ export default function App() {
         <Collections />
       ) : route.name === "collection" ? (
         <Collection slug={route.slug} />
+      ) : route.name === "summits" ? (
+        <Summits listId={route.list} />
       ) : route.name === "saved" ? (
         <Saved />
       ) : route.name === "coverage" ? (

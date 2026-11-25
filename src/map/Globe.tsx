@@ -155,6 +155,7 @@ const LAYER_GROUPS: Record<string, string[]> = {
 /* Layers that must exist after a style rebuild before the fast path is taken.
    Relief is declared in the style now, so it is not a runtime layer. */
 const RUNTIME_IDS = [
+  "features-peak-glow",
   "features-dot-0",
   "mapped-pin-0",
   "trail-route-line",

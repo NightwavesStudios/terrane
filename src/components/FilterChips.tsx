@@ -34,12 +34,15 @@ export default function FilterChips({
      kind hides the Experiences layer and selecting Experiences hides the pins,
      so the chip that is lit is the layer that is talking. */
   const filters: { id: Filter; label: string }[] = [
+    { id: "peak", label: "Peaks" },
     { id: "experience", label: "Experiences" },
     { id: "all", label: "All destinations" },
-    ...(Object.keys(TYPE_LABEL_PLURAL) as PlaceType[]).map((id) => ({
-      id: id as Filter,
-      label: TYPE_LABEL_PLURAL[id],
-    })),
+    ...(Object.keys(TYPE_LABEL_PLURAL) as PlaceType[])
+      .filter((id) => id !== "peak")
+      .map((id) => ({
+        id: id as Filter,
+        label: TYPE_LABEL_PLURAL[id],
+      })),
   ];
 
   const row = useScrollRow();

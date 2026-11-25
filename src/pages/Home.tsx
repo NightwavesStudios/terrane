@@ -276,8 +276,9 @@ export default function Home() {
       {/* One map, one count. Every point is a category; nothing here separates
           the atlas rows from the reach tail, because the map does not. */}
       <p className="globe-hint mono">
-        {manifest.totals.all.toLocaleString("en-US")} places · {manifest.categories}{" "}
-        categories · {manifest.countries.mapped} countries · updated {updated}
+        {(manifest.byCategory.peak ?? 0).toLocaleString("en-US")} peaks ·{" "}
+        {manifest.totals.all.toLocaleString("en-US")} places ·{" "}
+        {manifest.countries.mapped} countries · updated {updated}
         <span className="hint-input hint-input--mouse"> · drag to spin, click a point</span>
         <span className="hint-input hint-input--touch"> · drag to spin, tap a point</span>
         {stale ? <span className="stale-badge"> · stale source</span> : null}

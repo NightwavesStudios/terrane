@@ -57,6 +57,9 @@ export function pickFacts(pick: Pick, near?: NearRef): string[] {
   if (pick.elev && pick.elev > 0) {
     facts.push(`${Math.round(pick.elev).toLocaleString("en-US")} m`);
   }
+  if (pick.prom && pick.prom > 0) {
+    facts.push(`${Math.round(pick.prom).toLocaleString("en-US")} m prominence`);
+  }
   if (pick.note) facts.push(pick.note);
   if (pick.distance && pick.distance > 0) facts.push(formatKm(pick.distance / 1000));
   if (pick.difficulty) facts.push(pick.difficulty);

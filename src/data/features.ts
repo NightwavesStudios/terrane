@@ -65,6 +65,8 @@ export interface FeatureRow {
   /** Mapped facts a pin card can print (fee, capacity, facilities). */
   note?: string;
   elev?: number;
+  /** Metres of topographic prominence, where the source records it. */
+  prom?: number;
   hue?: number;
   /** Region or country, for a card eyebrow. */
   where?: string;
@@ -97,6 +99,8 @@ export interface Pick {
   near?: string;
   note?: string;
   elev?: number;
+  /** Metres of topographic prominence, where the source records it. */
+  prom?: number;
   hue?: number;
   where?: string;
   region?: string;
@@ -130,6 +134,7 @@ export function pickOf(
     near: typeof props.near === "string" ? props.near : undefined,
     note: typeof props.d === "string" ? props.d : undefined,
     elev: typeof props.elev === "number" ? props.elev : undefined,
+    prom: typeof props.prom === "number" ? props.prom : undefined,
     hue: typeof props.hue === "number" ? props.hue : undefined,
     where: typeof props.where === "string" ? props.where : undefined,
     region: typeof props.region === "string" ? props.region : undefined,
@@ -161,6 +166,7 @@ export function pickOfRow(row: FeatureRow): Pick {
     near: row.near,
     note: row.note,
     elev: row.elev,
+    prom: row.prom,
     hue: row.hue,
     where: row.where,
     region: row.region,
@@ -183,6 +189,7 @@ export function pickOfPlace(p: Place): Pick {
     lon: p.lon,
     slug: p.slug,
     elev: p.elevation,
+    prom: p.prominence,
     hue: p.hue,
     where: p.region ?? p.country,
     region: p.region,
@@ -261,6 +268,7 @@ export function placesToRows(places: Place[]): FeatureRow[] {
       lz: band.label,
       slug: p.slug,
       elev: p.elevation,
+      prom: p.prominence,
       hue: p.hue,
       where: p.region ?? p.country,
       region: p.region,

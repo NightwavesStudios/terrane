@@ -40,15 +40,32 @@ describe("cellOf", () => {
 });
 
 describe("importance", () => {
-  it("is height for a peak, capped at 5,000 m", () => {
-    expect(importance(place({ slug: "a", lat: 0, lon: 0, elevation: 2500 }))).toBe(0.5);
-    expect(importance(place({ slug: "b", lat: 0, lon: 0, elevation: 9000 }))).toBe(1);
-    expect(importance(place({ slug: "c", lat: 0, lon: 0 }))).toBe(0);
+  it("keeps every peak above a park and adds height and prominence", () => {
+    expect(importance(place({ slug: "a", lat: 0, lon: 0, elevation: 2500 }))).toBeCloseTo(
+      0.7,
+      10,
+    );
+    expect(importance(place({ slug: "b", lat: 0, lon: 0, elevation: 9000 }))).toBeCloseTo(
+      0.85,
+      10,
+    );
+    expect(importance(place({ slug: "c", lat: 0, lon: 0 }))).toBe(0.55);
+    expect(
+      importance(place({ slug: "d", lat: 0, lon: 0, elevation: 2500, prominence: 1500 })),
+    ).toBeCloseTo(0.85, 10);
+  });
+
+  it("puts a low peak above a park and a landmark", () => {
+    const low = importance(place({ slug: "p", lat: 0, lon: 0, elevation: 300 }));
+    expect(low).toBeGreaterThan(importance(place({ slug: "park", lat: 0, lon: 0, type: "park" })));
+    expect(low).toBeGreaterThan(
+      importance(place({ slug: "landmark", lat: 0, lon: 0, type: "landmark" })),
+    );
   });
 
   it("gives a park and a landmark a fixed share", () => {
-    expect(importance(place({ slug: "p", lat: 0, lon: 0, type: "park" }))).toBe(0.62);
-    expect(importance(place({ slug: "l", lat: 0, lon: 0, type: "landmark" }))).toBe(0.55);
+    expect(importance(place({ slug: "p", lat: 0, lon: 0, type: "park" }))).toBe(0.5);
+    expect(importance(place({ slug: "l", lat: 0, lon: 0, type: "landmark" }))).toBe(0.45);
   });
 });
 

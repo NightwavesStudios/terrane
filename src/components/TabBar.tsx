@@ -66,6 +66,16 @@ function TabIcon({ id }: { id: NavId }) {
     );
   }
 
+  if (id === "summits") {
+    return (
+      <svg {...common}>
+        <path d="M3 20 9.4 7l4.1 7.6 2.4-4.1L21 20Z" />
+        <path d="M9.4 7V3.4" />
+        <path d="M9.4 3.4h4.2l-1.1 1.6 1.1 1.6H9.4" />
+      </svg>
+    );
+  }
+
   if (id === "experiences") {
     return (
       <svg {...common}>

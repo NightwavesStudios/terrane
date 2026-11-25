@@ -4070,3 +4070,403 @@ select:focus-visible,
     transform: none;
   }
 }
+
+/* ── summit ledger ───────────────────────────────────────── */
+.summit-head {
+  padding-bottom: 4px;
+}
+.summits {
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 26px 40px 64px;
+  flex: 1;
+}
+.summit-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 34px;
+}
+.summit-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--line-light);
+  border-radius: 14px;
+  background: var(--paper-2);
+}
+.summit-stat strong {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.summit-stat-label {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-stat-note {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.summit-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+.summit-section-title {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+.summit-section-note {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+.summit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid var(--line-light);
+  border-radius: 16px;
+  background: var(--paper-2);
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+.summit-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 224, 192, 0.42);
+}
+.summit-card.on {
+  border-color: rgba(124, 224, 192, 0.4);
+  background: linear-gradient(180deg, rgba(124, 224, 192, 0.07), transparent 62%),
+    var(--paper-2);
+}
+.summit-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.summit-badge {
+  padding: 4px 8px;
+  border: 1px solid rgba(124, 224, 192, 0.28);
+  border-radius: 100px;
+  color: var(--mint);
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.summit-card-count {
+  color: var(--ink-3);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+}
+.summit-card-title {
+  font-family: var(--serif);
+  font-size: 27px;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.summit-card-region {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-card-blurb {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.summit-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: auto;
+}
+.summit-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(237, 239, 245, 0.1);
+}
+.summit-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7ce0c0, #d7e5ee);
+  transition: width 0.25s ease;
+}
+.summit-progress-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-card-high {
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-card-open {
+  margin-top: 2px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mint);
+}
+.summit-detail-head {
+  margin-top: 8px;
+}
+.summit-detail-head .page-title {
+  margin-top: 10px;
+}
+.summit-detail-head .page-sub {
+  max-width: 62ch;
+}
+.summit-detail-head .summit-progress {
+  max-width: 520px;
+  margin-top: 20px;
+}
+.summit-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 26px 0 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-light);
+}
+.summit-toolbar-group {
+  display: flex;
+  gap: 6px;
+}
+.summit-toolbar-count {
+  margin-left: auto;
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line-light);
+}
+.summit-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 150px 110px 64px;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-light);
+}
+.summit-check {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(237, 239, 245, 0.22);
+  border-radius: 8px;
+  color: #06251c;
+  font-size: 13px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.summit-check:hover {
+  border-color: rgba(124, 224, 192, 0.55);
+}
+.summit-check.on {
+  border-color: transparent;
+  background: var(--mint);
+}
+.summit-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.summit-name {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.summit-row.on .summit-name {
+  color: #e9fff8;
+}
+.summit-row-meta,
+.summit-elev,
+.summit-date,
+.summit-globe {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-elev {
+  text-align: right;
+}
+.summit-date {
+  text-align: right;
+}
+.summit-globe {
+  justify-self: end;
+  min-height: 36px;
+  padding: 0;
+  color: var(--mint);
+}
+.summit-globe:hover {
+  color: #d8fff2;
+}
+.summit-globe--none {
+  color: var(--ink-3);
+}
+.summit-complete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 18px 0 6px;
+  padding: 16px 18px;
+  border: 1px solid rgba(124, 224, 192, 0.34);
+  border-radius: 14px;
+  background: rgba(124, 224, 192, 0.08);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.summit-complete strong {
+  color: #eafff9;
+  font-weight: 600;
+}
+.summit-complete-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mint);
+  color: #06251c;
+}
+.summit-source {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-light);
+}
+.summit-note {
+  max-width: 72ch;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+.summit-source-line {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  line-height: 1.7;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.summit-source-line a {
+  color: var(--mint);
+  text-decoration: none;
+}
+.summit-source-line a:hover {
+  text-decoration: underline;
+}
+.summit-source-line--foot {
+  max-width: 80ch;
+  margin-top: 30px;
+}
+.summit-recent {
+  margin-top: 36px;
+}
+.summit-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line-light);
+}
+.summit-recent-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line-light);
+}
+.summit-recent-name {
+  font-family: var(--serif);
+  font-size: 18px;
+}
+.summit-recent-row:hover .summit-recent-name {
+  color: var(--mint);
+}
+.summit-recent-meta {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  .summits {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .summit-stats {
+    grid-template-columns: 1fr;
+  }
+  .summit-check {
+    width: 34px;
+    height: 34px;
+  }
+  .summit-row {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 0;
+  }
+  .summit-elev {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+  }
+  .summit-date {
+    display: none;
+  }
+  .summit-globe {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+}

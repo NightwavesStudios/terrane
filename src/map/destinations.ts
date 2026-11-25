@@ -91,6 +91,7 @@ function collection(rows: FeatureRow[]): GeoJSON.FeatureCollection {
         ...(r.slug ? { slug: r.slug } : {}),
         ...(r.near ? { near: r.near } : {}),
         ...(r.elev ? { elev: r.elev } : {}),
+        ...(typeof r.prom === "number" ? { prom: r.prom } : {}),
         ...(typeof r.hue === "number" ? { hue: r.hue } : {}),
         ...(r.where ? { where: r.where } : {}),
         ...(r.region ? { region: r.region } : {}),
@@ -118,6 +119,15 @@ const catFilter = (ids: string[]): ExpressionSpecification =>
   ["in", ["get", "cat"], ["literal", ids]] as unknown as ExpressionSpecification;
 
 function applyFilters(map: MlMap) {
+  /* The glow is one layer rather than one per band, so it needs its own filter
+     update whenever the category switches change. */
+  if (map.getLayer("features-peak-glow")) {
+    map.setFilter("features-peak-glow", [
+      "all",
+      ["==", ["get", "cat"], "peak"],
+      catFilter(enabled),
+    ] as unknown as ExpressionSpecification);
+  }
   for (const band of DOT_BANDS) {
     if (!map.getLayer(`features-dot-${band}`)) continue;
     map.setFilter(`features-dot-${band}`, [
@@ -147,6 +157,45 @@ export function addDestinations(map: MlMap): void {
 
   map.addSource(SOURCE, { type: "geojson", data: collection([]) });
 
+  /* Peaks get a glow of their own at every band. The atlas and the long tail
+     are mostly summits — 7,600 peaks against a few thousand parks and lakes —
+     and the glow is what makes a range read as a range instead of as an even
+     speckle of white dots. It sits under the dots, never over the labels. */
+  map.addLayer({
+    id: "features-peak-glow",
+    type: "circle",
+    source: SOURCE,
+    filter: [
+      "all",
+      ["==", ["get", "cat"], "peak"],
+      catFilter(enabled),
+    ] as unknown as ExpressionSpecification,
+    paint: {
+      "circle-color": "#c7ecff",
+      "circle-radius": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        0, 4,
+        4, 7,
+        8, 12,
+        12, 20,
+        16, 30,
+      ],
+      "circle-blur": 1,
+      "circle-opacity": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        0, 0.16,
+        4, 0.22,
+        8, 0.16,
+        12, 0.09,
+        16, 0.05,
+      ],
+    },
+  });
+
   /* A soft halo under the first band only: the handful of places that carry
      the world view get a glow, so the planet has a few lights on it instead of
      an even speckle of dots. */
@@ -175,6 +224,28 @@ export function addDestinations(map: MlMap): void {
     const dotOpacity = Number((b.opacity * (b.band >= 4 ? 0.8 : 1)).toFixed(2));
     const isFirst = b.band === 0;
     const rampStart = isFirst ? 0 : b.dot;
+    /* A summit is the subject of this map: the same band's peak dot is a
+       quarter larger than a park or a lake dot, without changing the zoom at
+       which any of them appears. */
+    /* Zoom may only appear as the top-level expression, so the peak multiplier
+       belongs inside each stop. Putting a second radius ramp inside a `case`
+       (or multiplying the ramp) makes MapLibre discard the whole dot layer
+       without a visible error. */
+    const peakFactor = [
+      "case",
+      ["==", ["get", "cat"], "peak"],
+      1.28,
+      1,
+    ] as unknown as ExpressionSpecification;
+    const dotRadius = [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      ...BASE_RADIUS.flatMap(([z, r]) => [
+        z,
+        ["*", Number((r * b.scale * 1.02).toFixed(2)), peakFactor],
+      ]),
+    ] as unknown as ExpressionSpecification;
     map.addLayer({
       id: `features-dot-${b.dot}`,
       type: "circle",
@@ -183,7 +254,7 @@ export function addDestinations(map: MlMap): void {
       filter: ["all", ["==", ["get", "dot"], b.dot], catFilter(enabled)],
       paint: {
         "circle-color": PALETTE.dot,
-        "circle-radius": radius(b.scale * 1.02),
+        "circle-radius": dotRadius,
         "circle-opacity": [
           "interpolate",
           ["linear"],
@@ -233,6 +304,11 @@ export function addDestinations(map: MlMap): void {
            label into a fact without a second symbol layer. */
         "text-field": [
           "format",
+          /* The triangle is the one cartographic mark that survives every zoom
+             and every tone of the basemap: a label with a peak mark is a
+             summit before the reader has read the word. */
+          ["case", ["==", ["get", "cat"], "peak"], "▲ ", ""],
+          { "font-scale": 0.78 },
           ["get", "n"],
           {},
           "\n",
@@ -261,13 +337,29 @@ export function addDestinations(map: MlMap): void {
         "text-padding": 8,
         "text-optional": true,
         // Earlier bands (smaller `lz`) win a collision, then the shorter name:
-        // "Everest" should beat a six-word ridge label for the same pixel.
-        "symbol-sort-key": ["+", ["get", "lz"], ["length", ["get", "n"]]],
+        // "Everest" should beat a six-word ridge label for the same pixel. A
+        // peak gets a 40-point head start so a summit beats a village of the
+        // same band — the mountain is the subject, the village is context.
+        "symbol-sort-key": [
+          "-",
+          ["+", ["get", "lz"], ["length", ["get", "n"]]],
+          ["case", ["==", ["get", "cat"], "peak"], 40, 0],
+        ],
       },
       paint: {
-        "text-color": PALETTE.label,
+        "text-color": [
+          "case",
+          ["==", ["get", "cat"], "peak"],
+          "#f4fbff",
+          PALETTE.label,
+        ] as unknown as ExpressionSpecification,
         "text-halo-color": PALETTE.halo,
-        "text-halo-width": 1.5,
+        "text-halo-width": [
+          "case",
+          ["==", ["get", "cat"], "peak"],
+          1.9,
+          1.5,
+        ],
         "text-halo-blur": 0.6,
         "text-opacity": [
           "interpolate",
@@ -289,6 +381,12 @@ export function addDestinations(map: MlMap): void {
   // six bands still avoid each other instead of stacking.
   if (map.getLayer(FIRST_SYMBOL_LAYER)) {
     for (const band of LABEL_BANDS) map.moveLayer(`features-label-${band}`, FIRST_SYMBOL_LAYER);
+  }
+
+  /* The glow belongs under the labels as well as under the dots: a blurred
+     circle above a peak name washes out the ink it was meant to introduce. */
+  if (map.getLayer("features-peak-glow") && map.getLayer("features-label-0")) {
+    map.moveLayer("features-peak-glow", "features-label-0");
   }
 
   applyFilters(map);
