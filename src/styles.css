@@ -3560,14 +3560,15 @@ select:focus-visible,
     min-height: 40px;
     font-size: 9.5px;
   }
-  /* The panel is the surface in use: the floating tools step out of its way
-     instead of painting over its header. It keeps its own × and Escape. */
-  .map-tools {
-    transition: opacity var(--dur-2) ease;
-  }
-  .home:has(.discover) .map-tools {
+  /* The panel is the surface in use: its triggers step out of its way instead
+     of painting over its header. They are siblings of the panel inside this
+     stack, so fading the stack faded the field and the results with it — search
+     opened invisible and untappable on a phone. */
+  .home:has(.discover) .map-tools > .search-open,
+  .home:has(.discover) .map-tools > .layers {
     opacity: 0;
     pointer-events: none;
+    transition: opacity var(--dur-2) ease;
   }
 }
 

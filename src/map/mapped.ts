@@ -28,15 +28,18 @@ import { PALETTE } from "./theme";
  * Every category used to have one hard zoom floor (camps at 10.6, water at
  * 13.8), so between the country view and the trail view the map showed
  * destinations only. A cell is ~600 km across and holds thousands of camps; all
- * of them cannot appear at once, but the five best-known can.
+ * of them cannot appear at once, but the best-known share of them can.
  *
  * Each cell's rows are therefore ranked once, per category, by usefulness (a
  * name, a facility summary, an agency record) and dealt into pin bands with a
- * per-cell quota. Band 0 is camps at 6.9, band 1 huts at 8.2, band 2 passes and
- * caravan sites at 9.5, band 3 everything else at 10.8. Overflow rows step up one
- * band each time the quota fills, so the best five camps in a cell arrive at
- * country scale and the rest are there by z11. `categories.json` still records
- * each category's own floor; it is the base the band is derived from.
+ * per-cell quota. The quota is dealt across the cell's z9 sub-tiles, best row of
+ * each first, so a band covers the ground instead of clustering on the cell's
+ * most famous corner: band 0 is camps at 6.2, band 1 huts, passes, caravans and
+ * trailheads at 7.2, band 2 every other practical family at 8.2, band 3 the
+ * overflow at 9.2. Overflow rows step up one band each time the quota fills, so
+ * a reader zooming into a region meets its camps at continent scale and the rest
+ * by z9. `categories.json` records each category's own floor; it is the base the
+ * band is derived from.
  *
  * ## One push per frame
  *
@@ -54,8 +57,9 @@ import { PALETTE } from "./theme";
  *
  * A campground that is also a park or landmark is one place in two harvests, and
  * used to draw twice. Named practical pins within 200 m of a compatible
- * destination are marked and held back to z13.5. The data-side fix belongs in the
- * merge; this is the draw-time guard, and the debug readout counts what it hides.
+ * destination are marked and held back to the last band. The data-side fix belongs
+ * in the merge; this is the draw-time guard, and the debug readout counts what it
+ * hides.
  */
 
 /** Row order in a cell. The index is the wire format; `cat` is the model. */
@@ -84,27 +88,28 @@ const PARKING_CAT = "parking";
  * cross-source duplicates, which are real pins but should not double a park dot
  * at walking zoom.
  */
-const BAND_ZOOMS = [6.6, 7.4, 8.4, 9.8, 12.5] as const;
+const BAND_ZOOMS = [6.2, 7.2, 8.2, 9.2, 11.8] as const;
 const DUP_BAND = BAND_ZOOMS.length - 1;
 
 /**
  * Per-cell quota at a category's first band. A cell over the Alps holds 50,000
- * camps; five named, facility-bearing ones are the country view, the rest step up
- * a band each time this fills.
+ * camps; the quota is dealt across the cell's sub-tiles, so each part of the
+ * cell gets its share of the first band, and the rest step up a band each time
+ * this fills.
  */
 const PER_CELL: Record<string, number> = {
-  camp: 14,
-  hut: 10,
-  pass: 16,
-  caravan: 6,
-  trailhead: 16,
-  view: 18,
-  shelter: 14,
-  picnic: 14,
-  water: 16,
-  toilets: 16,
-  shower: 10,
-  info: 20,
+  camp: 36,
+  hut: 26,
+  pass: 36,
+  caravan: 14,
+  trailhead: 36,
+  view: 40,
+  shelter: 30,
+  picnic: 30,
+  water: 36,
+  toilets: 32,
+  shower: 18,
+  info: 40,
 };
 
 /**
@@ -219,8 +224,8 @@ function summary(d: Record<string, string>): string {
 
 /** Cells are cut into this many sub-tiles on a side when a cell is trimmed. */
 const TRIM_GRID = 8;
-/** Named rows kept per category per sub-tile; one more unnamed row is kept too. */
-const KEEP_PER_SUB = 4;
+/** Rows kept per category per sub-tile; named rows fill the slots first. */
+const KEEP_PER_SUB = 6;
 
 /** The lat/lon bounds of a z/x/y tile, for the trim's sub-tile grid. */
 function tileBounds(z: number, x: number, y: number) {
@@ -233,6 +238,25 @@ function tileBounds(z: number, x: number, y: number) {
     north: latOf(y),
     south: latOf(y + 1),
   };
+}
+
+/** The z9 sub-tile a coordinate falls in, shared by the trim and the bands. */
+function subTile(
+  lat: number,
+  lon: number,
+  bounds: { west: number; east: number; north: number; south: number },
+): string {
+  const spanX = bounds.east - bounds.west || 1;
+  const spanY = bounds.north - bounds.south || 1;
+  const x = Math.max(
+    0,
+    Math.min(TRIM_GRID - 1, Math.floor(((lon - bounds.west) / spanX) * TRIM_GRID)),
+  );
+  const y = Math.max(
+    0,
+    Math.min(TRIM_GRID - 1, Math.floor(((lat - bounds.south) / spanY) * TRIM_GRID)),
+  );
+  return `${x}:${y}`;
 }
 
 /**
@@ -259,11 +283,7 @@ function trimCell(
 ): Feature<Point>[] {
   const out: Feature<Point>[] = [];
   const bounds = tileBounds(MAPPED_CELL_ZOOM, tile[0], tile[1]);
-  const spanX = bounds.east - bounds.west || 1;
-  const spanY = bounds.north - bounds.south || 1;
   const counts = new Map<string, number>();
-  const sub = (value: number, min: number, span: number) =>
-    Math.max(0, Math.min(TRIM_GRID - 1, Math.floor(((value - min) / span) * TRIM_GRID)));
 
   /* Named first: those are the rows a card can describe and the ones the
      usefulness sort would have put on top anyway. */
@@ -275,7 +295,7 @@ function trimCell(
       const tags = meta.get(index);
       const hasName = Boolean(row[3]) || Boolean(tags?.url || tags?.website || tags?.booking);
       if (hasName !== named) continue;
-      const key = `${cat}|${sub(row[1], bounds.west, spanX)}|${sub(row[0], bounds.south, spanY)}`;
+      const key = `${cat}|${subTile(row[0], row[1], bounds)}`;
       const n = counts.get(key) ?? 0;
       if (n >= KEEP_PER_SUB) continue;
       counts.set(key, n + 1);
@@ -336,8 +356,14 @@ function baseBand(cat: string): number {
 /**
  * Deal one cell's rows into bands, per category. Sorted once, at load: a cell is
  * 276,000 rows and this is the only pass that has to look at all of them.
+ *
+ * Within a category the rows are bucketed by sub-tile and dealt across those
+ * buckets in turn, so the first band takes the best row from many parts of the
+ * cell rather than the top N rows of one famous corner. That is what keeps a pan
+ * inside a cell from meeting the same handful of pins.
  */
-function assignBands(features: Feature<Point>[]) {
+function assignBands(features: Feature<Point>[], tile: [number, number]) {
+  const bounds = tileBounds(MAPPED_CELL_ZOOM, tile[0], tile[1]);
   const groups = new Map<string, Feature<Point>[]>();
   for (const f of features) {
     const cat = String((f.properties as Record<string, unknown>).cat);
@@ -350,15 +376,39 @@ function assignBands(features: Feature<Point>[]) {
     if (!PRACTICAL_CATS.includes(cat)) continue;
     const base = baseBand(cat);
     const per = PER_CELL[cat] ?? 12;
-    group.sort(
-      (a, b) =>
-        usefulness(b) - usefulness(a) ||
-        String((a.properties as Record<string, unknown>).n ?? "").localeCompare(
-          String((b.properties as Record<string, unknown>).n ?? ""),
-        ),
-    );
-    for (let i = 0; i < group.length; i += 1) {
-      const p = group[i].properties as Record<string, unknown>;
+
+    const bySub = new Map<string, Feature<Point>[]>();
+    for (const f of group) {
+      const [lon, lat] = (f.geometry as Point).coordinates;
+      const key = subTile(lat, lon, bounds);
+      const bucket = bySub.get(key);
+      if (bucket) bucket.push(f);
+      else bySub.set(key, [f]);
+    }
+
+    const lists = [...bySub.values()];
+    for (const list of lists) {
+      list.sort(
+        (a, b) =>
+          usefulness(b) - usefulness(a) ||
+          String((a.properties as Record<string, unknown>).n ?? "").localeCompare(
+            String((b.properties as Record<string, unknown>).n ?? ""),
+          ),
+      );
+    }
+
+    /* Round-robin: one row from every sub-tile, then the next row from every
+       sub-tile, and so on. A band therefore covers the cell. */
+    const spread: Feature<Point>[] = [];
+    const longest = lists.reduce((most, list) => Math.max(most, list.length), 0);
+    for (let round = 0; round < longest; round += 1) {
+      for (const list of lists) {
+        if (round < list.length) spread.push(list[round]);
+      }
+    }
+
+    for (let i = 0; i < spread.length; i += 1) {
+      const p = spread[i].properties as Record<string, unknown>;
       const tier = Math.min(3, Math.floor(i / per));
       const band = Math.min(DUP_BAND - 1, base + tier);
       p.b0 = band;
@@ -567,6 +617,25 @@ function schedulePush(map: MlMap) {
     if (!map.getSource(SOURCE)) return;
     pushToMap(map);
   });
+}
+
+/**
+ * Another pass once a cell settles.
+ *
+ * A pass starts at most `MAX_CELLS_PER_PASS` cells. A view wider than that — a
+ * desktop at country zoom, a phone whose edge crosses into a new cell — used to
+ * keep only the first batch: the rest waited for the reader to move again, so a
+ * settled screen stayed half empty. Draining the queue fills the view they are
+ * already looking at.
+ */
+let drainTimer: number | null = null;
+
+function drainMapped(map: MlMap): void {
+  if (drainTimer != null) return;
+  drainTimer = window.setTimeout(() => {
+    drainTimer = null;
+    refreshMapped(map);
+  }, 180);
 }
 
 const HARD_FEATURES = 900_000;
@@ -787,7 +856,7 @@ export function refreshMapped(map: MlMap) {
   const zoom = map.getZoom();
   /* Nothing draws before the first pin band, so a cell fetched at a globe view
      is megabytes spent to show an empty layer. */
-  if (zoom < 6.2) return;
+  if (zoom < BAND_ZOOMS[0]) return;
 
   const n = 2 ** MAPPED_CELL_ZOOM;
   const bounds = map.getBounds();
@@ -859,7 +928,7 @@ export function refreshMapped(map: MlMap) {
             const meta = new Map<number, Record<string, string>>();
             for (const [index, tags] of cell.detail ?? []) meta.set(index, tags);
             const features = trimCell(cell, meta, [x, y]);
-            assignBands(features);
+            assignBands(features, [x, y]);
             markCell(key, features, destinationIndex());
             misses.delete(key);
             loaded.set(key, features);
@@ -875,7 +944,10 @@ export function refreshMapped(map: MlMap) {
         if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
         misses.set(key, retryAt(err));
       })
-      .finally(() => pending.delete(key));
+      .finally(() => {
+        pending.delete(key);
+        drainMapped(map);
+      });
   }
 
   if (zoom >= PARKING_MINZOOM) {
@@ -916,7 +988,10 @@ export function refreshMapped(map: MlMap) {
           if (err instanceof SyntaxError) console.error(`terrane: ${path} did not parse`, err);
           parkingMisses.set(key, retryAt(err));
         })
-        .finally(() => parkingPending.delete(key));
+        .finally(() => {
+          parkingPending.delete(key);
+          drainMapped(map);
+        });
     }
   }
 
@@ -967,6 +1042,10 @@ export function refreshDuplicates(map: MlMap) {
 /** Clear the cache — used when the style is rebuilt and sources are recreated. */
 export function resetMapped() {
   pushToken += 1;
+  if (drainTimer != null) {
+    window.clearTimeout(drainTimer);
+    drainTimer = null;
+  }
   loaded.clear();
   banded.clear();
   pending.clear();

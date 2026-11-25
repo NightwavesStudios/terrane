@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-25 — Search opens on a phone, and practical pins arrive sooner
+
+- Fixed the phone stylesheet hiding the whole map tools stack while Discover was
+  open. The panel is a child of that stack, so its own rule faded the field and
+  the results to zero: below 900 px the search opened invisible and untappable.
+  Only the two floating triggers step aside now.
+- Practical pins start much earlier: camps at z6.2, huts, passes, caravans and
+  trailheads at z7.2, every other practical family at 8.2, and the overflow band
+  at 9.2. Per-cell quotas grew and the trim keeps half again as many rows.
+- The quota is dealt across a cell's z9 sub-tiles, best row of each first, so a
+  band covers the whole cell instead of clustering on its most famous corner;
+  scrolling within a cell now meets new pins instead of the same handful.
+- A settled view drains its remaining cells: when one cell finishes, the next
+  visible one starts, instead of waiting for the reader to move the map again.
+  A view wider than the three-cell pass fills completely.
+
 ## 2026-11-22 — The map preload that bought nothing, measured on a compressed host
 
 - Removed the build plugin that appended a `modulepreload` for the map chunk to
