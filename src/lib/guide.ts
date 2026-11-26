@@ -1,19 +1,14 @@
 import { useEffect, useState } from "react";
 import { pickOf, type Pick as MapPick } from "../data/features";
-import type {
-  GuideCatalogRow,
-  GuideExperience,
-  GuideKindId,
-} from "../data/guide";
+import type { GuideCatalogRow, GuideExperience } from "../data/guide";
 import { kmBetween } from "./geo";
-import { normalize } from "./text";
 
 /**
- * Lazy access to the curated Experience index.
+ * Lazy access to the curated Experience catalogue.
  *
  * The catalogue is one compact file and each Experience is one hash-bucket
- * shard, so the list and the map can load every row without downloading every
- * page record. Only the Experience you open downloads its shard.
+ * shard, so the map can load every row without downloading every page record.
+ * Only the Experience you open downloads its shard.
  */
 
 type CatalogFile = {
@@ -125,70 +120,6 @@ export function useGuide(slug: string): {
 }
 
 /* ── pure helpers ────────────────────────────────────────────────────────── */
-
-function scoreRow(row: GuideCatalogRow, term: string): number {
-  let score = 0;
-  const name = normalize(row.name);
-  if (name === term) score += 100;
-  else if (name.startsWith(term)) score += 60;
-  else if (name.includes(term)) score += 40;
-
-  const where = normalize(`${row.region ?? ""} ${row.country ?? ""}`);
-  if (where.includes(term)) score += 25;
-  if (normalize(row.summary).includes(term)) score += 14;
-  if (row.associatedNames.some((place) => normalize(place).includes(term))) {
-    score += 20;
-  }
-  return score;
-}
-
-export const GUIDE_NEAR_RADIUS_KM = 250;
-
-export type GuideNear = { lat: number; lon: number; label: string };
-
-export type GuideFilter = {
-  query?: string;
-  kind?: GuideKindId | null;
-  near?: GuideNear | null;
-};
-
-export function kilometresFrom(
-  row: Pick<GuideCatalogRow, "lat" | "lon">,
-  near: GuideNear,
-): number {
-  return kmBetween(near.lat, near.lon, row.lat, row.lon);
-}
-
-export function filterGuides(
-  rows: GuideCatalogRow[],
-  options: GuideFilter = {},
-): GuideCatalogRow[] {
-  const term = normalize((options.query ?? "").trim());
-  const kind = options.kind ?? null;
-  const near = options.near ?? null;
-
-  let pool = rows;
-  if (kind) pool = pool.filter((row) => row.kind === kind);
-  if (near) pool = pool.filter((row) => kilometresFrom(row, near) <= GUIDE_NEAR_RADIUS_KM);
-  if (!term && !near) return pool;
-
-  const scored = pool.map((row) => ({
-    row,
-    score: term ? scoreRow(row, term) : 0,
-    km: near ? kilometresFrom(row, near) : 0,
-  }));
-
-  return scored
-    .filter((item) => !term || item.score > 0)
-    .sort(
-      (a, b) =>
-        (term ? b.score - a.score : 0) ||
-        a.km - b.km ||
-        a.row.name.localeCompare(b.row.name) ||
-        a.row.slug.localeCompare(b.row.slug),
-    )
-    .map((item) => item.row);
-}
 
 /**
  * A curated catalogue row as the one map pick shape, so a link can open the

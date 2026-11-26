@@ -10,7 +10,7 @@ import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
 import { addCampIcons } from "./campIcon";
 import { installDemProtocol, noteDemCamera } from "./dem";
 import { focusFor, pitchForZoom, readCamera, terrainExaggeration, worldZoom } from "./camera";
-import { kmBetween } from "../lib/geo";
+import { circleRing, kmBetween } from "../lib/geo";
 import { shouldShowBootFailure } from "./bootGuard";
 import { createContours, type ContourHandle } from "./contours";
 import {
@@ -46,9 +46,23 @@ import {
   setExperienceLayers,
   showExperience,
 } from "./experiences";
-import { pickOf, type Pick } from "../data/features";
+import { category, pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
+import {
+  LOG_LAYERS,
+  addLog,
+  setLogPoints,
+  setLogVisibility,
+  type LogMapPoint,
+} from "./log";
+import {
+  LISTED_LAYERS,
+  addListed,
+  setListedPoints,
+  setListedVisibility,
+  type ListedPoint,
+} from "./listed";
 
 /** Dev, or a build made with `VITE_BENCH=1` for the browser bench. */
 const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
@@ -127,6 +141,10 @@ interface Props {
   onView?: (view: { lon: number; lat: number; zoom: number }) => void;
   focus?: GlobeFocus | null;
   layers?: LayerState;
+  /** Bagged and wanted entries with a real coordinate. */
+  logPoints?: LogMapPoint[];
+  /** Listed peaks that also have a place page. */
+  listedPoints?: ListedPoint[];
 }
 
 /* Which base layers answer to which switch. Relief is handled separately: the
@@ -160,6 +178,9 @@ const RUNTIME_IDS = [
   "mapped-pin-0",
   "trail-route-line",
   "experiences-dot",
+  "log-done-ring",
+  "listed-ring",
+  "pick-area",
   "pick-ring",
 ];
 
@@ -224,6 +245,8 @@ export default function Globe({
   onView,
   focus,
   layers = DEFAULT_LAYERS,
+  logPoints = [],
+  listedPoints = [],
 }: Props) {
   const holder = useRef<HTMLDivElement>(null);
   const contours = useRef<ContourHandle | null>(null);
@@ -239,6 +262,8 @@ export default function Globe({
   const terrainFrame = useRef<number | null>(null);
   const terrainTimer = useRef<number | null>(null);
   const dataRef = useRef(places);
+  const logRef = useRef(logPoints);
+  const listedRef = useRef(listedPoints);
   const [ready, setReady] = useState(false);
   const [stalled, setStalled] = useState(false);
   const [debugLines, setDebugLines] = useState<string[] | null>(null);
@@ -248,6 +273,8 @@ export default function Globe({
   pickRef.current = onPick;
   viewRef.current = onView;
   dataRef.current = places;
+  logRef.current = logPoints;
+  listedRef.current = listedPoints;
 
   /* ── init once ─────────────────────────────────────── */
   useEffect(() => {
@@ -379,6 +406,29 @@ export default function Globe({
       (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
     }
 
+    const addPickArea = () => {
+      if (!map_.getSource("pick-area")) {
+        map_.addSource("pick-area", { type: "geojson", data: EMPTY });
+      }
+      if (!map_.getLayer("pick-area")) {
+        const before = map_.getLayer(FIRST_SYMBOL_LAYER) ? FIRST_SYMBOL_LAYER : undefined;
+        map_.addLayer(
+          {
+            id: "pick-area",
+            type: "line",
+            source: "pick-area",
+            paint: {
+              "line-color": "#e6c382",
+              "line-width": 1,
+              "line-opacity": 0.5,
+              "line-dasharray": [2, 2],
+            },
+          },
+          before,
+        );
+      }
+    };
+
     const addPickRing = () => {
       if (!map_.getSource("pick")) {
         map_.addSource("pick", { type: "geojson", data: EMPTY });
@@ -416,6 +466,11 @@ export default function Globe({
         addTrails(map_, layersRef.current);
         /* Routes last: a beacon has to sit above every pin and every label. */
         addExperiences(map_, layersRef.current);
+        addLog(map_, layersRef.current.log);
+        setLogPoints(map_, logRef.current);
+        addListed(map_, layersRef.current.listed);
+        setListedPoints(map_, listedRef.current);
+        addPickArea();
         addPickRing();
       }
       setDestinationCats(map_, layersRef.current);
@@ -522,6 +577,8 @@ export default function Globe({
     const featureLayers = () =>
       [
         ...EXPERIENCE_LAYERS,
+        ...LOG_LAYERS,
+        ...LISTED_LAYERS,
         ...DEST_LAYERS,
         ...MAPPED_LAYERS,
         ...TRAIL_LAYERS,
@@ -737,6 +794,8 @@ export default function Globe({
     setMappedCats(map_, layers);
     setTrailLayers(map_, layers);
     setExperienceLayers(map_, layers);
+    setLogVisibility(map_, layers.log);
+    setListedVisibility(map_, layers.listed);
     layersRef.current = layers;
     if (terrainArmed.current) applyTerrainTo(map_, layers);
   }, [layers, ready]);
@@ -748,6 +807,18 @@ export default function Globe({
     setAtlasPlaces(map_, places);
   }, [places, ready]);
 
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    setLogPoints(map_, logPoints);
+  }, [logPoints, ready]);
+
+  useEffect(() => {
+    const map_ = map.current;
+    if (!map_ || !ready) return;
+    setListedPoints(map_, listedPoints);
+  }, [listedPoints, ready]);
+
   /* ── one selection ring and one camera move ────────── */
   useEffect(() => {
     const map_ = map.current;
@@ -757,6 +828,25 @@ export default function Globe({
        earlier pass skipped it for beacons, so clicking one framed the whole route
        instead of the point under the pointer. */
     const isExperience = pick?.cat === "experience";
+    const area = map_.getSource("pick-area") as GeoJSONSource | undefined;
+    const radiusKm = pick && category(pick.cat).family === "practical" ? 2 : 10;
+    area?.setData(
+      pick
+        ? {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "LineString",
+                  coordinates: circleRing(pick.lat, pick.lon, radiusKm),
+                },
+                properties: {},
+              },
+            ],
+          }
+        : EMPTY,
+    );
     const src = map_.getSource("pick") as GeoJSONSource | undefined;
     src?.setData(
       pick && !isExperience

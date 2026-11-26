@@ -2,9 +2,7 @@ import Logo from "./Logo";
 import TabBar from "./TabBar";
 import { NAV, activeNav } from "./nav";
 import { navigate, useRoute } from "../lib/router";
-import { useManifest } from "../lib/live";
-import { useSaved } from "../lib/saved";
-import { useSavedGuides } from "../lib/savedGuides";
+import { logStats, useLog } from "../lib/log";
 
 /**
  * The app header.
@@ -15,10 +13,7 @@ import { useSavedGuides } from "../lib/savedGuides";
  */
 export default function Header({ tone }: { tone: "dark" | "light" }) {
   const route = useRoute();
-  const manifest = useManifest();
-  const saved = useSaved();
-  const savedGuides = useSavedGuides();
-  const savedCount = saved.length + savedGuides.length;
+  const stats = logStats(useLog());
   const active = activeNav(route);
 
   return (
@@ -43,17 +38,20 @@ export default function Header({ tone }: { tone: "dark" | "light" }) {
               title={item.hint}
             >
               {item.label}
-              {item.id === "saved" && savedCount > 0 ? (
-                <span className="nav-count mono">{savedCount}</span>
-              ) : null}
             </button>
           ))}
         </nav>
 
         <div className="header-right">
-          <span className="pill pill--ghost">
-            {manifest.totals.all.toLocaleString("en-US")} places
-          </span>
+          <button
+            className="pill pill--ghost log-pill"
+            onClick={() => navigate("/log")}
+            title="Your bagged peaks and want-to-go list"
+          >
+            {stats.bagged
+              ? `${stats.bagged.toLocaleString("en-US")} bagged`
+              : "Your log"}
+          </button>
         </div>
       </header>
 

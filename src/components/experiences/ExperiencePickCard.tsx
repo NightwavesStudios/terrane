@@ -4,17 +4,15 @@ import { guideKind } from "../../data/guide";
 import type { Pick } from "../../data/features";
 import { placeLine } from "../../lib/present";
 import { navigate } from "../../lib/router";
-import {
-  toggleSavedGuide,
-  useSavedGuideSlugs,
-} from "../../lib/savedGuides";
+import LogActions from "../LogActions";
+import { targetForPick } from "../../lib/logTargets";
 
 /**
  * The card a curated Experience beacon opens.
  *
- * One destination, one page. Saving goes to the Experience store, never the
- * place list and never the Collections. The card prints only what the record
- * holds: kind, recorded neighbours and named trails.
+ * One destination, one page. Want and bagged go to the same local log as every
+ * other point. The card prints only what the record holds: kind, recorded
+ * neighbours and named trails.
  */
 export default function ExperiencePickCard({
   pick,
@@ -23,14 +21,13 @@ export default function ExperiencePickCard({
   pick: Pick;
   onClose: () => void;
 }) {
-  const savedSlugs = useSavedGuideSlugs();
   const row = pick.experience;
   const slug = pick.slug;
   if (!row || !slug) return null;
 
   const kind = guideKind(row.kind);
-  const saved = savedSlugs.has(slug);
   const where = placeLine(pick.region, pick.country);
+  const target = targetForPick(pick);
 
   return (
     <PickSheet className="pick pick--experience" label={pick.name} onClose={onClose}>
@@ -50,23 +47,10 @@ export default function ExperiencePickCard({
             .join(" · ")}
         </p>
         {where ? <p className="mono pick-meta">{where}</p> : null}
+        <LogActions target={target} />
         <div className="pick-actions">
-          <button
-            className={`btn btn-light${saved ? " btn-saved" : ""}`}
-            onClick={() => {
-              toggleSavedGuide({
-                slug,
-                name: pick.name,
-                kind: row.kind,
-                country: pick.country,
-                region: pick.region,
-              });
-            }}
-          >
-            {saved ? "Saved ✓" : "Save"}
-          </button>
           <button className="btn btn-light" onClick={() => navigate(`/experiences/${slug}`)}>
-            Open Experience →
+            Read the full place →
           </button>
         </div>
       </div>

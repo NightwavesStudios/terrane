@@ -3,7 +3,7 @@ import type { HillshadeLayerSpecification } from "maplibre-gl";
 /**
  * One visual language for every map in the app.
  *
- * The globe, the Experience map and the Collection map are the same product at
+ * The globe and the Experience map are the same product at
  * different crops, so they read from one palette instead of three sets of
  * literals. Values here are the "blue-hour survey" palette: deep water with a
  * luminous coast, hypsometric land, quiet borders, warm trail ink, cool type.

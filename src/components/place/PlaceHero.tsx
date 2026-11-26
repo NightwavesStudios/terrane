@@ -14,8 +14,8 @@ export default function PlaceHero({
   elevation,
   hue,
   image,
-  saved,
-  onToggleSave,
+  logState,
+  onToggleWant,
 }: {
   name: string;
   alt: string;
@@ -23,8 +23,8 @@ export default function PlaceHero({
   elevation?: number;
   hue: number;
   image?: PlaceImage;
-  saved: boolean;
-  onToggleSave: () => void;
+  logState: "want" | "done" | null;
+  onToggleWant: () => void;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -64,12 +64,19 @@ export default function PlaceHero({
       </div>
 
       <button
-        className={`place-save${saved ? " on" : ""}`}
-        onClick={onToggleSave}
-        aria-pressed={saved}
-        aria-label={saved ? "Remove from Saved" : "Save this place"}
+        className={`place-want${logState ? " on" : ""}`}
+        onClick={onToggleWant}
+        aria-pressed={Boolean(logState)}
+        disabled={logState === "done"}
+        aria-label={
+          logState === "done"
+            ? "This place is bagged"
+            : logState === "want"
+              ? "Remove this place from your list"
+              : "Want to go to this place"
+        }
       >
-        {saved ? "Saved ✓" : "Save place"}
+        {logState === "done" ? "Bagged ✓" : logState === "want" ? "On your list ✓" : "Want to go"}
       </button>
 
       {photo && photo.credit ? (

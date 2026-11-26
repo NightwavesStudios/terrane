@@ -82,6 +82,6 @@ export function setMeta({
 
 export const HOME_META: Meta = {
   title: SITE,
-  description: `Spin a globe of ${MANIFEST.totals.all.toLocaleString("en-US")} places in ${MANIFEST.categories} categories: peaks, parks, landmarks, campsites, water and parking. Real coordinates, shaded terrain and hiking trails.`,
+  description: `A peakbagging globe with sourced summit lists, a local ascent log and ${MANIFEST.totals.all.toLocaleString("en-US")} recorded places. Bag a summit, keep the date, see the trails and mapped places around it.`,
   path: "/",
 };

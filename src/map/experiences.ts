@@ -17,7 +17,7 @@ import { FONTS, PALETTE } from "./theme";
 /**
  * Curated Experiences on the globe.
  *
- * These are the destinations in the editorial catalogue, not collections and not
+ * These are the destinations in the editorial catalogue. They are not
  * every destination in the database. One beacon per Experience, in its kind's
  * colour, added above the pins. Selecting one draws the destination and its
  * recorded neighbours as neutral markers; there is no line between them and no

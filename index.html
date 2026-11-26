@@ -15,7 +15,7 @@
     <title>Terrane</title>
     <meta
       name="description"
-      content="Spin a globe of peaks, parks, landmarks, campsites, water and parking. Real coordinates, shaded terrain and hiking trails, in one category list."
+      content="A peakbagging ledger around a living globe: sourced summit lists, the peaks you have bagged and the ones you want, with shaded terrain and recorded trails."
     />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="__SITE_URL__/" />
@@ -25,7 +25,7 @@
     <meta property="og:title" content="Terrane" />
     <meta
       property="og:description"
-      content="Peaks, parks, landmarks and the places you stay, drink and park, on one shaded globe. Click a point, read what is around it."
+      content="Sourced peakbagging lists around a living globe. Bag a summit, keep a local log, and see what is really around it."
     />
     <meta property="og:url" content="__SITE_URL__/" />
     <meta property="og:image" content="__SITE_URL__/og.jpg" />
@@ -36,7 +36,7 @@
     <meta name="twitter:title" content="Terrane" />
     <meta
       name="twitter:description"
-      content="Peaks, parks, landmarks and the places you stay, drink and park on one shaded globe."
+      content="Sourced peakbagging lists around a living globe."
     />
     <meta name="twitter:image" content="__SITE_URL__/og.jpg" />
 
@@ -53,12 +53,10 @@
     <link rel="preload" href="/fonts/f9.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/f15.woff2" as="font" type="font/woff2" crossorigin />
 
-    <!-- Vector tiles + glyphs, the terrain DEM, and the location lookup. Warming
-         DNS and TLS here means the first tile request does not queue behind a
-         handshake. -->
+    <!-- Vector tiles + glyphs, and the terrain DEM. Warming DNS and TLS here
+         means the first tile request does not queue behind a handshake. -->
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin />
-    <link rel="dns-prefetch" href="https://ipwho.is" />
 
     <script type="application/ld+json">
       {
@@ -66,7 +64,7 @@
         "@type": "WebApplication",
         "name": "Terrane",
         "url": "__SITE_URL__/",
-        "description": "An interactive globe of peaks, national parks, landmarks, campsites, water and parking, with shaded terrain and hiking trails.",
+        "description": "An interactive peakbagging globe: sourced summit lists, a local ascent log, shaded terrain and recorded hiking trails.",
         "applicationCategory": "TravelApplication",
         "operatingSystem": "Any",
         "isAccessibleForFree": true,

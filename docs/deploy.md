@@ -27,13 +27,13 @@ bundled one; otherwise the bundled counts win.
 
 `vercel.json` supplies the three things a Vite SPA needs:
 
-- **Rewrite the app paths to `/index.html`**, so `/place/denali`, `/saved` and
+- **Rewrite the app paths to `/index.html`**, so `/place/denali`, `/lists` and
   `/coverage` reach the router. Real files in `dist/` are served first, and the
   rewrite explicitly excludes `/assets/*` and `/fonts/*`: a missing hashed asset
   returns 404 instead of the HTML shell with a year-long immutable cache.
 - **Caching**: `/assets/*` is content-hashed and immutable for a year; `/fonts/*`
   gets a week.
-- **Fresh HTML**: the shell at `/`, `/index.html`, `/place/*`, `/saved` and
+- **Fresh HTML**: the shell at `/`, `/index.html`, `/place/*`, `/log` and
   `/coverage` is `no-store`, so a deployment switch cannot leave a browser on an
   old shell that points at removed assets.
 

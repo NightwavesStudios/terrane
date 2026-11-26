@@ -470,43 +470,6 @@ check(
   JSON.stringify(detailSummary),
 );
 
-/* ── wide Collections ──
-   Collections are a browse layer over the curated Experience catalogue. The
-   grouping is committed in `collection-groups.json`; the records, counts,
-   prose and shards are generated from `guide-index/`. Every Experience belongs
-   to exactly one Collection, so no destination is advertised twice. */
-const collectionScopesFile = read("src/data/collection-scopes.json", { scopes: [] });
-const collectionIds = new Set(
-  (collectionScopesFile.scopes ?? []).map((scope) => scope.id),
-);
-const collectionMeta = read("src/data/collection-index/meta.json", {
-  total: 0,
-  byScope: {},
-});
-const collectionCatalog = read("src/data/collection-index/catalog.json", {
-  items: [],
-});
-const collectionFiles = existsSync(join(root, "src/data/collection-index"))
-  ? readdirSync(join(root, "src/data/collection-index")).filter(
-      (name) => name.endsWith(".json") && name !== "catalog.json" && name !== "meta.json",
-    )
-  : [];
-const collectionItems = {};
-for (const name of collectionFiles) {
-  Object.assign(
-    collectionItems,
-    read(join("src/data/collection-index", name)).items ?? {},
-  );
-}
-const collectionRows = Object.values(collectionItems);
-const collectionSlugs = Object.keys(collectionItems);
-const collectionCatalogSlugs = new Set(
-  (collectionCatalog.items ?? []).map((row) => row.slug),
-);
-const collectionGroups = read("src/data/collection-groups.json", { groups: [] });
-const groupRows = Array.isArray(collectionGroups.groups) ? collectionGroups.groups : [];
-const groupExperienceSlugs = groupRows.flatMap((group) => group.slugs ?? []);
-
 /* The networked link check writes this artifact; the build and validator only
    read it, so a normal build never depends on the network. */
 const sourceArtifact = read("src/data/experience-sources.json", {
@@ -514,211 +477,6 @@ const sourceArtifact = read("src/data/experience-sources.json", {
   urls: {},
 });
 const sourceVerified = (url) => sourceArtifact.urls?.[url]?.status === "verified";
-
-check(
-  "the four Collection scopes exist",
-  collectionIds.size === 4 &&
-    ["country", "range", "area", "trail"].every((id) => collectionIds.has(id)),
-  [...collectionIds].join(", ") || "none",
-);
-check(
-  "the Collection index is deliberately small and wide",
-  collectionRows.length >= 20 &&
-    collectionRows.length <= 60 &&
-    collectionRows.every((row) => (row.experiences?.length ?? 0) >= 2),
-  `${collectionRows.length} collections`,
-);
-check(
-  "Collection slugs are unique and routable",
-  collectionSlugs.length === new Set(collectionSlugs).size &&
-    collectionRows.length === collectionSlugs.length &&
-    collectionRows.every((row) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)),
-  `${collectionSlugs.length} slugs`,
-);
-check(
-  "Collection titles are unique",
-  new Set(collectionRows.map((row) => row.title)).size === collectionRows.length,
-  `${collectionRows.length} titles`,
-);
-check(
-  "every Collection scope is known and represented",
-  collectionRows.every((row) => collectionIds.has(row.scope)) &&
-    [...collectionIds].every((id) => collectionRows.some((row) => row.scope === id)),
-  JSON.stringify(collectionMeta.byScope ?? {}),
-);
-check(
-  "Collection records are well formed",
-  collectionRows.every(
-    (row) =>
-      typeof row.title === "string" &&
-      row.title.length > 0 &&
-      typeof row.where === "string" &&
-      row.where.length > 0 &&
-      Array.isArray(row.countries) &&
-      row.countries.length > 0 &&
-      typeof row.summary === "string" &&
-      row.summary.length > 0 &&
-      Array.isArray(row.description) &&
-      row.description.length >= 2 &&
-      Array.isArray(row.experiences) &&
-      coordOk(row.center?.lat, row.center?.lon) &&
-      Array.isArray(row.bounds) &&
-      row.bounds.length === 4 &&
-      row.bounds.every(Number.isFinite) &&
-      Number.isFinite(row.spanKm) &&
-      row.spanKm > 0,
-  ),
-  `${collectionRows.length} records`,
-);
-check(
-  "Collection members are pageable Experiences with their own records",
-  collectionRows.every((row) =>
-    row.experiences.every(
-      (experience) =>
-        typeof experience.slug === "string" &&
-        pageSlugs.has(experience.slug) &&
-        typeof experience.name === "string" &&
-        experience.name.length > 0 &&
-        coordOk(experience.lat, experience.lon) &&
-        typeof experience.summary === "string" &&
-        experience.summary.length > 0,
-    ),
-  ),
-  `${collectionRows.reduce((sum, row) => sum + row.experiences.length, 0)} memberships`,
-);
-check(
-  "no Collection repeats an Experience",
-  collectionRows.every(
-    (row) =>
-      new Set(row.experiences.map((experience) => experience.slug)).size ===
-      row.experiences.length,
-  ),
-  "member slugs",
-);
-check(
-  "collection bounds contain every member Experience",
-  collectionRows.every(
-    (row) =>
-      row.experiences.every(
-        (experience) =>
-          experience.lon >= row.bounds[0] - 0.01 &&
-          experience.lon <= row.bounds[2] + 0.01 &&
-          experience.lat >= row.bounds[1] - 0.01 &&
-          experience.lat <= row.bounds[3] + 0.01,
-      ),
-  ),
-  "bounds",
-);
-check(
-  "Collection statistics agree with their members",
-  collectionRows.every((row) => {
-    const places = row.experiences.reduce(
-      (sum, experience) => sum + (experience.placeCount ?? 0),
-      0,
-    );
-    const trails = row.experiences.reduce(
-      (sum, experience) => sum + (experience.trailCount ?? 0),
-      0,
-    );
-    return (
-      row.stats &&
-      row.stats.experiences === row.experiences.length &&
-      row.stats.places === places &&
-      row.stats.trails === trails &&
-      row.stats.countries === row.countries.length &&
-      row.stats.sourced === row.experiences.length
-    );
-  }),
-  "members, places, trails, countries, sources",
-);
-check(
-  "Collection records claim no itinerary",
-  collectionRows.every(
-    (row) =>
-      !("itinerary" in row) &&
-      !("days" in row) &&
-      !("durationHours" in row) &&
-      !("durationBasis" in row) &&
-      !("difficulty" in row) &&
-      !("distanceKm" in row) &&
-      !("stops" in row),
-  ),
-  "no route or day plan",
-);
-check(
-  "Collection photographs keep their credit and licence",
-  collectionRows.every((row) =>
-    (row.photos ?? []).every(
-      (photo) =>
-        httpsUrl(photo.url) &&
-        imageHosts.has(hostOf(photo.url)) &&
-        typeof photo.credit === "string" &&
-        photo.credit.length > 0 &&
-        typeof photo.licence === "string" &&
-        photo.licence.length > 0,
-    ),
-  ),
-  "credited Commons images",
-);
-check(
-  "Collection meta matches the records",
-  collectionMeta.total === collectionRows.length &&
-    (collectionCatalog.items ?? []).length === collectionRows.length &&
-    collectionCatalogSlugs.size === collectionRows.length &&
-    collectionMeta.experiences ===
-      collectionRows.reduce((sum, row) => sum + row.experiences.length, 0) &&
-    Object.entries(collectionMeta.byScope ?? {}).every(
-      ([id, count]) => collectionRows.filter((row) => row.scope === id).length === count,
-    ) &&
-    Object.values(collectionMeta.byScope ?? {}).reduce(
-      (sum, count) => sum + count,
-      0,
-    ) === collectionRows.length,
-  `${collectionMeta.total}/${collectionRows.length}`,
-);
-check(
-  "the committed grouping covers the Collection records",
-  groupRows.length === collectionRows.length &&
-    groupRows.every((group) => Boolean(collectionItems[group.slug])) &&
-    collectionRows.every((row) =>
-      groupRows.some((group) => group.slug === row.slug),
-    ) &&
-    groupExperienceSlugs.length === new Set(groupExperienceSlugs).size,
-  `${groupRows.length} groups`,
-);
-check(
-  "every Collection is in the catalog and every catalog row has a record",
-  collectionRows.every((row) => collectionCatalogSlugs.has(row.slug)) &&
-    (collectionCatalog.items ?? []).every((row) => collectionItems[row.slug]),
-  `${collectionCatalogSlugs.size} catalog rows`,
-);
-check(
-  "Collection catalog rows match their records",
-  (collectionCatalog.items ?? []).every((row) => {
-    const record = collectionItems[row.slug];
-    return (
-      record &&
-      row.title === record.title &&
-      row.scope === record.scope &&
-      row.where === record.where &&
-      row.experienceCount === record.experiences.length &&
-      row.countryCount === record.countries.length &&
-      row.placeCount === record.stats.places &&
-      row.trailCount === record.stats.trails &&
-      row.hue === record.hue &&
-      Array.isArray(row.experienceSlugs) &&
-      row.experienceSlugs.length === record.experiences.length &&
-      row.experienceSlugs.every(
-        (slug, index) => slug === record.experiences[index].slug,
-      ) &&
-      row.experienceNames.length === record.experiences.length &&
-      row.experienceNames.every(
-        (name, index) => name === record.experiences[index].name,
-      )
-    );
-  }),
-  "titles, scopes, counts, member order",
-);
 
 /* ── curated Experiences ──
    A separate domain with its own committed selection, catalogue and shards.
@@ -742,35 +500,6 @@ const guideSlugs = Object.keys(guideItems);
 const guideCatalogSlugs = new Set((guideCatalog.items ?? []).map((row) => row.slug));
 
 check(
-  "every curated Experience belongs to exactly one Collection",
-  groupExperienceSlugs.length === guideRows.length &&
-    new Set(groupExperienceSlugs).size === guideRows.length &&
-    guideRows.every((row) => groupExperienceSlugs.includes(row.slug)) &&
-    collectionRows.every((row) =>
-      row.experiences.every((experience) => Boolean(guideItems[experience.slug])),
-    ),
-  `${groupExperienceSlugs.length} memberships over ${guideRows.length} Experiences`,
-);
-check(
-  "trail Collections name trails that are recorded at their members",
-  collectionRows
-    .filter((row) => row.scope === "trail")
-    .every(
-      (row) =>
-        Array.isArray(row.basisTrails) &&
-        row.basisTrails.length > 0 &&
-        row.basisTrails.every((trail) =>
-          row.experiences.some((experience) =>
-            (guideItems[experience.slug]?.trails ?? []).some(
-              (entry) => entry.name === trail,
-            ),
-          ),
-        ),
-    ),
-  `${collectionRows.filter((row) => row.scope === "trail").length} trail collections`,
-);
-
-check(
   "the curated Experience selection is a deliberate list",
   Array.isArray(guideSelection.slugs) &&
     guideSelection.slugs.length >= 100 &&
@@ -778,7 +507,7 @@ check(
   `${guideSelection.slugs?.length ?? 0} selected`,
 );
 check(
-  "the curated Experience index is not empty",
+  "the curated Experience catalogue is not empty",
   guideRows.length >= 150,
   `${guideRows.length} Experiences`,
 );
@@ -944,22 +673,19 @@ check(
 const sitemapUrls = sitemapPaths({
   slugs: pageSlugFile.slugs ?? [],
   experiences: guideCatalog.items ?? [],
-  collections: collectionCatalog.items ?? [],
 });
 const sitemapSet = new Set(sitemapUrls.map((entry) => entry.path));
 check(
-  "the sitemap covers both catalogues and every route",
-  sitemapSet.has("/experiences") &&
-    sitemapSet.has("/collections") &&
+  "the sitemap covers the app routes and every detail page",
+  sitemapSet.has("/lists") &&
+    sitemapSet.has("/log") &&
     guideRows.every((row) => sitemapSet.has(`/experiences/${row.slug}`)) &&
-    collectionRows.every((row) => sitemapSet.has(`/collections/${row.slug}`)) &&
     sitemapUrls.length ===
       4 +
         guideRows.length +
-        collectionRows.length +
         (pageSlugFile.slugs ?? []).length &&
     new Set(sitemapUrls.map((entry) => entry.path)).size === sitemapUrls.length,
-  `${sitemapUrls.length} urls · ${guideRows.length} Experiences · ${collectionRows.length} Collections`,
+  `${sitemapUrls.length} urls · ${guideRows.length} Experiences · ${(pageSlugFile.slugs ?? []).length} places`,
 );
 
 const failed = checks.filter((c) => !c.ok);

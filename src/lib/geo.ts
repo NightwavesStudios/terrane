@@ -1,3 +1,21 @@
+/** A closed lon/lat ring of `radiusKm` around a point, for map area outlines. */
+export function circleRing(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+  steps = 64,
+): [number, number][] {
+  const rad = Math.PI / 180;
+  const dLat = radiusKm / 111.32;
+  const dLon = radiusKm / (111.32 * Math.max(0.12, Math.cos(lat * rad)));
+  const ring: [number, number][] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const angle = (i / steps) * Math.PI * 2;
+    ring.push([lon + Math.cos(angle) * dLon, lat + Math.sin(angle) * dLat]);
+  }
+  return ring;
+}
+
 /** Great-circle distance in kilometres between two decimal-degree points. */
 export function kmBetween(
   aLat: number,

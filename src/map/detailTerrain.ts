@@ -4,7 +4,7 @@ import { pitchForZoom, terrainExaggeration } from "./camera";
 /**
  * The globe's 3D treatment, on the two small detail maps.
  *
- * The Guide and Collection maps draw the same basemap and the same relief source
+ * The Guide map draws the same basemap and the same relief source
  * as the globe, but they used to stop at the hillshade: a flat picture with light
  * on it. Relief has to stand up and the camera has to be oblique before those
  * pages read as the same product, so this attaches one terrain mesh and the same

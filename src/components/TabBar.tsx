@@ -1,24 +1,11 @@
 import { NAV, activeNav, type NavId } from "./nav";
 import { navigate, useRoute } from "../lib/router";
-import { useSaved } from "../lib/saved";
-import { useSavedGuides } from "../lib/savedGuides";
+import { logStats, useLog } from "../lib/log";
 
-/**
- * The app bar for phones and tablets.
- *
- * The four destinations are exactly the header's four, from the same table, but
- * a thumb reaches the bottom of a phone and never the top-right corner, so under
- * 900 px the nav moves down here and the header keeps only the wordmark.
- *
- * Under 620 px the map's filter strip sits directly on top of this bar with the
- * same edge-to-edge shape: one shelf at the bottom, not two floating glass
- * pills at different widths. The stylesheet owns that geometry.
- */
+/** The three app surfaces, at thumb height. */
 export default function TabBar() {
   const route = useRoute();
-  const places = useSaved();
-  const guides = useSavedGuides();
-  const savedCount = places.length + guides.length;
+  const stats = logStats(useLog());
   const active = activeNav(route);
 
   return (
@@ -33,8 +20,8 @@ export default function TabBar() {
         >
           <TabIcon id={tab.id} />
           <span className="tabbar-label">{tab.label}</span>
-          {tab.id === "saved" && savedCount > 0 ? (
-            <span className="tabbar-count mono">{savedCount}</span>
+          {tab.id === "log" && stats.bagged > 0 ? (
+            <span className="tabbar-count mono">{stats.bagged}</span>
           ) : null}
         </button>
       ))}
@@ -56,7 +43,7 @@ function TabIcon({ id }: { id: NavId }) {
     focusable: false,
   };
 
-  if (id === "discover") {
+  if (id === "globe") {
     return (
       <svg {...common}>
         <circle cx="12" cy="12" r="9" />
@@ -66,7 +53,7 @@ function TabIcon({ id }: { id: NavId }) {
     );
   }
 
-  if (id === "summits") {
+  if (id === "lists") {
     return (
       <svg {...common}>
         <path d="M3 20 9.4 7l4.1 7.6 2.4-4.1L21 20Z" />
@@ -76,28 +63,10 @@ function TabIcon({ id }: { id: NavId }) {
     );
   }
 
-  if (id === "experiences") {
-    return (
-      <svg {...common}>
-        <path d="M3 19h18" />
-        <path d="M5 19 10.2 7.5 13.4 14l1.9-3.4L20 19" />
-      </svg>
-    );
-  }
-
-  if (id === "collections") {
-    return (
-      <svg {...common}>
-        <path d="M12 3 3 8l9 5 9-5-9-5Z" />
-        <path d="m3.6 12.8 8.4 4.7 8.4-4.7" />
-        <path d="m3.6 16.8 8.4 4.7 8.4-4.7" />
-      </svg>
-    );
-  }
-
   return (
     <svg {...common}>
-      <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z" />
+      <path d="M5 4.5h11a2 2 0 0 1 2 2V20H7a2 2 0 0 1-2-2V4.5Z" />
+      <path d="M8 8h7M8 12h7M8 16h4" />
     </svg>
   );
 }

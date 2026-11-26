@@ -156,6 +156,9 @@ const MAX_FEATURES = 320_000;
    faster map: the bytes arrived together, the JSON parse blocked the frame that
    would have shown them, and the reader saw nothing for seconds. */
 const MAX_CELLS_PER_PASS = 3;
+/* The categories currently enabled on the map. Empty means no cell should be
+   fetched at all, even when the camera is deep enough for the first band. */
+let enabledPractical: string[] = [...MAPPED_CATS];
 
 /* Parking is often two thirds of a country's rows and only matters at street
    zoom, so it travels in its own file and its own source. */
@@ -822,6 +825,7 @@ export function setMappedCats(map: MlMap, layers: LayerState): void {
   const master = layers.features;
   const on = (ids: string[]) => (master ? ids.filter((id) => layers.cats[id]) : []);
   const enabled = on([...PRACTICAL_CATS]);
+  enabledPractical = enabled;
 
   for (let band = 0; band < BAND_ZOOMS.length; band += 1) {
     const id = `mapped-pin-${band}`;
@@ -848,11 +852,17 @@ export function setMappedCats(map: MlMap, layers: LayerState): void {
       );
     }
   });
+
+  /* The lens can turn practical pins on while the camera is already settled.
+     Filters alone would leave an empty screen until the next moveend; fetch the
+     cells the reader is looking at now. */
+  if (enabled.length > 0) refreshMapped(map);
 }
 
 /** Fetches whatever cells the camera is looking at. Called on `moveend`. */
 export function refreshMapped(map: MlMap) {
   if (!map.getSource(SOURCE)) return;
+  if (enabledPractical.length === 0) return;
   const zoom = map.getZoom();
   /* Nothing draws before the first pin band, so a cell fetched at a globe view
      is megabytes spent to show an empty layer. */
@@ -950,7 +960,7 @@ export function refreshMapped(map: MlMap) {
       });
   }
 
-  if (zoom >= PARKING_MINZOOM) {
+  if (zoom >= PARKING_MINZOOM && enabledPractical.includes(PARKING_CAT)) {
     const parkWanted = visible.filter(([x, y]) => {
       const key = cellKey(MAPPED_CELL_ZOOM, x, y);
       if (parkingLoaded.has(key) || parkingPending.has(key)) return false;
@@ -1055,6 +1065,7 @@ export function resetMapped() {
   parkingMisses.clear();
   dupCounts.clear();
   namedRows.length = 0;
+  enabledPractical = [...MAPPED_CATS];
   destinations = null;
   duplicates = 0;
   drawn = 0;

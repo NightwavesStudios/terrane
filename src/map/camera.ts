@@ -133,8 +133,8 @@ const FOCUS_ZOOM: Record<string, number> = {
   glacier: 11.5,
   valley: 11.5,
   canyon: 11.5,
-  peak: 13.4,
-  volcano: 13.4,
+  peak: 12,
+  volcano: 12,
   waterfall: 13.4,
   cave: 13.4,
   spring: 13.4,
@@ -163,7 +163,7 @@ export function focusZoomFor(cat: string, elev?: number | null): number {
   const base = FOCUS_ZOOM[cat] ?? 13.2;
   if (!elev || elev < 1200) return base;
   const tall = Math.min(1, (elev - 1200) / 3000);
-  return base - tall * 1.2;
+  return base - tall * 0.8;
 }
 
 /**

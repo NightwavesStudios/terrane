@@ -11,22 +11,29 @@ import {
   type SummitList,
   type SummitPeak,
 } from "../data/summits";
+import { bySlug, useAtlas } from "../data/places";
+import { logStats, markBagged, removeEntry, toggleWant, useLog, type LogEntry } from "../lib/log";
+import { targetForPeak } from "../lib/logTargets";
 import { setMeta } from "../lib/meta";
 import { navigate } from "../lib/router";
-import { toggleClimbed, useClimbedMap } from "../lib/summits";
 
 type View = "all" | "climbed" | "remaining";
 type Sort = "height" | "name";
 
-type PeakRow = { list: SummitList; peak: SummitPeak; id: string };
+type PeakRow = { list: SummitList; peak: SummitPeak; key: string };
 
 const ALL_PEAKS: PeakRow[] = SUMMIT_LISTS.flatMap((list) =>
-  list.peaks.map((peak) => ({ list, peak, id: peakId(list.id, peak.name) })),
+  list.peaks.map((peak) => ({
+    list,
+    peak,
+    key: peakId(list.id, peak.name),
+  })),
 );
 
-const PEAK_BY_ID = new Map(ALL_PEAKS.map((row) => [row.id, row]));
+const PEAK_BY_ID = new Map(ALL_PEAKS.map((row) => [row.key, row]));
 
-const height = (peak: SummitPeak) => `${peak.ft.toLocaleString("en-US")} ft · ${feetToMetres(peak.ft).toLocaleString("en-US")} m`;
+const height = (peak: SummitPeak) =>
+  `${peak.ft.toLocaleString("en-US")} ft · ${feetToMetres(peak.ft).toLocaleString("en-US")} m`;
 
 function formatDate(at: number): string {
   return new Date(at).toLocaleDateString("en-GB", {
@@ -36,15 +43,7 @@ function formatDate(at: number): string {
   });
 }
 
-function Progress({
-  done,
-  total,
-  label,
-}: {
-  done: number;
-  total: number;
-  label?: string;
-}) {
+function Progress({ done, total, label }: { done: number; total: number; label?: string }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div className="summit-progress">
@@ -69,22 +68,28 @@ function Progress({
 }
 
 /**
- * The summit ledger.
+ * The sourced peakbagging lists.
  *
- * Two surfaces, one route family. `/summits` is the shelf of challenge lists and
- * the running total; `/summits/:id` is one list, its peaks and a log button for
- * each. Climbs are local to the browser, so the page says what it can and cannot
- * claim: a tick means "I logged this", not "a source verified it".
- *
- * The lists are complete club lists, not a generated subset. A summit links to
- * the globe only when the destination database actually has that peak's page;
- * everything else stays a name in the ledger rather than an invented map slug.
+ * Every row is a peak from the publishing club's list, not a generated subset.
+ * A row can be wanted or bagged without a page of its own; only a peak with a
+ * real place record gets a globe link. The list source and its quirks stay on
+ * the page.
  */
-export default function Summits({ listId }: { listId?: string }) {
-  const climbed = useClimbedMap();
+export default function Lists({ listId }: { listId?: string }) {
+  const entries = useLog();
   const [view, setView] = useState<View>("all");
   const [sort, setSort] = useState<Sort>("height");
+  useAtlas();
 
+  const byKey = useMemo(
+    () => new Map(entries.map((entry) => [entry.key, entry])),
+    [entries],
+  );
+  const stats = useMemo(() => logStats(entries), [entries]);
+  const listedBagged = Object.values(stats.listProgress).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
   const list = listId ? summitList(listId) : undefined;
 
   useEffect(() => {
@@ -92,46 +97,24 @@ export default function Summits({ listId }: { listId?: string }) {
     setSort("height");
   }, [listId]);
 
-  const logged = useMemo(
-    () => [...climbed.keys()].filter((id) => PEAK_BY_ID.has(id)),
-    [climbed],
-  );
-
-  const completeLists = useMemo(
-    () =>
-      SUMMIT_LISTS.filter((candidate) =>
-        candidate.peaks.every((peak) => climbed.has(peakId(candidate.id, peak.name))),
-      ).length,
-    [climbed],
-  );
-
-  const vertical = useMemo(
-    () =>
-      logged.reduce((sum, id) => {
-        const row = PEAK_BY_ID.get(id);
-        return sum + (row ? row.peak.ft * 0.3048 : 0);
-      }, 0),
-    [logged],
-  );
-
   const recent = useMemo(
     () =>
-      [...climbed.entries()]
-        .map(([id, at]) => ({ row: PEAK_BY_ID.get(id), at }))
-        .filter((entry): entry is { row: PeakRow; at: number } => Boolean(entry.row))
-        .sort((a, b) => b.at - a.at)
-        .slice(0, 8),
-    [climbed],
+      entries
+        .filter((entry) => entry.state === "done" && entry.kind === "peak")
+        .sort((a, b) => (b.date ?? b.at) - (a.date ?? a.at))
+        .slice(0, 8)
+        .map((entry) => ({ entry, row: PEAK_BY_ID.get(entry.key.replace(/^peak:/, "")) })),
+    [entries],
   );
 
   const rows = useMemo(() => {
     if (!list) return [];
     return list.peaks
-      .map((peak) => ({ peak, id: peakId(list.id, peak.name) }))
+      .map((peak) => ({ peak, key: peakId(list.id, peak.name) }))
       .filter((row) => {
-        const at = climbed.get(row.id);
-        if (view === "climbed") return Boolean(at);
-        if (view === "remaining") return !at;
+        const done = byKey.get(`peak:${row.key}`)?.state === "done";
+        if (view === "climbed") return done;
+        if (view === "remaining") return !done;
         return true;
       })
       .sort((a, b) =>
@@ -139,23 +122,23 @@ export default function Summits({ listId }: { listId?: string }) {
           ? a.peak.name.localeCompare(b.peak.name)
           : b.peak.ft - a.peak.ft || a.peak.name.localeCompare(b.peak.name),
       );
-  }, [climbed, list, sort, view]);
+  }, [byKey, list, sort, view]);
 
   useEffect(() => {
     if (listId && !list) {
       setMeta({
-        title: "Summit list not found — Terrane",
-        description: "That summit list is not part of the Terrane ledger.",
-        path: `/summits/${listId}`,
+        title: "List not found — Terrane",
+        description: "That peakbagging list is not part of the Terrane ledger.",
+        path: `/lists/${listId}`,
       });
       return;
     }
     setMeta({
-      title: list ? `${list.name} — Terrane` : "Summits — Terrane",
+      title: list ? `${list.name} — Terrane` : "Lists — Terrane",
       description: list
         ? `${list.name}: ${list.peaks.length} summits in ${list.region}. Track every peak you have climbed in this browser.`
-        : `A local summit ledger for ${SUMMIT_PEAK_COUNT} peaks across ${SUMMIT_LISTS.length} classic mountain lists.`,
-      path: list ? `/summits/${list.id}` : "/summits",
+        : `A local peakbagging ledger for ${SUMMIT_PEAK_COUNT} sourced summits across ${SUMMIT_LISTS.length} classic mountain lists.`,
+      path: list ? `/lists/${list.id}` : "/lists",
     });
   }, [list, listId]);
 
@@ -164,14 +147,14 @@ export default function Summits({ listId }: { listId?: string }) {
       <div className="page">
         <Header tone="light" />
         <div className="page-head">
-          <p className="eyebrow">Summits</p>
-          <h1 className="page-title">That summit list isn’t here.</h1>
+          <p className="eyebrow">Lists</p>
+          <h1 className="page-title">That list isn’t here.</h1>
           <p className="page-sub">
-            It may have been renamed, or the link may be incomplete. The four
-            lists on the ledger are still there.
+            It may have been renamed, or the link may be incomplete. The four lists
+            on the ledger are still there.
           </p>
-          <button className="btn btn-dark" onClick={() => navigate("/summits")}>
-            All summit lists →
+          <button className="btn btn-dark" onClick={() => navigate("/lists")}>
+            All lists →
           </button>
         </div>
       </div>
@@ -179,8 +162,8 @@ export default function Summits({ listId }: { listId?: string }) {
   }
 
   if (list) {
-    const done = list.peaks.filter((peak) =>
-      climbed.has(peakId(list.id, peak.name)),
+    const done = list.peaks.filter(
+      (peak) => byKey.get(`peak:${peakId(list.id, peak.name)}`)?.state === "done",
     ).length;
     const complete = done === list.peaks.length;
 
@@ -189,7 +172,7 @@ export default function Summits({ listId }: { listId?: string }) {
         <Header tone="light" />
 
         <main className="summits">
-          <BackLink to="/summits" label="Summits" />
+          <BackLink to="/lists" label="Lists" />
 
           <div className="summit-detail-head">
             <p className="eyebrow">
@@ -200,8 +183,14 @@ export default function Summits({ listId }: { listId?: string }) {
             <Progress
               done={done}
               total={list.peaks.length}
-              label={`${done} of ${list.peaks.length} ${list.name} summits logged`}
+              label={`${done} of ${list.peaks.length} ${list.name} summits bagged`}
             />
+            <button
+              className="btn btn-dark summit-globe-cta"
+              onClick={() => navigate(`/?list=${list.id}`)}
+            >
+              Show this region on the globe →
+            </button>
           </div>
 
           <div className="summit-toolbar">
@@ -209,7 +198,7 @@ export default function Summits({ listId }: { listId?: string }) {
               {(
                 [
                   ["all", "All"],
-                  ["climbed", "Climbed"],
+                  ["climbed", "Bagged"],
                   ["remaining", "Remaining"],
                 ] as [View, string][]
               ).map(([id, label]) => (
@@ -251,9 +240,9 @@ export default function Summits({ listId }: { listId?: string }) {
                 ✓
               </span>
               <span>
-                <strong>{list.name} complete.</strong> Every summit on the list
-                is in your ledger. The club patch and completer list are theirs,
-                not Terrane’s — this page only keeps your record.
+                <strong>{list.name} complete.</strong> Every summit on the list is in
+                your log. The club patch and completer list are theirs, not
+                Terrane’s — this page only keeps your record.
               </span>
             </div>
           ) : null}
@@ -261,37 +250,52 @@ export default function Summits({ listId }: { listId?: string }) {
           {rows.length === 0 ? (
             <StateNotice
               kind="empty"
-              title={view === "climbed" ? "No summits logged yet." : "Every summit is logged."}
+              title={view === "climbed" ? "No summits bagged yet." : "Every summit is bagged."}
               body={
                 view === "climbed"
-                  ? "Tick a summit below and it will show up here, with the date and the running total."
-                  : "Switch to Climbed to read the list you have finished."
+                  ? "Bag a summit below and it will show up here, with the date and the running total."
+                  : "Switch to Bagged to read the list you have finished."
               }
               action={{ label: "Show all summits →", onClick: () => setView("all") }}
             />
           ) : (
             <ol className="summit-rows">
-              {rows.map(({ peak, id }) => {
-                const at = climbed.get(id);
+              {rows.map(({ peak, key }) => {
+                const fullKey = `peak:${key}`;
+                const entry = byKey.get(fullKey);
+                const done = entry?.state === "done";
+                const wanted = entry?.state === "want";
+                const target = targetForPeak(list, peak, bySlug.get(peak.place ?? "") ?? null);
                 return (
-                  <li key={id} className={`summit-row${at ? " on" : ""}`}>
+                  <li key={key} className={`summit-row${done ? " on" : ""}`}>
                     <button
-                      className={`summit-check${at ? " on" : ""}`}
-                      aria-pressed={Boolean(at)}
-                      aria-label={`${at ? "Unlog" : "Log"} ${peak.name}`}
-                      onClick={() => toggleClimbed(id)}
+                      className={`summit-check${done ? " on" : ""}`}
+                      aria-pressed={Boolean(done)}
+                      aria-label={`${done ? "Unbag" : "Bag"} ${peak.name}`}
+                      onClick={() => {
+                        const next: LogEntry = { ...target, state: "want", at: Date.now() };
+                        if (done) removeEntry(fullKey);
+                        else markBagged(next);
+                      }}
                     >
-                      <span aria-hidden="true">{at ? "✓" : ""}</span>
+                      <span aria-hidden="true">{done ? "✓" : ""}</span>
+                    </button>
+                    <button
+                      className={`summit-want${wanted ? " on" : ""}`}
+                      aria-pressed={wanted}
+                      disabled={done}
+                      aria-label={`${wanted ? "Remove" : "Add"} ${peak.name} to your wanted peaks`}
+                      onClick={() => toggleWant({ ...target, state: "want", at: Date.now() })}
+                    >
+                      <span aria-hidden="true">{wanted ? "★" : "☆"}</span>
                     </button>
                     <div className="summit-row-main">
                       <span className="summit-name">{peak.name}</span>
-                      <span className="mono summit-row-meta">
-                        {peak.where ?? list.region}
-                      </span>
+                      <span className="mono summit-row-meta">{peak.where ?? list.region}</span>
                     </div>
                     <span className="mono summit-elev">{height(peak)}</span>
                     <span className="mono summit-date">
-                      {at ? formatDate(at) : "—"}
+                      {done ? formatDate(entry?.date ?? entry?.at ?? Date.now()) : "—"}
                     </span>
                     {peak.place ? (
                       <button
@@ -322,8 +326,9 @@ export default function Summits({ listId }: { listId?: string }) {
               · {list.peaks.length} summits · elevations as published by the list
             </p>
             <p className="mono summit-source-line">
-              Ticks are stored in this browser only. Terrane does not verify a
-              climb, issue a patch or send your log anywhere.
+              Ticks are stored in this browser only. Terrane does not verify a climb,
+              issue a patch or send your log anywhere. Peaks without a place record
+              have no globe point; they are still part of the list.
             </p>
           </section>
         </main>
@@ -331,8 +336,7 @@ export default function Summits({ listId }: { listId?: string }) {
         <footer className="foot">
           <span>Terrane — the world, worth the detour</span>
           <span className="mono">
-            SUMMIT LEDGER · LOCAL TO THIS BROWSER · LISTS: GATC, AMC, ADK 46ERS,
-            COLORADO DNR
+            SOURCED LISTS · LOCAL TO THIS BROWSER · GATC, AMC, ADK 46ERS, COLORADO DNR
           </span>
         </footer>
       </div>
@@ -344,45 +348,45 @@ export default function Summits({ listId }: { listId?: string }) {
       <Header tone="light" />
 
       <div className="page-head summit-head">
-        <p className="eyebrow">Summits</p>
-        <h1 className="page-title">Your summit ledger</h1>
+        <p className="eyebrow">Lists</p>
+        <h1 className="page-title">Your peakbagging ledger</h1>
         <p className="page-sub">
-          {SUMMIT_PEAK_COUNT} peaks across {SUMMIT_LISTS.length} classic club
-          lists: Georgia 4,000, the New Hampshire 48, the Adirondack 46ers and
-          the Colorado 14ers. Tick each summit as you stand on it. The ledger
-          stays in this browser — no account, no upload — and completion is your
-          record, not a certificate.
+          {SUMMIT_PEAK_COUNT} peaks across {SUMMIT_LISTS.length} sourced club lists:
+          Georgia 4,000, the New Hampshire 48, the Adirondack 46ers and the Colorado
+          14ers. Want a summit, then bag it when you stand on it. The log stays in
+          this browser — no account, no upload — and completion is your record, not
+          a certificate.
         </p>
       </div>
 
       <main className="summits">
         <div className="summit-stats">
           <div className="summit-stat">
-            <span className="mono summit-stat-label">Summits logged</span>
-            <strong>{logged.length.toLocaleString("en-US")}</strong>
+            <span className="mono summit-stat-label">Summits bagged</span>
+            <strong>{listedBagged.toLocaleString("en-US")}</strong>
             <span className="mono summit-stat-note">
               of {SUMMIT_PEAK_COUNT.toLocaleString("en-US")} listed peaks
             </span>
           </div>
           <div className="summit-stat">
             <span className="mono summit-stat-label">Lists complete</span>
-            <strong>{completeLists}</strong>
+            <strong>{stats.listsComplete}</strong>
             <span className="mono summit-stat-note">
-              of {SUMMIT_LISTS.length} challenge lists
+              of {SUMMIT_LISTS.length} sourced lists
             </span>
           </div>
           <div className="summit-stat">
             <span className="mono summit-stat-label">Vertical logged</span>
-            <strong>{Math.round(vertical).toLocaleString("en-US")} m</strong>
+            <strong>{stats.verticalM.toLocaleString("en-US")} m</strong>
             <span className="mono summit-stat-note">
-              the summed elevation of every ticked summit
+              the summed elevation of every bagged summit
             </span>
           </div>
         </div>
 
-        <section aria-labelledby="summit-lists-title">
+        <section aria-labelledby="lists-title">
           <div className="summit-section-head">
-            <h2 id="summit-lists-title" className="mono summit-section-title">
+            <h2 id="lists-title" className="mono summit-section-title">
               The lists
             </h2>
             <span className="mono summit-section-note">
@@ -392,16 +396,14 @@ export default function Summits({ listId }: { listId?: string }) {
 
           <div className="summit-grid">
             {SUMMIT_LISTS.map((candidate) => {
-              const done = candidate.peaks.filter((peak) =>
-                climbed.has(peakId(candidate.id, peak.name)),
-              ).length;
+              const done = stats.listProgress[candidate.id] ?? 0;
               const highest = [...candidate.peaks].sort((a, b) => b.ft - a.ft)[0];
               const complete = done === candidate.peaks.length;
               return (
                 <button
                   key={candidate.id}
                   className={`summit-card${complete ? " on" : ""}`}
-                  onClick={() => navigate(`/summits/${candidate.id}`)}
+                  onClick={() => navigate(`/lists/${candidate.id}`)}
                 >
                   <span className="summit-card-top">
                     <span className="mono summit-badge">{candidate.badge}</span>
@@ -417,7 +419,7 @@ export default function Summits({ listId }: { listId?: string }) {
                   <Progress
                     done={done}
                     total={candidate.peaks.length}
-                    label={`${done} of ${candidate.peaks.length} ${candidate.name} summits logged`}
+                    label={`${done} of ${candidate.peaks.length} ${candidate.name} summits bagged`}
                   />
                   <span className="mono summit-card-high">
                     High point · {highest.name} · {height(highest)}
@@ -432,23 +434,24 @@ export default function Summits({ listId }: { listId?: string }) {
         </section>
 
         {recent.length > 0 ? (
-          <section className="summit-recent" aria-labelledby="summit-recent-title">
+          <section className="summit-recent" aria-labelledby="recent-title">
             <div className="summit-section-head">
-              <h2 id="summit-recent-title" className="mono summit-section-title">
+              <h2 id="recent-title" className="mono summit-section-title">
                 Latest ascents
               </h2>
               <span className="mono summit-section-note">Newest first · local log</span>
             </div>
             <ol className="summit-recent-list">
-              {recent.map(({ row, at }) => (
-                <li key={`${row.id}-${at}`}>
+              {recent.map(({ entry, row }) => (
+                <li key={`${entry.key}-${entry.date ?? entry.at}`}>
                   <button
                     className="summit-recent-row"
-                    onClick={() => navigate(`/summits/${row.list.id}`)}
+                    onClick={() => navigate(row ? `/lists/${row.list.id}` : "/log")}
                   >
-                    <span className="summit-recent-name">{row.peak.name}</span>
+                    <span className="summit-recent-name">{entry.name}</span>
                     <span className="mono summit-recent-meta">
-                      {row.list.name} · {formatDate(at)}
+                      {entry.listName ?? "Custom ascent"} ·{" "}
+                      {formatDate(entry.date ?? entry.at)}
                     </span>
                   </button>
                 </li>
@@ -460,16 +463,15 @@ export default function Summits({ listId }: { listId?: string }) {
         <p className="mono summit-source-line summit-source-line--foot">
           Lists follow the publishing club&apos;s own membership and elevations.
           Elevation is not route difficulty, access or permission; several listed
-          summits cross private land or need a bushwhack. The ledger makes no
-          claim about conditions.
+          summits cross private land or need a bushwhack. The log makes no claim
+          about conditions.
         </p>
       </main>
 
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          SUMMIT LEDGER · LOCAL TO THIS BROWSER · LISTS: GATC, AMC, ADK 46ERS,
-          COLORADO DNR
+          SOURCED LISTS · LOCAL TO THIS BROWSER · GATC, AMC, ADK 46ERS, COLORADO DNR
         </span>
       </footer>
     </div>

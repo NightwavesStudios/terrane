@@ -169,14 +169,3 @@ export function useCoverage(): Coverage | null {
 export function useCoverageStatus(): CoverageStatus {
   return useSyncExternalStore(subscribe, () => coverageStatus, () => coverageStatus);
 }
-
-export function dataDate(m: Manifest): string {
-  const raw = m.days?.osm ?? m.sources?.find((s) => s.id === "osm")?.updated ?? "";
-  if (!raw) return "";
-  return new Date(`${raw}T00:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}

@@ -117,6 +117,8 @@ export interface Pick {
     places: number;
     trails: number;
   };
+  /** Set by a listed-peak ring: the sourced list this summit belongs to. */
+  list?: { id: string; name: string; peak: string };
 }
 
 export function pickOf(
@@ -151,6 +153,16 @@ export function pickOf(
             kind: String(props.kind ?? "landmark") as GuideKindId,
             places: typeof props.places === "number" ? props.places : 0,
             trails: typeof props.trails === "number" ? props.trails : 0,
+          }
+        : undefined,
+    list:
+      typeof props.listId === "string" &&
+      typeof props.listName === "string" &&
+      typeof props.peakName === "string"
+        ? {
+            id: props.listId,
+            name: props.listName,
+            peak: props.peakName,
           }
         : undefined,
   };

@@ -18,18 +18,27 @@ describe("parseRoute", () => {
     });
   });
 
-  it("reads the summit ledger routes", () => {
-    expect(parseRoute("/summits")).toEqual({ name: "summits" });
-    expect(parseRoute("/summits/georgia-4000")).toEqual({
-      name: "summits",
+  it("reads the lists routes and keeps the old summit links alive", () => {
+    expect(parseRoute("/lists")).toEqual({ name: "lists" });
+    expect(parseRoute("/lists/georgia-4000")).toEqual({
+      name: "lists",
       list: "georgia-4000",
     });
-    expect(parseRoute("/summits/nope/extra")).toEqual({ name: "home" });
+    expect(parseRoute("/summits")).toEqual({ name: "lists" });
+    expect(parseRoute("/summits/georgia-4000")).toEqual({
+      name: "lists",
+      list: "georgia-4000",
+    });
+    expect(parseRoute("/lists/nope/extra")).toEqual({ name: "home" });
   });
 
-  it("reads the experience routes", () => {
-    expect(parseRoute("/experiences")).toEqual({ name: "experiences" });
-    expect(parseRoute("/experiences/")).toEqual({ name: "experiences" });
+  it("reads the log and keeps the old saved link alive", () => {
+    expect(parseRoute("/log")).toEqual({ name: "log" });
+    expect(parseRoute("/log/")).toEqual({ name: "log" });
+    expect(parseRoute("/saved")).toEqual({ name: "log" });
+  });
+
+  it("reads a curated experience detail", () => {
     expect(parseRoute("/experiences/peaks-of-the-alps")).toEqual({
       name: "experience",
       slug: "peaks-of-the-alps",

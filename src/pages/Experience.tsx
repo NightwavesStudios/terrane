@@ -1,17 +1,14 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import Header from "../components/Header";
 import BackLink from "../components/BackLink";
-import SaveButton from "../components/SaveButton";
+import LogActions from "../components/LogActions";
+import WantButton from "../components/WantButton";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
 import RidgeArt from "../components/RidgeArt";
 import ExperiencePois from "../components/experiences/ExperiencePois";
 import { category } from "../data/features";
 import { guideKind } from "../data/guide";
-import {
-  collectionForExperience,
-  useCollectionCatalog,
-} from "../lib/collections";
 import { useExperiencePois } from "../lib/experiencePois";
 import {
   guideWhere,
@@ -23,7 +20,7 @@ import { setMeta } from "../lib/meta";
 import { thumbAt } from "../lib/placeDetails";
 import { coordinates, formatKm } from "../lib/present";
 import { navigate } from "../lib/router";
-import { toggleSavedGuide, useSavedGuideSlugs } from "../lib/savedGuides";
+import { targetForPlace } from "../lib/logTargets";
 
 const GuideMap = lazy(() => import("../components/guide/GuideMap"));
 
@@ -39,8 +36,6 @@ const GuideMap = lazy(() => import("../components/guide/GuideMap"));
 export default function Experience({ slug }: { slug: string }) {
   const { guide, loading } = useGuide(slug);
   const catalog = useGuideCatalog();
-  const collections = useCollectionCatalog();
-  const savedSlugs = useSavedGuideSlugs();
   const pois = useExperiencePois(guide?.bounds ?? null);
   const [active, setActive] = useState<string | null>(null);
   const [heroFailed, setHeroFailed] = useState(false);
@@ -100,8 +95,8 @@ export default function Experience({ slug }: { slug: string }) {
               : "It may have been removed from the curated selection."}
           </p>
           {loading ? null : (
-            <button className="btn btn-dark" onClick={() => navigate("/experiences")}>
-              All Experiences →
+            <button className="btn btn-dark" onClick={() => navigate("/")}>
+              Back to the globe →
             </button>
           )}
         </div>
@@ -110,12 +105,18 @@ export default function Experience({ slug }: { slug: string }) {
   }
 
   const kind = guideKind(guide.kind);
-  const saved = savedSlugs.has(guide.slug);
   const where = guideWhere(guide);
-  const collection =
-    collections.status === "ready"
-      ? collectionForExperience(collections.rows, guide.slug)
-      : undefined;
+  const target = targetForPlace({
+    slug: guide.slug,
+    name: guide.name,
+    cat: "experience",
+    lat: guide.center.lat,
+    lon: guide.center.lon,
+    elev: guide.stats.elevation,
+    where,
+    source: "experience",
+    experience: true,
+  });
   const related =
     catalog.status === "ready"
       ? nearbyGuides(catalog.rows, guide.center, guide.slug, 4)
@@ -146,16 +147,6 @@ export default function Experience({ slug }: { slug: string }) {
     },
   ];
 
-  const onToggleSave = () => {
-    toggleSavedGuide({
-      slug: guide.slug,
-      name: guide.name,
-      kind: guide.kind,
-      country: guide.country,
-      region: guide.region,
-    });
-  };
-
   const selectPlace = (placeSlug: string) => {
     setActive(placeSlug);
     if (placeSlug === guide.slug) {
@@ -170,7 +161,7 @@ export default function Experience({ slug }: { slug: string }) {
       <Header tone="light" />
 
       <article className="place">
-        <BackLink to="/experiences" label="Experiences" />
+        <BackLink to="/" label="Globe" />
 
         <div className="place-hero">
           {hero && !heroFailed ? (
@@ -197,12 +188,7 @@ export default function Experience({ slug }: { slug: string }) {
             <p className="place-tagline">{guide.summary}</p>
           </div>
 
-          <SaveButton
-            saved={saved}
-            onToggle={onToggleSave}
-            label="Save"
-            variant="float"
-          />
+          <WantButton target={target} />
 
           {hero?.credit ? (
             <a
@@ -397,15 +383,7 @@ export default function Experience({ slug }: { slug: string }) {
               >
                 View on Globe →
               </button>
-              {collection ? (
-                <button
-                  className="btn btn-light"
-                  data-collection-slug={collection.slug}
-                  onClick={() => navigate(`/collections/${collection.slug}`)}
-                >
-                  Part of {collection.title} →
-                </button>
-              ) : null}
+              <LogActions target={target} hideWant />
               <p className="mono exp-aside-note">
                 A curated destination, not an itinerary. Access, closures,
                 facilities and seasonal conditions are not verified; the page

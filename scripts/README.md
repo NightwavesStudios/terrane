@@ -10,7 +10,6 @@ open data. `scripts/sources/common.py` is the shared adapter helper, and
 | --- | --- | --- |
 | `build-place-index.mjs` | `npm run build`, `validate`, `pages` | Compact page records and slugs for every destination. |
 | `build-guide.mjs` | `npm run build`, `validate`, `pages` | Build one curated Experience page for every slug in `guide-selection.json`, from committed details, trails and photos. Fails on an unresolved entry. |
-| `build-collections.mjs` | `npm run build`, `validate`, `pages` | Enrich the committed wide grouping of curated Experiences into the Collections index. Reads `collection-groups.json` and `guide-index/`; it never fetches. |
 | `build-manifest.mjs` | `npm run build`, `validate` | Derive counts and dates from the data files. |
 | `check-experience-sources.mjs` | `npm run sources:check` (manual/CI network step) | Fetch every distinct curated Experience source URL, follow redirects, classify verified/dead/unreachable, and write `src/data/experience-sources.json`. `--incremental` keeps existing verified entries and checks only new URLs. Fails on dead links; refuses partial overwrites. |
 | `validate-data.mjs` | `npm run build`, `validate` | Schema, category, manifest and duplicate checks; writes the validation block. |
@@ -55,9 +54,8 @@ The one non-stdlib Python dependency is pyosmium; install it with
 ## Page refresh
 
 ```bash
-npm run pages        # both catalogues + details + trail links + manifest + validate
-npm run experiences  # curated Experience index only
-npm run collections  # generated Collections index only
+npm run pages        # guide catalogue + details + trail links + manifest + validate
+npm run experiences  # curated Experience catalogue only
 npm run data:update  # the normal incremental page refresh
 npm run data:refresh # full source harvest, then pages + audit
 ```

@@ -36,17 +36,17 @@ describe("flyPadding", () => {
 describe("focusZoomFor", () => {
   it("frames a category by what it is", () => {
     expect(focusZoomFor("park")).toBe(9.6);
-    expect(focusZoomFor("peak")).toBe(13.4);
+    expect(focusZoomFor("peak")).toBe(12);
     expect(focusZoomFor("camp")).toBe(14.6);
     expect(focusZoomFor("something-new")).toBe(13.2);
   });
 
   it("stands back for a continental summit and not for a shoulder", () => {
-    expect(focusZoomFor("peak", 900)).toBe(13.4);
-    expect(focusZoomFor("peak", 1200)).toBe(13.4);
-    expect(focusZoomFor("peak", 4200)).toBeCloseTo(12.2, 5);
-    // Capped at 1.2 levels however high the summit.
-    expect(focusZoomFor("peak", 9000)).toBeCloseTo(12.2, 5);
+    expect(focusZoomFor("peak", 900)).toBe(12);
+    expect(focusZoomFor("peak", 1200)).toBe(12);
+    expect(focusZoomFor("peak", 4200)).toBeCloseTo(11.2, 5);
+    // Capped at 0.8 levels however high the summit.
+    expect(focusZoomFor("peak", 9000)).toBeCloseTo(11.2, 5);
   });
 });
 
@@ -67,7 +67,7 @@ describe("radiusZoom", () => {
 describe("focusFor", () => {
   it("flies to the category frame from far away, even backwards", () => {
     expect(focusFor("park", null, 16, 120)).toBe(9.6);
-    expect(focusFor("peak", 4200, 4, 2000)).toBeCloseTo(12.2, 5);
+    expect(focusFor("peak", 4200, 4, 2000)).toBeCloseTo(11.2, 5);
   });
 
   it("steps in when the place is already under the camera", () => {

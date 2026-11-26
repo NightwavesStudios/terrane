@@ -22,7 +22,9 @@ import {
 } from "../lib/placeDetails";
 import { usePlacePage } from "../lib/placePages";
 import { coordinates, formatKm, placeLine } from "../lib/present";
-import { toggleSaved, useSavedSlugs } from "../lib/saved";
+import LogActions from "../components/LogActions";
+import { placeKey, toggleWant, useLogEntry, type LogEntry } from "../lib/log";
+import { targetForPlace } from "../lib/logTargets";
 import { focusZoomFor } from "../map/camera";
 import { navigate } from "../lib/router";
 import { TRAIL_RADIUS_KM, useTrailLinks } from "../lib/trailLinks";
@@ -32,7 +34,7 @@ export default function Place({ slug }: { slug: string }) {
   const catalog = useCatalog();
   const detail = usePlaceDetail(slug);
   const trails = useTrailLinks(slug);
-  const savedSlugs = useSavedSlugs();
+  const logEntry = useLogEntry(place ? placeKey(place.slug) : null);
 
   /* The relationships come from the same lazy catalog Discover uses, so the
      page gains the long tail after the first paint instead of being frozen to
@@ -146,7 +148,6 @@ export default function Place({ slug }: { slug: string }) {
   const elevation = place.elevation ?? detail?.elev;
   const prominence =
     place.cat === "peak" ? place.prominence ?? detail?.prom : undefined;
-  const saved = savedSlugs.has(place.slug);
   const landscape = landscapeRows(detail);
 
   const facts: Fact[] = [
@@ -183,16 +184,19 @@ export default function Place({ slug }: { slug: string }) {
     }
   };
 
-  const onToggleSave = () => {
-    toggleSaved({
-      slug: place.slug,
-      name: place.name,
-      cat: cat.id,
-      lat: place.lat,
-      lon: place.lon,
-      country: place.country,
-      region: place.region,
-    });
+  const target = targetForPlace({
+    slug: place.slug,
+    name: place.name,
+    cat: cat.id,
+    lat: place.lat,
+    lon: place.lon,
+    elev: elevation,
+    where: placeLine(place.region, place.country),
+    source: "atlas",
+  });
+
+  const onToggleWant = () => {
+    toggleWant({ ...target, state: "want", at: Date.now() } satisfies LogEntry);
   };
 
   return (
@@ -211,13 +215,17 @@ export default function Place({ slug }: { slug: string }) {
           elevation={elevation}
           hue={place.hue}
           image={detail?.img?.[0]}
-          saved={saved}
-          onToggleSave={onToggleSave}
+          logState={logEntry?.state ?? null}
+          onToggleWant={onToggleWant}
         />
 
         <div className="place-main">
           <div className="place-body">
             <PlaceFacts facts={facts} />
+
+            <div className="place-log">
+              <LogActions target={target} hideWant />
+            </div>
 
             {detail?.desc ? (
               <PlaceSection title="About" note="Description: Wikidata">

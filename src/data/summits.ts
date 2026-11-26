@@ -35,6 +35,10 @@ export type SummitList = {
   /** Where every summit in the list is. */
   region: string;
   country: string;
+  /** Where "show this list on the globe" lands. Editorial, not a peak point. */
+  center: { lat: number; lon: number };
+  /** A frame that holds the list's country or range, not one summit. */
+  zoom: number;
   /** One sentence for the card and the page head. */
   blurb: string;
   /** What the list is and how membership was decided. */
@@ -51,6 +55,8 @@ export const SUMMIT_LISTS: SummitList[] = [
     badge: "Georgia",
     region: "North Georgia",
     country: "United States",
+    center: { lat: 34.85, lon: -83.85 },
+    zoom: 8.6,
     blurb:
       "All 32 Georgia summits over 4,000 feet, from Brasstown Bald to the viewless knobs of the southern Nantahala.",
     note: "The Georgia Appalachian Trail Club's official 32-peak challenge. Elevations and counties follow the club's 2017 list; several summits require a bushwhack and some lie on private land.",
@@ -99,6 +105,8 @@ export const SUMMIT_LISTS: SummitList[] = [
     badge: "NH 48",
     region: "White Mountains",
     country: "United States",
+    center: { lat: 44.15, lon: -71.55 },
+    zoom: 8,
     blurb:
       "The AMC's classic 48: every White Mountain summit on the traditional 4,000-footer list, from Mount Washington down to Mount Tecumseh.",
     note: "The AMC 4,000-footer list. The club keeps the original 48 even where modern surveys put a summit just under 4,000 feet or just short of the old prominence rule; those quirks are part of the list, not errors in it.",
@@ -163,6 +171,8 @@ export const SUMMIT_LISTS: SummitList[] = [
     badge: "46ers",
     region: "Adirondack High Peaks",
     country: "United States",
+    center: { lat: 44.15, lon: -73.95 },
+    zoom: 8.4,
     blurb:
       "The 46 High Peaks of the Adirondacks, from Mount Marcy to Couchsachraga — including the four summits below 4,000 feet that stayed on the list.",
     note: "The Adirondack 46ers' official list. Blake Peak, Cliff Mountain, Nye Mountain and Couchsachraga Peak are below 4,000 feet but remain on the 46; MacNaughton is over 4,000 feet but is not required.",
@@ -225,6 +235,8 @@ export const SUMMIT_LISTS: SummitList[] = [
     badge: "14ers",
     region: "Colorado",
     country: "United States",
+    center: { lat: 39, lon: -106 },
+    zoom: 6.4,
     blurb:
       "The 58 named Colorado summits above 14,000 feet, from Mount Elbert in the Sawatch to the Grenadiers of the San Juan.",
     note: "The 58 named peaks over 14,000 feet in the Colorado Department of Natural Resources list. Several are unofficial sub-summits and some fourteeners are on private land; route access is not implied by this list.",
@@ -320,3 +332,26 @@ export const SUMMIT_PEAK_COUNT = SUMMIT_LISTS.reduce(
   (sum, list) => sum + list.peaks.length,
   0,
 );
+
+/** A peak as it belongs to one sourced list. */
+export type ListMembership = { list: SummitList; peak: SummitPeak };
+
+/**
+ * The mapped members of the lists, by place slug.
+ *
+ * A list peak has a globe point only when it also has a real place page; this
+ * lookup never invents a coordinate for the other peaks.
+ */
+export const LISTED_BY_PLACE = new Map<string, ListMembership[]>();
+for (const list of SUMMIT_LISTS) {
+  for (const peak of list.peaks) {
+    if (!peak.place) continue;
+    const rows = LISTED_BY_PLACE.get(peak.place) ?? [];
+    rows.push({ list, peak });
+    LISTED_BY_PLACE.set(peak.place, rows);
+  }
+}
+
+export function listsForPlace(slug?: string): ListMembership[] {
+  return slug ? LISTED_BY_PLACE.get(slug) ?? [] : [];
+}

@@ -519,8 +519,8 @@ The compressed pass below takes the first option: over brotli the map chunk is
 On the dev server at 390×844: `querySourceFeatures("features")` returns 9 316
 atlas points at world zoom once the deferred chunk lands (2 845 before the tiles
 fill in), the experiences source holds 408 beacons, and dock exclusivity still
-reads on the live filters — Experiences filters the pins to `__none__`, Peaks
-filters the beacons to `__none__`, All destinations restores both.
+reads on the live layers — Places filters the pins to `__none__`, Peaks filters
+the beacons to `__none__`, All destinations restores both.
 
 ## Compressed serving: the gap a phone actually sees, 2026-11-22
 

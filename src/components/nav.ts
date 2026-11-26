@@ -1,77 +1,51 @@
 import type { Route } from "../lib/router";
 
 /**
- * One navigation table.
+ * One navigation table for the three product surfaces.
  *
- * The header and the phone tab bar used to repeat the same four destinations and
- * the same active-route rules in two files, which is how a place page ended up
- * with no active tab in the header. Both now read this list; a rename or a new
- * destination is one edit, not three.
+ * The globe is home. Lists and the log are the two things built around it.
  */
-export type NavId = "discover" | "summits" | "experiences" | "collections" | "saved";
+export type NavId = "globe" | "lists" | "log";
 
 export type NavItem = {
   id: NavId;
   label: string;
-  /** Where the tab goes. */
   to: string;
-  /** What the destination is, for the tab's accessible name. */
   hint: string;
 };
 
 export const NAV: NavItem[] = [
   {
-    id: "discover",
-    label: "Discover",
+    id: "globe",
+    label: "Globe",
     to: "/",
-    hint: "The globe and its search",
+    hint: "The world of peaks, and what is around each one",
   },
   {
-    id: "summits",
-    label: "Summits",
-    to: "/summits",
-    hint: "Your peak ledger and the classic club lists",
+    id: "lists",
+    label: "Lists",
+    to: "/lists",
+    hint: "The sourced peakbagging lists and your progress",
   },
   {
-    id: "experiences",
-    label: "Experiences",
-    to: "/experiences",
-    hint: "Curated destinations",
-  },
-  {
-    id: "collections",
-    label: "Collections",
-    to: "/collections",
-    hint: "Wide groups of Experiences",
-  },
-  {
-    id: "saved",
-    label: "Saved",
-    to: "/saved",
-    hint: "Your library, kept in this browser",
+    id: "log",
+    label: "Log",
+    to: "/log",
+    hint: "Every summit and place you have bagged or want to go",
   },
 ];
 
-/**
- * The tab a route belongs to. A place page belongs to Discover because that is
- * where it came from and where its back link returns; a coverage page is a
- * utility, not a destination, so it highlights nothing.
- */
+/** The tab a route belongs to. Coverage is a utility, not a destination. */
 export function activeNav(route: Route): NavId | null {
   switch (route.name) {
     case "home":
     case "place":
-      return "discover";
-    case "experiences":
     case "experience":
-      return "experiences";
-    case "collections":
-    case "collection":
-      return "collections";
-    case "summits":
-      return "summits";
-    case "saved":
-      return "saved";
+      return "globe";
+    case "lists":
+      return "lists";
+    case "log":
+      return "log";
     default:
       return null;
   }

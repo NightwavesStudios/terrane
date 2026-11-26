@@ -8,9 +8,8 @@
  * traced to a record. A destination that is merely present in the geographic
  * database never becomes an Experience by itself.
  *
- * Collections are a separate domain (`data/collections.ts`), a separate index
- * (`collection-index/`) and a separate route. Collections gather Experiences at
- * country, range, area or recorded-trail scale; Experiences stay destinations.
+ * A curated record is only a detail page and a globe marker; there is no
+ * separate browse route.
  */
 
 export type GuideKindId =
@@ -164,21 +163,4 @@ export interface GuideCatalogRow {
   trailCount: number;
   photo?: Pick<GuidePhoto, "url" | "credit" | "licence" | "max">;
   associatedNames: string[];
-}
-
-const BASE_HUE: Record<GuideKindId, number> = {
-  park: 143,
-  peak: 206,
-  waterfall: 190,
-  lake: 184,
-  coast: 34,
-  landmark: 220,
-};
-
-/** Stable ridge-art hue for a kind and slug; the generator writes the value. */
-export function guideHue(kind: string, slug: string): number {
-  let hash = 0;
-  for (let i = 0; i < slug.length; i += 1) hash = (hash * 31 + slug.charCodeAt(i)) | 0;
-  const base = BASE_HUE[kind as GuideKindId] ?? 206;
-  return (base + (Math.abs(hash) % 30) - 15 + 360) % 360;
 }

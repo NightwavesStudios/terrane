@@ -1,19 +1,21 @@
 import PickSheet from "./PickSheet";
+import LogActions from "./LogActions";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { SOURCE_LABEL, category, sourceLicence, type Pick } from "../data/features";
+import { listsForPlace } from "../data/summits";
 import type { Place } from "../data/places";
-import { pickFacts, pickTitle } from "../lib/present";
-import { toggleSaved, useSavedSlugs } from "../lib/saved";
+import { pickFacts, pickTitle, formatKm } from "../lib/present";
+import { targetForPick } from "../lib/logTargets";
+import { useTrailLinks } from "../lib/trailLinks";
+import { navigate } from "../lib/router";
 import RidgeArt from "./RidgeArt";
 
 /**
  * One card for every point on the map.
  *
- * A summit with a page and a campsite without one differ in what the card can
- * offer, not in what the card is: one eyebrow, one title, one ordered fact
- * block, one provenance line. The facts come from `lib/present`, the same
- * helpers the Discover rows and the place page use, so a place cannot describe
- * itself two ways.
+ * A peak card carries what the product is for: elevation, its sourced list(s),
+ * the recorded trails around it, and the two personal states. A campsite card
+ * carries the same facts and actions without pretending to be a summit.
  */
 export default function FeatureCard({
   pick,
@@ -23,25 +25,30 @@ export default function FeatureCard({
   onRelated,
   onClose,
   onOpenPlace,
+  onShowAround,
 }: {
   pick: Pick;
   nearPlace?: Place;
   nearKm?: number | null;
-  /** Same-kind places nearby, from the bundled atlas. */
   related?: Pick[];
   onRelated?: (pick: Pick) => void;
   onClose: () => void;
   onOpenPlace: (slug: string) => void;
+  onShowAround?: () => void;
 }) {
   const cat = category(pick.cat);
   const title = pickTitle(pick, cat.one);
-  const savedSlugs = useSavedSlugs();
-  const saved = pick.slug ? savedSlugs.has(pick.slug) : false;
   const near =
     nearPlace && nearKm != null ? { name: nearPlace.name, km: nearKm } : null;
   const source = pick.src ? SOURCE_LABEL[pick.src] ?? pick.src : "";
   const licence = pick.src ? sourceLicence(pick.src) : null;
   const facts = pickFacts(pick, near);
+  const lists = listsForPlace(pick.slug);
+  const trails = useTrailLinks(pick.slug ?? "");
+  const target = targetForPick(pick);
+  const osm = `https://www.openstreetmap.org/?mlat=${pick.lat.toFixed(4)}&mlon=${pick.lon.toFixed(
+    4,
+  )}#map=12/${pick.lat.toFixed(4)}/${pick.lon.toFixed(4)}`;
 
   return (
     <PickSheet
@@ -65,11 +72,32 @@ export default function FeatureCard({
         <p className="mono pick-eyebrow">{cat.one}</p>
         <h2>{title}</h2>
 
+        {lists.length > 0 ? (
+          <div className="pick-lists">
+            {lists.map(({ list, peak }) => (
+              <button
+                key={list.id}
+                className="pick-list-badge mono"
+                onClick={() => navigate(`/lists/${list.id}`)}
+                title={`${list.name}: ${peak.name}`}
+              >
+                {list.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {facts.map((fact) => (
           <p className="mono pick-meta" key={fact}>
             {fact}
           </p>
         ))}
+
+        {lists.length > 0 ? (
+          <p className="mono pick-meta pick-list-elevation">
+            List elevation · {lists[0].peak.ft.toLocaleString("en-US")} ft
+          </p>
+        ) : null}
 
         {source ? (
           <p className="mono pick-source">
@@ -93,9 +121,29 @@ export default function FeatureCard({
           </p>
         ) : null}
 
+        {trails.length > 0 ? (
+          <div className="pick-around">
+            <p className="mono pick-related-title">Trails recorded nearby</p>
+            <ul className="pick-around-list">
+              {trails.slice(0, 4).map((trail) => (
+                <li key={`${trail.name}-${trail.km}`}>
+                  <span>{trail.name}</span>
+                  <span className="mono">{formatKm(trail.km)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mono pick-around-note">
+              Named trails from the recorded trail links. Access and conditions are
+              not verified.
+            </p>
+          </div>
+        ) : null}
+
         {related.length > 0 ? (
           <div className="pick-related">
-            <p className="mono pick-related-title">More {cat.label.toLowerCase()} nearby</p>
+            <p className="mono pick-related-title">
+              {pick.cat === "peak" ? "More peaks nearby" : `More ${cat.label.toLowerCase()} nearby`}
+            </p>
             <div className="pick-related-list">
               {related.map((other) => (
                 <button
@@ -113,34 +161,18 @@ export default function FeatureCard({
           </div>
         ) : null}
 
+        {onShowAround ? (
+          <button className="pick-around-cta mono" onClick={onShowAround}>
+            Show mapped camps, huts and trailheads →
+          </button>
+        ) : null}
+
+        <LogActions target={target} />
+
         <div className="pick-actions">
           {pick.slug ? (
-            <button
-              className={`btn btn-light${saved ? " btn-saved" : ""}`}
-              onClick={() => {
-                if (!pick.slug) return;
-                toggleSaved({
-                  slug: pick.slug,
-                  name: title,
-                  cat: pick.cat,
-                  lat: pick.lat,
-                  lon: pick.lon,
-                  country: pick.country,
-                  region: pick.region,
-                });
-              }}
-            >
-              {saved ? "Saved ✓" : "Save"}
-            </button>
-          ) : null}
-          {pick.book ? (
-            <a className="btn btn-light" href={pick.book} target="_blank" rel="noreferrer">
-              Book / reserve →
-            </a>
-          ) : null}
-          {pick.slug ? (
             <button className="btn btn-light" onClick={() => onOpenPlace(pick.slug as string)}>
-              View place →
+              Read the full place →
             </button>
           ) : nearPlace ? (
             <button className="btn btn-light" onClick={() => onOpenPlace(nearPlace.slug)}>
@@ -150,6 +182,15 @@ export default function FeatureCard({
               →
             </button>
           ) : null}
+          <a
+            className="btn btn-light"
+            href={osm}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${title} in OpenStreetMap`}
+          >
+            Open in maps ↗
+          </a>
         </div>
       </div>
     </PickSheet>

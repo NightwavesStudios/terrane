@@ -1,6 +1,6 @@
 /**
- * Writes `dist/sitemap.xml` and `dist/robots.txt` from the generated page index,
- * the curated Experience catalogue and the generated Collection catalogue.
+ * Writes `dist/sitemap.xml` and `dist/robots.txt` from the generated page index
+ * and the curated experience catalogue.
  *
  * This runs after `vite build` because it writes into the build output, not into
  * `public/`: generated files must not be committed or copied by Vite. It always
@@ -19,9 +19,9 @@ const pageIndex = JSON.parse(await readFile("src/data/place-index/slugs.json", "
 const manifest = JSON.parse(await readFile("src/data/manifest.json", "utf8"));
 const slugs = Array.isArray(pageIndex.slugs) ? pageIndex.slugs : [];
 
-/* Both sections are generated pages, so the sitemap must include each list and
-   every route. An empty catalogue means the generator has not run: fail here
-   rather than publishing a sitemap without the section. */
+/* The detail catalogue is generated, so the sitemap must include each page. An
+   empty catalogue means the generator has not run: fail here rather than
+   publishing a sitemap without the curated routes. */
 const experienceCatalog = JSON.parse(
   await readFile("src/data/guide-index/catalog.json", "utf8"),
 );
@@ -32,18 +32,8 @@ if (experiences.length === 0) {
   );
 }
 
-const collectionCatalog = JSON.parse(
-  await readFile("src/data/collection-index/catalog.json", "utf8"),
-);
-const collections = Array.isArray(collectionCatalog.items) ? collectionCatalog.items : [];
-if (collections.length === 0) {
-  throw new Error(
-    "seo: the Collection catalog is empty — run `npm run collections` before `npm run seo`",
-  );
-}
-
 const lastmod = manifest.days?.osm ?? manifest.days?.wikidata ?? "";
-const urls = sitemapPaths({ slugs, experiences, collections });
+const urls = sitemapPaths({ slugs, experiences });
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -70,5 +60,5 @@ await writeFile(
 
 const note = configured ? SITE : `${SITE} (placeholder origin; set SITE_URL)`;
 console.log(
-  `seo: ${urls.length} urls for ${note} · ${experiences.length} experiences, ${collections.length} collections, ${slugs.length} places`,
+  `seo: ${urls.length} urls for ${note} · ${experiences.length} experiences, ${slugs.length} places`,
 );

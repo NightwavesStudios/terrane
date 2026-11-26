@@ -131,14 +131,11 @@ match. Images are hotlinked, not mirrored: the R2 store is already 676 MB of a
 trails for every destination into sharded `src/data/trail-links/` plus a summary.
 The page loads one trail shard alongside its detail shard.
 
-## Experiences and Collections
+## Curated Experiences and the list ledger
 
-Terrane has two separate catalogue domains. **Experiences** are the curated
-destinations that appear on the globe: one real place per page, with editorial
-prose built only from recorded facts. **Collections** are wide groups of those
-Experiences by country, great range, large area or recorded long-distance trail:
-they are browsable and shareable but never drawn on the map and never saved to
-the personal library.
+**Experiences** are the curated destinations that appear on the globe: one real
+place per page, with editorial prose built only from recorded facts. An
+Experience stands on its own detail page.
 
 ### Experiences (curated)
 
@@ -165,32 +162,8 @@ Every page links to its official or Wikipedia sources; the networked
 `npm run sources:check` verifies those URLs and writes
 `src/data/experience-sources.json`, which the generator consumes offline.
 
-### Collections (generated)
-
-Collections are wide groups of curated Experiences, not clusters of raw
-destinations. The grouping is committed in `src/data/collection-groups.json`:
-28 groups cover all 183 Experiences exactly once, in four scopes — country,
-range, area and trail. Membership is editorial, so a large country is split into
-areas and a cross-border massif becomes one range collection without inventing a
-route or a day plan.
-
-`scripts/build-collections.mjs` reads the committed grouping, the generated
-`guide-index/` catalogue and its shards, and `guide-selection.json` for editorial
-order. `scripts/lib/collections.mjs` is the pure part: it composes kind phrases,
-bounds, extent, counts and evidence prose from the member Experience rows. It
-rejects a grouping that loses, duplicates or invents an Experience, and it checks
-that every trail named by a trail collection is actually recorded at a member
-Experience.
-
-Output: `catalog.json` (one compact row per collection, for search and cards),
-one hash-bucket shard per collection (the full record with member rows and
-photos), and `meta.json` (counts and inputs). Titles and slugs are stable, and no
-record uses the clock.
-The record's `source` is `"generated"`; a later curated path could sit beside it
-without a schema change.
-
-`npm run build`, `npm run validate` and `npm run pages` regenerate both indexes
-before checking them, exactly as they do for the place index. Runtime practical
+`npm run build`, `npm run validate` and `npm run pages` regenerate the curated
+index before checking it, exactly as they do for the place index. Runtime practical
 places on both page types come from `src/lib/experiencePois.ts` and the existing
 z6 cells; on the globe, only Experiences are drawn (`src/map/experiences.ts`).
 
@@ -222,8 +195,7 @@ npm run data:merge     # agency adapters → cells
 npm run data:trails    # trails-only merge + strict quality + links + manifest
 npm run trail:quality  # strict geometry gate → reports/trail-quality.{json,md}
 npm run trail:links    # destination ↔ nearest named trails → src/data/trail-links/
-npm run experiences    # curated Experience index → src/data/guide-index/
-npm run collections    # wide Collections index → src/data/collection-index/
+npm run experiences    # curated Experience catalogue → src/data/guide-index/
 npm run sources:check  # verify curated Experience source URLs (network)
 npm run data:coverage  # reports/coverage.{md,json} + public/coverage.json
 npm run data:upload    # PUT changed cells and manifests
@@ -279,7 +251,6 @@ and are shown on `/coverage` and each feature card. A source without them fails
 | `src/data/poi-stats.json`, `trail-stats.json` | harvest / merge + trail-quality | yes |
 | `src/data/trail-links/`, `trail-links-summary.json` | `scripts/build-trail-links.mjs` | yes |
 | `src/data/guide-index/` | `scripts/build-guide.mjs` | yes |
-| `src/data/collection-index/` | `scripts/build-collections.mjs` | yes |
 | `src/data/experience-sources.json` | `scripts/check-experience-sources.mjs` | yes |
 | `src/data/manifest.json` | `scripts/build-manifest.mjs`, then `validate-data.mjs` | yes |
 | `src/data/sources.json` | hand-maintained registry | yes |

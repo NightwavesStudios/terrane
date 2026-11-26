@@ -2,7 +2,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { CATEGORIES, FAMILIES, type Family } from "../data/features";
 import { GUIDE_KINDS } from "../data/guide";
+import { SUMMIT_PEAK_COUNT } from "../data/summits";
 import { useGuideCatalog } from "../lib/guide";
+import { useLog } from "../lib/log";
 import { useManifest } from "../lib/live";
 
 /**
@@ -35,9 +37,20 @@ export interface LayerState {
   /** Routes are their own layer, not a category of pin. */
   experience: boolean;
   expCats: Record<string, boolean>;
+  /** The reader's own bagged and wanted points. */
+  log: boolean;
+  /** Rings on peaks that belong to a sourced list. */
+  listed: boolean;
 }
 
-export const DEFAULT_LAYERS: LayerState = {
+/** The four ways the globe can be read. */
+export type GlobeLens = "peaks" | "places" | "around" | "all";
+
+const DEST_CATS = CATEGORIES.filter((c) => c.family === "destination").map((c) => c.id);
+const PRACTICAL_CATS = CATEGORIES.filter((c) => c.family === "practical").map((c) => c.id);
+const PEAK_CATS = DEST_CATS.filter((id) => id === "peak" || id === "volcano");
+
+const BASE_LAYERS = {
   relief: true,
   terrain: true,
   exaggeration: 1.4,
@@ -52,10 +65,48 @@ export const DEFAULT_LAYERS: LayerState = {
   borders: true,
   labels: true,
   features: true,
-  cats: Object.fromEntries(CATEGORIES.map((c) => [c.id, true])),
-  experience: true,
-  expCats: Object.fromEntries(GUIDE_KINDS.map((c) => [c.id, true])),
+  log: true,
+  listed: true,
 };
+
+function catsFor(dest: string[], practical: string[]): Record<string, boolean> {
+  return Object.fromEntries(
+    CATEGORIES.map((c) => [
+      c.id,
+      c.family === "practical" ? practical.includes(c.id) : dest.includes(c.id),
+    ]),
+  );
+}
+
+/**
+ * A lens is a preset, not a new layer system. The Layers panel still owns every
+ * individual switch; picking a lens sets the switches that belong to that job.
+ */
+export function layersForLens(lens: GlobeLens): LayerState {
+  const peak = lens === "peaks" || lens === "around" || lens === "all";
+  const places = lens === "places" || lens === "all";
+  const dest = places
+    ? DEST_CATS
+    : lens === "peaks" || lens === "around"
+      ? PEAK_CATS
+      : DEST_CATS;
+  const practical = lens === "around" || lens === "all" ? PRACTICAL_CATS : [];
+  const experience = lens !== "around";
+  const expCats = Object.fromEntries(
+    GUIDE_KINDS.map((kind) => [kind.id, places ? true : kind.id === "peak"]),
+  );
+  return {
+    ...BASE_LAYERS,
+    features: true,
+    cats: catsFor(dest, practical),
+    experience,
+    expCats: experience ? expCats : Object.fromEntries(GUIDE_KINDS.map((k) => [k.id, false])),
+    log: true,
+    listed: peak,
+  };
+}
+
+export const DEFAULT_LAYERS: LayerState = layersForLens("peaks");
 
 const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "relief", label: "Relief" },
@@ -93,6 +144,8 @@ export default function LayerControl({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const manifest = useManifest();
+  const log = useLog();
+  const bagged = log.filter((entry) => entry.state === "done").length;
   const experience = useGuideCatalog();
   const expCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -344,6 +397,35 @@ export default function LayerControl({
                 </span>
               </label>
             ))}
+          </div>
+
+          <div className="layers-group">
+            <label className="layers-row">
+              <input
+                type="checkbox"
+                checked={value.log}
+                onChange={() => onChange({ ...value, log: !value.log })}
+              />
+              <span className="layers-text">
+                <span className="layers-label">Your log</span>
+                <span className="layers-note mono">
+                  {bagged ? `${bagged} bagged` : "empty"}
+                </span>
+              </span>
+            </label>
+            <label className="layers-row">
+              <input
+                type="checkbox"
+                checked={value.listed}
+                onChange={() => onChange({ ...value, listed: !value.listed })}
+              />
+              <span className="layers-text">
+                <span className="layers-label">Listed summits</span>
+                <span className="layers-note mono">
+                  {SUMMIT_PEAK_COUNT.toLocaleString("en-US")} sourced peaks
+                </span>
+              </span>
+            </label>
           </div>
 
           {baseRows.map((row) => (

@@ -39,15 +39,6 @@
       ]
     },
     {
-      "source": "/saved",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
       "source": "/experiences/(.*)",
       "headers": [
         {

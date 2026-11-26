@@ -5,17 +5,13 @@ import StateNotice from "./components/StateNotice";
 import Home from "./pages/Home";
 
 /* Home is the landing route, so it stays in the entry chunk; a deep link to a
-   place or an experience should not pay for the globe, so those are the splits.
-   The experience list and one experience are separate chunks for the same
-   reason: opening a route never downloads the catalog, and opening the catalog
-   never downloads MapLibre. */
+   place, a list or the log should not pay for the globe, so those are the
+   splits. There is no catalogue index any more: a curated experience survives
+   as a detail page, and Lists is the sourced ledger. */
 const Place = lazy(() => import("./pages/Place"));
-const Experiences = lazy(() => import("./pages/Experiences"));
 const Experience = lazy(() => import("./pages/Experience"));
-const Collections = lazy(() => import("./pages/Collections"));
-const Collection = lazy(() => import("./pages/Collection"));
-const Summits = lazy(() => import("./pages/Summits"));
-const Saved = lazy(() => import("./pages/Saved"));
+const Lists = lazy(() => import("./pages/Lists"));
+const LogPage = lazy(() => import("./pages/Log"));
 const Coverage = lazy(() => import("./pages/Coverage"));
 
 export default function App() {
@@ -42,18 +38,12 @@ export default function App() {
     >
       {route.name === "place" ? (
         <Place slug={route.slug} />
-      ) : route.name === "experiences" ? (
-        <Experiences />
       ) : route.name === "experience" ? (
         <Experience slug={route.slug} />
-      ) : route.name === "collections" ? (
-        <Collections />
-      ) : route.name === "collection" ? (
-        <Collection slug={route.slug} />
-      ) : route.name === "summits" ? (
-        <Summits listId={route.list} />
-      ) : route.name === "saved" ? (
-        <Saved />
+      ) : route.name === "lists" ? (
+        <Lists listId={route.list} />
+      ) : route.name === "log" ? (
+        <LogPage />
       ) : route.name === "coverage" ? (
         <Coverage />
       ) : (

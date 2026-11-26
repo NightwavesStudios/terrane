@@ -470,102 +470,12 @@
         "detail": "{\"generated\":\"2026-11-20\",\"source\":\"wikidata\",\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282,\"shards\":28}"
       },
       {
-        "name": "the four Collection scopes exist",
-        "ok": true,
-        "detail": "country, range, area, trail"
-      },
-      {
-        "name": "the Collection index is deliberately small and wide",
-        "ok": true,
-        "detail": "28 collections"
-      },
-      {
-        "name": "Collection slugs are unique and routable",
-        "ok": true,
-        "detail": "28 slugs"
-      },
-      {
-        "name": "Collection titles are unique",
-        "ok": true,
-        "detail": "28 titles"
-      },
-      {
-        "name": "every Collection scope is known and represented",
-        "ok": true,
-        "detail": "{\"range\":4,\"trail\":1,\"area\":20,\"country\":3}"
-      },
-      {
-        "name": "Collection records are well formed",
-        "ok": true,
-        "detail": "28 records"
-      },
-      {
-        "name": "Collection members are pageable Experiences with their own records",
-        "ok": true,
-        "detail": "183 memberships"
-      },
-      {
-        "name": "no Collection repeats an Experience",
-        "ok": true,
-        "detail": "member slugs"
-      },
-      {
-        "name": "collection bounds contain every member Experience",
-        "ok": true,
-        "detail": "bounds"
-      },
-      {
-        "name": "Collection statistics agree with their members",
-        "ok": true,
-        "detail": "members, places, trails, countries, sources"
-      },
-      {
-        "name": "Collection records claim no itinerary",
-        "ok": true,
-        "detail": "no route or day plan"
-      },
-      {
-        "name": "Collection photographs keep their credit and licence",
-        "ok": true,
-        "detail": "credited Commons images"
-      },
-      {
-        "name": "Collection meta matches the records",
-        "ok": true,
-        "detail": "28/28"
-      },
-      {
-        "name": "the committed grouping covers the Collection records",
-        "ok": true,
-        "detail": "28 groups"
-      },
-      {
-        "name": "every Collection is in the catalog and every catalog row has a record",
-        "ok": true,
-        "detail": "28 catalog rows"
-      },
-      {
-        "name": "Collection catalog rows match their records",
-        "ok": true,
-        "detail": "titles, scopes, counts, member order"
-      },
-      {
-        "name": "every curated Experience belongs to exactly one Collection",
-        "ok": true,
-        "detail": "183 memberships over 183 Experiences"
-      },
-      {
-        "name": "trail Collections name trails that are recorded at their members",
-        "ok": true,
-        "detail": "1 trail collections"
-      },
-      {
         "name": "the curated Experience selection is a deliberate list",
         "ok": true,
         "detail": "183 selected"
       },
       {
-        "name": "the curated Experience index is not empty",
+        "name": "the curated Experience catalogue is not empty",
         "ok": true,
         "detail": "183 Experiences"
       },
@@ -635,9 +545,9 @@
         "detail": "names, kinds, counts"
       },
       {
-        "name": "the sitemap covers both catalogues and every route",
+        "name": "the sitemap covers the app routes and every detail page",
         "ok": true,
-        "detail": "24689 urls · 183 Experiences · 28 Collections"
+        "detail": "24661 urls · 183 Experiences · 24474 places"
       }
     ]
   }

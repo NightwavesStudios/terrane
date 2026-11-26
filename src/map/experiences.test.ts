@@ -13,7 +13,7 @@ import {
 } from "./experiences";
 import { createStyle } from "./style";
 import { loadGuideCatalog } from "../lib/guide";
-import { DEFAULT_LAYERS } from "../components/LayerControl";
+import { DEFAULT_LAYERS, layersForLens } from "../components/LayerControl";
 
 function fakeMap() {
   const sources = new Map<
@@ -161,7 +161,7 @@ describe("experience layers", () => {
 describe("experience map wiring", () => {
   it("installs two sources, six layers and the curated catalogue", async () => {
     const map = fakeMap();
-    addExperiences(map as never, DEFAULT_LAYERS);
+    addExperiences(map as never, layersForLens("all"));
     const rows = await loadGuideCatalog();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -182,10 +182,11 @@ describe("experience map wiring", () => {
 
   it("narrows the beacons to the kinds that are switched on", () => {
     const map = fakeMap();
-    addExperiences(map as never, DEFAULT_LAYERS);
+    const all = layersForLens("all");
+    addExperiences(map as never, all);
     setExperienceLayers(map as never, {
-      ...DEFAULT_LAYERS,
-      expCats: { ...DEFAULT_LAYERS.expCats, peak: false, park: false },
+      ...all,
+      expCats: { ...all.expCats, peak: false, park: false },
     });
     expect(map.filters.get("experiences-dot")).toEqual([
       "in",

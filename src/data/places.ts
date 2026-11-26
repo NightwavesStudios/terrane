@@ -3,12 +3,6 @@ import { useSyncExternalStore } from "react";
 /** Every place is somewhere you go outside. No cities, no built monuments. */
 export type PlaceType = "peak" | "park" | "landmark";
 
-export const TYPE_LABEL_PLURAL: Record<PlaceType, string> = {
-  peak: "Peaks",
-  park: "Parks",
-  landmark: "Landmarks",
-};
-
 export interface Place {
   slug: string;
   name: string;
@@ -129,7 +123,6 @@ function toPlace(row: AtlasRow): Place {
 export const PLACES: Place[] = [];
 export const bySlug = new Map<string, Place>();
 
-let atlasReadyFlag = false;
 let atlasVersion = 0;
 let atlasLoad: Promise<Place[]> | null = null;
 const atlasListeners = new Set<() => void>();
@@ -143,16 +136,11 @@ export function loadAtlas(): Promise<Place[]> {
     PLACES.push(...rows);
     bySlug.clear();
     for (const place of rows) bySlug.set(place.slug, place);
-    atlasReadyFlag = true;
     atlasVersion += 1;
     for (const listener of [...atlasListeners]) listener();
     return rows;
   });
   return atlasLoad;
-}
-
-export function atlasReady(): boolean {
-  return atlasReadyFlag;
 }
 
 export function subscribeAtlas(listener: () => void): () => void {
