@@ -8,7 +8,7 @@
  */
 import { rmSync } from "node:fs";
 
-for (const path of ["dist", "tsconfig.tsbuildinfo", "terrane.html"]) {
+for (const path of ["dist", "tsconfig.tsbuildinfo"]) {
   rmSync(path, { recursive: true, force: true });
 }
-console.log("clean: removed dist, tsconfig.tsbuildinfo, terrane.html");
+console.log("clean: removed dist, tsconfig.tsbuildinfo");

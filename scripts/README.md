@@ -14,7 +14,7 @@ open data. `scripts/sources/common.py` is the shared adapter helper, and
 | `check-experience-sources.mjs` | `npm run sources:check` (manual/CI network step) | Fetch every distinct curated Experience source URL, follow redirects, classify verified/dead/unreachable, and write `src/data/experience-sources.json`. `--incremental` keeps existing verified entries and checks only new URLs. Fails on dead links; refuses partial overwrites. |
 | `validate-data.mjs` | `npm run build`, `validate` | Schema, category, manifest and duplicate checks; writes the validation block. |
 | `gen-seo.mjs` | `npm run build` (after Vite) | Absolute `dist/sitemap.xml` and `dist/robots.txt`. |
-| `clean.mjs` | `npm run clean` | Remove `dist`, `tsconfig.tsbuildinfo`, `terrane.html`. |
+| `clean.mjs` | `npm run clean` | Remove `dist` and `tsconfig.tsbuildinfo`. |
 | `audit-data.mjs` | `npm run audit` | Density, duplicate and freshness report. |
 | `band-report.mjs` | `npm run bands` | Band counts and sample viewport density. |
 | `dedupe-report.mjs` | `npm run data:dedupe` | Cross-source duplicate report. |

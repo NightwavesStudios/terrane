@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRoute } from "./router";
+import { parseRoute, redirectFor } from "./router";
 
 describe("parseRoute", () => {
   it("is home at the root", () => {
@@ -43,6 +43,23 @@ describe("parseRoute", () => {
       name: "experience",
       slug: "peaks-of-the-alps",
     });
+  });
+
+  it("sends the removed catalogue URLs to the globe", () => {
+    expect(redirectFor("/experiences")).toBe("/");
+    expect(redirectFor("/experiences/")).toBe("/");
+    expect(redirectFor("/collections")).toBe("/");
+    expect(redirectFor("/collections/georgia")).toBe("/");
+    expect(redirectFor("/collections/georgia/")).toBe("/");
+  });
+
+  it("leaves every surviving route alone", () => {
+    expect(redirectFor("/")).toBeNull();
+    expect(redirectFor("/experiences/peaks-of-the-alps")).toBeNull();
+    expect(redirectFor("/lists/georgia-4000")).toBeNull();
+    expect(redirectFor("/summits")).toBeNull();
+    expect(redirectFor("/saved")).toBeNull();
+    expect(redirectFor("/nope")).toBeNull();
   });
 
   it("falls back to home for anything else", () => {

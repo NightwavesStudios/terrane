@@ -47,11 +47,39 @@ export function parseRoute(pathname: string): Route {
   return { name: "home" };
 }
 
+/**
+ * The canonical path for a removed URL.
+ *
+ * The generated Collections catalogue and the curated Experiences index were
+ * both removed when the globe became the browse surface. They are not unknown
+ * paths that should fall through the catch-all: a stale link lands on the globe
+ * and the address bar is rewritten to it, so an old address never keeps
+ * rendering a page that no longer exists. The `/experiences/:slug` detail pages
+ * and the `/summits*` and `/saved` aliases are deliberately untouched.
+ */
+export function redirectFor(pathname: string): string | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/experiences") return "/";
+  if (path === "/collections" || path.startsWith("/collections/")) return "/";
+  return null;
+}
+
 export function useRoute(): Route {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const [path, setPath] = useState(
+    () => redirectFor(window.location.pathname) ?? window.location.pathname,
+  );
 
   useEffect(() => {
-    const onChange = () => setPath(window.location.pathname);
+    const onChange = () => {
+      const next = redirectFor(window.location.pathname) ?? window.location.pathname;
+      if (next !== window.location.pathname) {
+        window.history.replaceState({}, "", next);
+      }
+      setPath(next);
+    };
+    /* A direct hit on a removed URL renders its target immediately; this only
+       makes the address bar agree with it. */
+    onChange();
     listeners.add(onChange);
     window.addEventListener("popstate", onChange);
     return () => {

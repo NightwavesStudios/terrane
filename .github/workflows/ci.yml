@@ -44,8 +44,9 @@ jobs:
       - name: validate data
         run: npm run validate
 
-      # Absolute canonical/og:url and sitemap when the repository variable is set;
-      # no sitemap when it is not (an invalid one is worse than none).
+      # Absolute canonical/og:url and sitemap when the repository variable is
+      # set; the documented placeholder origin when it is not, so the artifact
+      # always carries a complete route set.
       - name: build
         run: npm run build
         env:

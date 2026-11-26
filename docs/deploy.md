@@ -33,9 +33,13 @@ bundled one; otherwise the bundled counts win.
   returns 404 instead of the HTML shell with a year-long immutable cache.
 - **Caching**: `/assets/*` is content-hashed and immutable for a year; `/fonts/*`
   gets a week.
-- **Fresh HTML**: the shell at `/`, `/index.html`, `/place/*`, `/log` and
-  `/coverage` is `no-store`, so a deployment switch cannot leave a browser on an
-  old shell that points at removed assets.
+- **Fresh HTML**: the shell at `/`, `/index.html`, `/place/*`, `/experiences/*`,
+  `/log` and `/coverage` is `no-store`, so a deployment switch cannot leave a
+  browser on an old shell that points at removed assets.
+- **Removed URLs**: `/experiences` (the old catalogue index) and `/collections*`
+  answer with a permanent redirect to `/` before the rewrite. `src/lib/router.ts`
+  repeats it on hosts without this config; the curated
+  `/experiences/:slug` detail pages are not redirected.
 
 ### Environment variables
 

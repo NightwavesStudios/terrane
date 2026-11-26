@@ -63,12 +63,16 @@ it needs a rebuild, not a restart.
 | `/log` | `Log` | Bagged and wanted entries, dates, notes, list progress, a custom-ascent form and JSON export/import. |
 | `/experiences/:slug` | `Experience` | One curated destination: overview, recorded features, associated places and trails, a map, practical places from the cell store, photographs, official/source links and the local log actions. |
 | `/coverage` | `Coverage` | The source health and gap register, read from the cell store. |
+| `/experiences`, `/collections`, `/collections/:slug` | redirects | The removed Experiences index and generated Collections catalogue redirect permanently to the globe. |
 | `/summits`, `/summits/:list`, `/saved` | redirects | Legacy URLs now land on Lists or Log. |
 | anything else | `Home` | Unknown paths fall through to the globe. |
 
 Routing is real paths through the History API, parsed in `src/lib/router.ts`.
 There is no router dependency. `/lists`, `/log` and the detail routes are lazy
-chunks; the globe stays eager. `terrane.log.v2` is the one personal store; it
+chunks; the globe stays eager. Vercel answers the removed `/experiences` and
+`/collections*` URLs with a permanent redirect before the SPA rewrite, and the
+router repeats the redirect on hosts without that config, so neither URL ever
+renders the shell at its old address. `terrane.log.v2` is the one personal store; it
 migrates the old summit, saved-place and saved-guide keys once, then removes
 them. The place page's back link restores the last globe camera from
 `sessionStorage`.

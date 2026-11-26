@@ -24,8 +24,11 @@ surfaces:
 Detail routes are `/place/:slug` and `/experiences/:slug`. `/?place=<slug>`
 opens a place card, `/?guide=<slug>` opens a curated detail card and
 `/?list=<id>` opens the list lens and flies to the list's region. The old
-`/summits*` and `/saved` paths redirect to Lists and Log. There is no router
-dependency.
+`/summits*` and `/saved` paths alias Lists and Log. The removed `/experiences`
+index and the generated `/collections*` catalogue permanently redirect to the
+globe: `vercel.json` answers them before the SPA rewrite, and
+`redirectFor()` in `src/lib/router.ts` repeats the redirect for any other host.
+There is no router dependency.
 
 ## Lists and the personal log
 
