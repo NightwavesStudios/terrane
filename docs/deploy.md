@@ -37,9 +37,10 @@ bundled one; otherwise the bundled counts win.
   `/log` and `/coverage` is `no-store`, so a deployment switch cannot leave a
   browser on an old shell that points at removed assets.
 - **Removed URLs**: `/experiences` (the old catalogue index) and `/collections*`
-  answer with a permanent redirect to `/` before the rewrite. `src/lib/router.ts`
-  repeats it on hosts without this config; the curated
-  `/experiences/:slug` detail pages are not redirected.
+  answer with a permanent redirect to `/` before the rewrite. `trailingSlash:
+  false` makes their slash variants redirect as well. `src/lib/router.ts` repeats
+  the redirect on hosts without this config; the curated `/experiences/:slug`
+  detail pages are not redirected.
 
 ### Environment variables
 
