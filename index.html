@@ -2,74 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <meta name="theme-color" content="#05070c" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Terrane" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Terrane</title>
-    <meta
-      name="description"
-      content="A peakbagging ledger around a living globe: sourced summit lists, the peaks you have bagged and the ones you want, with shaded terrain and recorded destinations."
-    />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
-    <link rel="canonical" href="__SITE_URL__/" />
-
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Terrane" />
-    <meta property="og:title" content="Terrane" />
-    <meta
-      property="og:description"
-      content="Sourced peakbagging lists around a living globe. Bag a summit, keep a local log, and see what is really around it."
-    />
-    <meta property="og:url" content="__SITE_URL__/" />
-    <meta property="og:image" content="__SITE_URL__/og.jpg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="The Terrane globe over the Alps at sunset, peaks and places set in light." />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Terrane" />
-    <meta
-      name="twitter:description"
-      content="Sourced peakbagging lists around a living globe."
-    />
-    <meta name="twitter:image" content="__SITE_URL__/og.jpg" />
-
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icon-180.png" />
-
-    <link rel="stylesheet" href="/fonts.css" />
-    <!-- The three faces the globe actually paints with, latin subset only. Sora
-         sets the wordmark and nav, Plus Jakarta the caption, JetBrains Mono the
-         small caps — preloading them removes the swap flash on first paint.
-         Fraunces (the place page's serif) is deliberately not preloaded. -->
-    <link rel="preload" href="/fonts/f5.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/f9.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/f15.woff2" as="font" type="font/woff2" crossorigin />
-
-    <!-- Vector tiles + glyphs, and the terrain DEM. Warming DNS and TLS here
-         means the first tile request does not queue behind a handshake. -->
-    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
-    <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin />
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Terrane",
-        "url": "__SITE_URL__/",
-        "description": "An interactive peakbagging globe: sourced summit lists, a local ascent log and shaded terrain.",
-        "applicationCategory": "TravelApplication",
-        "operatingSystem": "Any",
-        "isAccessibleForFree": true,
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-      }
-    </script>
   </head>
   <body>
     <div id="root"></div>

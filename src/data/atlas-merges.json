@@ -1,9 +1,0 @@
-[
-  {
-    "keep": "Q1091113",
-    "keepName": "Hüiten Peak",
-    "drop": ["Q143008"],
-    "dropNames": ["Tavan Bogd"],
-    "note": "Tavan Bogd (Q143008) is the massif: Wikidata's P610 names Hüiten Peak (Q1091113) as its highest point, both rows carry 49.1458/87.8192, and the 4,082 m value on the massif cannot describe a second summit at the same coordinate. Tavan Bogd stays searchable as an alias."
-  }
-]

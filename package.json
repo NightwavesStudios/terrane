@@ -8,21 +8,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-place-index.mjs && node scripts/build-guide.mjs && node scripts/build-manifest.mjs && node scripts/validate-data.mjs && tsc -b && vite build && node scripts/gen-seo.mjs",
-    "typecheck": "tsc -b",
+    "build": "tsc -b && vite build",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "check": "npm run typecheck && npm test && npm run validate",
-    "clean": "node scripts/clean.mjs",
-    "preview": "vite preview",
-    "seo": "node scripts/gen-seo.mjs",
-    "manifest": "node scripts/build-manifest.mjs",
-    "place:index": "node scripts/build-place-index.mjs",
-    "experiences": "node scripts/build-guide.mjs",
-    "validate": "node scripts/build-place-index.mjs && node scripts/build-guide.mjs && node scripts/build-manifest.mjs && node scripts/validate-data.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "maplibre-gl": "^5.24.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
