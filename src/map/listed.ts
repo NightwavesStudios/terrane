@@ -4,6 +4,7 @@ import type {
   LayerSpecification,
   Map as MlMap,
 } from "maplibre-gl";
+import type { FeatureCollection } from "geojson";
 import { FIRST_SYMBOL_LAYER } from "./style";
 
 /**
@@ -24,12 +25,12 @@ export type ListedPoint = {
 };
 
 const SOURCE = "listed-peaks";
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 const GOLD = "#e6c382";
 
 export const LISTED_LAYERS = ["listed-halo", "listed-ring"];
 
-export function listedFeatures(points: ListedPoint[]): GeoJSON.FeatureCollection {
+export function listedFeatures(points: ListedPoint[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: points.map((point) => ({

@@ -1,52 +1,44 @@
 import categoriesFile from "./categories.json";
 import bandsFile from "./bands.json";
-import sourcesFile from "./sources.json";
 import type { Place } from "./places";
 import type { GuideKindId } from "./guide";
 
 const BANDS = (bandsFile as unknown as { bands: { dot: number; label: number }[] }).bands;
 
 /**
- * One feature model for everything the map draws.
+ * One feature model for every destination the map draws.
  *
- * A peak, a national park, a campsite and a car park are the same kind of thing:
- * a point with a category. What used to be four separate products — "named
- * places", "famous places", "everything mapped", "camps nearby" — is one record
- * with a `cat`, a source and a zoom at which it becomes worth showing.
- *
- * `src` and `quality` still exist, because provenance and confidence matter when
- * you are deciding what to trust; they never decide which switch a pin belongs
- * under, which card it opens, or what it is called on screen.
+ * A peak, a national park and a lake are the same kind of thing: a point with a
+ * category. Provenance (`src`) survives because a card names its source; it never
+ * decides which switch a dot belongs under or what it is called on screen.
  *
  * `dot` is the zoom its dot appears at and `lz` the zoom its name does. They are
  * per-feature because fame is uneven: Everest and a 2,400 m shoulder are both
  * peaks, and the map has no business drawing them at the same time.
  */
 
-export type Family = "destination" | "practical" | "route";
+export type Family = "destination";
 
 export interface Category {
   id: string;
   label: string;
-  /** Singular, for a card eyebrow: "Peak", "Camp site". */
+  /** Singular, for a card eyebrow: "Peak", "Mountain range". */
   one: string;
   family: Family;
   colour?: string;
-  icon?: string;
-  minzoom?: number;
 }
 
 export const CATEGORIES = categoriesFile.categories as Category[];
 export const FAMILIES = categoriesFile.families as { id: Family; label: string }[];
 const CATEGORY_BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
 
-export const DESTINATION_CATS = CATEGORIES.filter((c) => c.family === "destination").map((c) => c.id);
-export const PRACTICAL_CATS = CATEGORIES.filter((c) => c.family === "practical").map((c) => c.id);
+export const DESTINATION_CATS = CATEGORIES.filter((c) => c.family === "destination").map(
+  (c) => c.id,
+);
 
 export function category(id: string): Category {
   return CATEGORY_BY_ID.get(id) ?? (CATEGORY_BY_ID.get("landmark") as Category);
 }
-
 
 /** A point as the map stores it. Coordinates are decimal degrees. */
 export interface FeatureRow {
@@ -62,8 +54,6 @@ export interface FeatureRow {
   slug?: string;
   /** Slug of the nearest destination, when the source recorded one. */
   near?: string;
-  /** Mapped facts a pin card can print (fee, capacity, facilities). */
-  note?: string;
   elev?: number;
   /** Metres of topographic prominence, where the source records it. */
   prom?: number;
@@ -73,19 +63,15 @@ export interface FeatureRow {
   /** Structured location, when the source recorded it. */
   region?: string;
   country?: string;
-  /** Fame cohort from the reach harvest: 1 famous … 4 local. Atlas rows are 0. */
+  /** Fame cohort from the reach build: 1 famous … 4 local. Atlas rows are 0. */
   tier?: number;
   src?: string;
   srcId?: string;
   url?: string;
-  book?: string;
-  difficulty?: string;
-  distance?: number;
   /** The curated destination behind an Experience marker. */
   experience?: {
     kind: GuideKindId;
     places: number;
-    trails: number;
   };
 }
 
@@ -97,7 +83,6 @@ export interface Pick {
   lon: number;
   slug?: string;
   near?: string;
-  note?: string;
   elev?: number;
   /** Metres of topographic prominence, where the source records it. */
   prom?: number;
@@ -108,14 +93,10 @@ export interface Pick {
   src?: string;
   srcId?: string;
   url?: string;
-  book?: string;
-  difficulty?: string;
-  distance?: number;
   /** Set only for a curated Experience marker on the map. */
   experience?: {
     kind: GuideKindId;
     places: number;
-    trails: number;
   };
   /** Set by a listed-peak ring: the sourced list this summit belongs to. */
   list?: { id: string; name: string; peak: string };
@@ -134,7 +115,6 @@ export function pickOf(
     lon,
     slug: typeof props.slug === "string" ? props.slug : undefined,
     near: typeof props.near === "string" ? props.near : undefined,
-    note: typeof props.d === "string" ? props.d : undefined,
     elev: typeof props.elev === "number" ? props.elev : undefined,
     prom: typeof props.prom === "number" ? props.prom : undefined,
     hue: typeof props.hue === "number" ? props.hue : undefined,
@@ -144,15 +124,11 @@ export function pickOf(
     src: typeof props.src === "string" ? props.src : undefined,
     srcId: typeof props.srcid === "string" ? props.srcid : undefined,
     url: typeof props.url === "string" ? props.url : undefined,
-    book: typeof props.book === "string" ? props.book : undefined,
-    difficulty: typeof props.diff === "string" ? props.diff : undefined,
-    distance: typeof props.dist === "number" ? props.dist : undefined,
     experience:
       props.cat === "experience"
         ? {
             kind: String(props.kind ?? "landmark") as GuideKindId,
             places: typeof props.places === "number" ? props.places : 0,
-            trails: typeof props.trails === "number" ? props.trails : 0,
           }
         : undefined,
     list:
@@ -176,7 +152,6 @@ export function pickOfRow(row: FeatureRow): Pick {
     lon: row.lon,
     slug: row.slug,
     near: row.near,
-    note: row.note,
     elev: row.elev,
     prom: row.prom,
     hue: row.hue,
@@ -186,9 +161,6 @@ export function pickOfRow(row: FeatureRow): Pick {
     src: row.src,
     srcId: row.srcId,
     url: row.url,
-    book: row.book,
-    difficulty: row.difficulty,
-    distance: row.distance,
   };
 }
 
@@ -292,36 +264,10 @@ export function placesToRows(places: Place[]): FeatureRow[] {
   });
 }
 
-/** Human names for provenance, used on the card and the coverage page. */
-type SourceMeta = {
-  id: string;
-  licence: string;
-  licenceUrl: string;
-  attribution: string;
-};
-const SOURCE_META = new Map(
-  (sourcesFile as unknown as { sources: SourceMeta[] }).sources.map((source) => [source.id, source]),
-);
-
-/** The licence behind a card's "Data:" line, linked where the source has a URL. */
-export function sourceLicence(src: string): { licence: string; url: string } | null {
-  const meta = SOURCE_META.get(src);
-  return meta ? { licence: meta.licence, url: meta.licenceUrl } : null;
-}
-
+/** Human names for provenance, used on the card. */
 export const SOURCE_LABEL: Record<string, string> = {
-  osm: "OpenStreetMap",
-  osm_routes: "OpenStreetMap",
-  wikidata: "Wikidata",
   atlas: "Wikidata",
-  ridb: "Recreation.gov (RIDB)",
-  usfs_sites: "US Forest Service",
-  blm_sites: "Bureau of Land Management",
-  nps_trails: "National Park Service",
-  usfs_trails: "US Forest Service",
-  blm_trails: "Bureau of Land Management",
-  doc_nz: "NZ Department of Conservation",
-  parks_canada: "Parks Canada",
+  wikidata: "Wikidata",
 };
 
 /* ── style expressions, generated from the one category list ─────────────── */
@@ -330,46 +276,6 @@ export const SOURCE_LABEL: Record<string, string> = {
 export const DEST_COLOUR = [
   "match",
   ["get", "cat"],
-  ...CATEGORIES.filter((c) => c.family === "destination").flatMap((c) => [
-    c.id,
-    c.colour ?? "#8ab4d8",
-  ]),
+  ...CATEGORIES.flatMap((c) => [c.id, c.colour ?? "#8ab4d8"]),
   "#8ab4d8",
 ] as unknown as import("maplibre-gl").ExpressionSpecification;
-
-/** Pictogram by category, for the practical pins. */
-export const PRACTICAL_ICON = [
-  "match",
-  ["get", "cat"],
-  ...CATEGORIES.filter((c) => c.family === "practical").flatMap((c) => [
-    c.id,
-    c.icon ?? "camp-tent",
-  ]),
-  "camp-tent",
-] as unknown as import("maplibre-gl").ExpressionSpecification;
-
-/* ── row registries ───────────────────────────────────────────────────────
-   The atlas is in the bundle; the Wikidata long tail and the OSM cells arrive
-   as the map loads. `lib/catalog.ts` reads both to build the one discovery
-   index, so the rows the map already holds are the rows search can see. */
-
-let mappedRows: () => FeatureRow[] = () => [];
-let destinationPoints: () => FeatureRow[] = () => [];
-
-export function registerMappedSearch(fn: () => FeatureRow[]): void {
-  mappedRows = fn;
-}
-
-/** Every destination row loaded so far, for cross-source duplicate checks. */
-export function registerDestinationPoints(fn: () => FeatureRow[]): void {
-  destinationPoints = fn;
-}
-
-export function getDestinationRows(): FeatureRow[] {
-  return destinationPoints();
-}
-
-/** Named practical pins indexed from the map cells that have arrived. */
-export function getMappedRows(): FeatureRow[] {
-  return mappedRows();
-}

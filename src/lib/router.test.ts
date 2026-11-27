@@ -7,7 +7,7 @@ describe("parseRoute", () => {
   });
 
   it("ignores a trailing slash", () => {
-    expect(parseRoute("/coverage/")).toEqual({ name: "coverage" });
+    expect(parseRoute("/lists/")).toEqual({ name: "lists" });
     expect(parseRoute("/place/denali/")).toEqual({ name: "place", slug: "denali" });
   });
 
@@ -51,6 +51,8 @@ describe("parseRoute", () => {
     expect(redirectFor("/collections")).toBe("/");
     expect(redirectFor("/collections/georgia")).toBe("/");
     expect(redirectFor("/collections/georgia/")).toBe("/");
+    expect(redirectFor("/coverage")).toBe("/");
+    expect(redirectFor("/coverage/")).toBe("/");
   });
 
   it("leaves every surviving route alone", () => {

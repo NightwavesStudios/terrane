@@ -4,7 +4,7 @@
  *
  * The map's atlas and reach chunks stay exactly as they are. A place page loads
  * only the shard for its first slug character, so a reach page never downloads
- * all 24,474 records just to render one name.
+ * all 24,473 records just to render one name.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

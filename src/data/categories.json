@@ -1,9 +1,7 @@
 {
   "version": 2,
   "families": [
-    { "id": "destination", "label": "Destinations" },
-    { "id": "practical", "label": "Places to stay & use" },
-    { "id": "route", "label": "Routes" }
+    { "id": "destination", "label": "Destinations" }
   ],
   "categories": [
     { "id": "peak", "label": "Peaks", "one": "Peak", "family": "destination", "colour": "#eaf7ff" },
@@ -21,20 +19,6 @@
     { "id": "beach", "label": "Beaches", "one": "Beach", "family": "destination", "colour": "#d9bd85" },
     { "id": "island", "label": "Islands", "one": "Island", "family": "destination", "colour": "#79cf9b" },
     { "id": "desert", "label": "Deserts", "one": "Desert", "family": "destination", "colour": "#d9bd85" },
-    { "id": "spring", "label": "Hot springs", "one": "Hot spring", "family": "destination", "colour": "#5fc9d4" },
-    { "id": "camp", "label": "Campsites", "one": "Camp site", "family": "practical", "icon": "camp-tent", "minzoom": 6.2 },
-    { "id": "hut", "label": "Mountain huts", "one": "Mountain hut", "family": "practical", "icon": "camp-hut", "minzoom": 7.2 },
-    { "id": "shelter", "label": "Shelters", "one": "Shelter", "family": "practical", "icon": "camp-shelter", "minzoom": 8.2 },
-    { "id": "water", "label": "Water", "one": "Water", "family": "practical", "icon": "water-drop", "minzoom": 8.2 },
-    { "id": "parking", "label": "Parking", "one": "Parking", "family": "practical", "icon": "parking", "minzoom": 13.5 },
-    { "id": "view", "label": "Viewpoints", "one": "Viewpoint", "family": "practical", "icon": "viewpoint", "minzoom": 8.2 },
-    { "id": "picnic", "label": "Picnic sites", "one": "Picnic site", "family": "practical", "icon": "picnic-table", "minzoom": 8.2 },
-    { "id": "pass", "label": "Mountain passes", "one": "Mountain pass", "family": "practical", "icon": "camp-hut", "minzoom": 7.2 },
-    { "id": "caravan", "label": "Caravan sites", "one": "Caravan site", "family": "practical", "icon": "caravan", "minzoom": 7.2 },
-    { "id": "toilets", "label": "Toilets", "one": "Toilets", "family": "practical", "icon": "toilets", "minzoom": 8.2 },
-    { "id": "shower", "label": "Showers", "one": "Shower", "family": "practical", "icon": "shower", "minzoom": 8.2 },
-    { "id": "info", "label": "Information boards", "one": "Information board", "family": "practical", "icon": "info", "minzoom": 8.2 },
-    { "id": "trailhead", "label": "Trailheads", "one": "Trailhead", "family": "practical", "icon": "trailhead", "minzoom": 7.2 },
-    { "id": "trail", "label": "Trails", "one": "Trail", "family": "route", "colour": "#c9a06b" }
+    { "id": "spring", "label": "Hot springs", "one": "Hot spring", "family": "destination", "colour": "#5fc9d4" }
   ]
 }

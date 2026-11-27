@@ -5,16 +5,16 @@ import type { GlobeLens } from "./LayerControl";
 const MODES: { id: GlobeLens; label: string; hint: string }[] = [
   { id: "peaks", label: "Peaks", hint: "Peaks and volcanoes, with curated peak places" },
   { id: "places", label: "Places", hint: "Curated parks, lakes, coasts and landmarks" },
-  { id: "around", label: "Around", hint: "Mapped camps, huts, water and trailheads" },
-  { id: "all", label: "All", hint: "Every recorded destination and practical pin" },
+  { id: "all", label: "All", hint: "Every recorded destination" },
 ];
 
 /**
  * The globe's one row of choices.
  *
- * The old strip listed every destination kind and left the practical pins
- * unspoken. These four lenses answer the questions the map is actually asked,
- * and Lists opens the sourced progress sheet without leaving the globe.
+ * The old strip listed every destination kind and buried the difference between
+ * a peak and a place. These three lenses answer the questions the map is
+ * actually asked, and Lists opens the sourced progress sheet without leaving
+ * the globe.
  */
 export default function GlobeDock({
   value,

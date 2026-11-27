@@ -9,9 +9,9 @@
  * ranking script.
  *
  * The prose is grounded in the committed records — the Wikidata description,
- * protected area, range, elevation, credited Commons photographs, named trails
- * and neighbouring destinations — and never claims access, closures, facilities
- * or a route. No network and no clock: the same inputs produce the same files.
+ * protected area, range, elevation, credited Commons photographs and
+ * neighbouring destinations — and never claims access, closures, facilities or a
+ * route. No network and no clock: the same inputs produce the same files.
  */
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,7 +22,6 @@ const OUT = "src/data/guide-index";
 const SELECTION = "src/data/guide-selection.json";
 const ASSOCIATION_KM = 30;
 const MAX_ASSOCIATED = 12;
-const MAX_TRAILS = 5;
 const MAX_PHOTOS = 6;
 
 const read = (path, fallback = null) => {
@@ -142,15 +141,10 @@ if (!selection?.slugs?.length) {
 const destinations = readDestinations();
 const bySlug = new Map(destinations.map((destination) => [destination.slug, destination]));
 const details = readShards("src/data/place-details", ["place-details-summary.json"]);
-const trailLinks = readShards("src/data/trail-links", ["trail-links-summary.json"]);
 const detailSummary = read("src/data/place-details-summary.json", {});
-const trailSummary = read("src/data/trail-links-summary.json", {});
 
 const generated =
-  [detailSummary.generated, trailSummary.generated, destinationMeta()]
-    .filter(Boolean)
-    .sort()
-    .at(-1) ?? "unknown";
+  [detailSummary.generated, destinationMeta()].filter(Boolean).sort().at(-1) ?? "unknown";
 
 const seen = new Set();
 const missing = [];
@@ -197,21 +191,6 @@ function photosOf(detail) {
   return out;
 }
 
-function trailsOf(slug) {
-  return [...(trailLinks[slug] ?? [])]
-    .filter((trail) => trail?.name)
-    .sort((a, b) => (a.km ?? 0) - (b.km ?? 0) || a.name.localeCompare(b.name))
-    .slice(0, MAX_TRAILS)
-    .map((trail) => ({
-      name: trail.name,
-      km: round(trail.km ?? 0, 1),
-      ...(trail.difficulty && !/^unknown$/i.test(trail.difficulty)
-        ? { difficulty: trail.difficulty }
-        : {}),
-      ...(trail.src ? { src: trail.src } : {}),
-    }));
-}
-
 function nearbyFor(destination) {
   const near = [];
   for (const candidate of destinations) {
@@ -254,7 +233,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
 
   const kind = kindOf(destination, detail);
   const photos = photosOf(detail);
-  const trails = trailsOf(slug);
   const associated = nearbyFor(destination);
   const country = countryOf(destination, detail);
   const region = regionOf(destination, detail);
@@ -291,14 +269,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
         .join(", ")}.`,
     );
   }
-  if (trails.length) {
-    relation.push(
-      `${trails.length} named trail${trails.length === 1 ? " is" : "s are"} recorded within 10 km, including ${trails
-        .slice(0, 3)
-        .map((trail) => trail.name)
-        .join(", ")}.`,
-    );
-  }
   if (photos.length) {
     relation.push(
       `${photos.length} credited photograph${photos.length === 1 ? " is" : "s are"} available on Wikimedia Commons.`,
@@ -310,13 +280,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
   if (protectedArea) reasons.push(`Protected area: ${protectedLabel(protectedArea)}.`);
   if (range) reasons.push(`Part of the ${range}.`);
   if (elevation) reasons.push(`A recorded high point of ${elevation.toLocaleString("en-US")} m.`);
-  if (trails.length) {
-    reasons.push(
-      `${trails.length} named trail${trails.length === 1 ? "" : "s"} within 10 km: ${trails
-        .map((trail) => trail.name)
-        .join(", ")}.`,
-    );
-  }
   if (associated.length) {
     reasons.push(
       `${associated.length} other catalogued place${associated.length === 1 ? "" : "s"} within ${ASSOCIATION_KM} km.`,
@@ -361,7 +324,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
     overview,
     reasons,
     associated,
-    trails,
     ...(photo ? { photo } : {}),
     photos,
     source: { label: "Wikipedia", url: detail.wiki },
@@ -369,7 +331,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
     ...(detail.site && /^https?:\/\//i.test(detail.site) ? { official: detail.site } : {}),
     stats: {
       places: associated.length,
-      trails: trails.length,
       photos: photos.length,
       ...(elevation ? { elevation } : {}),
     },
@@ -390,7 +351,6 @@ for (let index = 0; index < selection.slugs.length; index += 1) {
     hue: record.hue,
     summary,
     placeCount: associated.length,
-    trailCount: trails.length,
     ...(photo
       ? {
           photo: {
@@ -445,13 +405,11 @@ writeFileSync(
       kinds,
       countries: new Set(records.map((record) => record.country).filter(Boolean)).size,
       associated: records.reduce((sum, record) => sum + record.associated.length, 0),
-      trails: records.reduce((sum, record) => sum + record.trails.length, 0),
       photos: records.reduce((sum, record) => sum + record.photos.length, 0),
       shards: shards.size,
       inputs: {
         destinations: destinations.length,
         withDetails: Object.keys(details).length,
-        withTrails: Object.keys(trailLinks).length,
       },
     },
     null,

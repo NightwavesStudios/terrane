@@ -3,9 +3,9 @@ import type { Pick } from "../data/features";
 /**
  * The one way a place is described.
  *
- * A summit, a lake, a campsite and a car park are one record, so they get one
- * fact order: where it is, how high, what it costs or offers, how far the trail
- * runs, and the source. The card, the Discover rows and the place page all read
+ * A summit, a lake, a national park and a canyon are one record, so they get
+ * one fact order: where it is, how high it is, what it is called, and the
+ * source. The card, the Discover rows and the place page all read
  * these helpers, which is what keeps "informative" from meaning four different
  * layouts.
  */
@@ -45,7 +45,7 @@ export function pickContext(pick: Pick, near?: NearRef): string {
   return coordinates(pick.lat, pick.lon);
 }
 
-/** The card's title; unnamed pins still get a readable sentence. */
+/** The card's title; an unnamed record still gets a readable sentence. */
 export function pickTitle(pick: Pick, fallbackOne: string): string {
   const name = pick.name.trim();
   return name || `Unnamed ${fallbackOne.toLowerCase()}`;
@@ -60,10 +60,6 @@ export function pickFacts(pick: Pick, near?: NearRef): string[] {
   if (pick.prom && pick.prom > 0) {
     facts.push(`${Math.round(pick.prom).toLocaleString("en-US")} m prominence`);
   }
-  if (pick.note) facts.push(pick.note);
-  if (pick.distance && pick.distance > 0) facts.push(formatKm(pick.distance / 1000));
-  if (pick.difficulty) facts.push(pick.difficulty);
-
   const seen = new Set<string>();
   return facts.filter((fact) => {
     const key = fact.trim().toLowerCase();

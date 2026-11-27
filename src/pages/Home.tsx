@@ -8,7 +8,7 @@ import { pickOfPlace, type Pick } from "../data/features";
 import { atlasCatalogRows } from "../lib/catalog";
 import { relatedRows } from "../lib/discover";
 import { SUMMIT_LISTS, SUMMIT_PEAK_COUNT, summitList } from "../data/summits";
-import { logStats, mappedEntries, useLog } from "../lib/log";
+import { logStats, locatedEntries, useLog } from "../lib/log";
 
 const Globe = lazy(() => import("../map/Globe"));
 import Header from "../components/Header";
@@ -27,7 +27,7 @@ import { guidePick, loadGuideCatalog } from "../lib/guide";
 import { kmBetween } from "../lib/geo";
 import { navigate } from "../lib/router";
 import { rememberView } from "../lib/lastView";
-import { useManifest } from "../lib/live";
+import MANIFEST from "../data/manifest.json";
 import { usePlacePage } from "../lib/placePages";
 
 const WORLD = { lon: 12, lat: 22 };
@@ -36,7 +36,7 @@ type View = { lon: number; lat: number; zoom: number };
 
 function readLens(): GlobeLens {
   const mode = new URLSearchParams(window.location.search).get("mode");
-  return mode === "places" || mode === "around" || mode === "all" ? mode : "peaks";
+  return mode === "places" || mode === "all" ? mode : "peaks";
 }
 
 export default function Home() {
@@ -101,7 +101,7 @@ export default function Home() {
     setFocus({ ...list.center, zoom: list.zoom, key: Date.now() });
   }, [listSlug]);
 
-  const manifest = useManifest();
+  const manifest = MANIFEST;
   const atlas = useAtlas();
   /* A listed summit's place slug can be outside the atlas (the club list is
      complete; the atlas is a selection). Resolve the page shard too, so the
@@ -116,7 +116,7 @@ export default function Home() {
 
   const logPoints = useMemo<LogMapPoint[]>(
     () =>
-      mappedEntries(log, (slug) => {
+      locatedEntries(log, (slug) => {
         const place = bySlug.get(slug);
         return place ? { lat: place.lat, lon: place.lon } : undefined;
       }).map((entry) => ({
@@ -236,11 +236,6 @@ export default function Home() {
     setPick(null);
   }, []);
 
-  const showAround = useCallback(() => {
-    setLens("around");
-    setLayers(layersForLens("around"));
-  }, []);
-
   const focusList = useCallback((listId: string) => {
     const list = summitList(listId);
     if (!list) return;
@@ -333,9 +328,8 @@ export default function Home() {
         <span className="hint-input hint-input--touch"> · drag to spin, tap a point</span>
       </p>
       <p className="globe-credits mono">
-        Mapped surroundings are OpenStreetMap, and coverage varies.
-        <br />© OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn · Data:
-        OSM, Recreation.gov (RIDB), USFS, NPS, BLM, Parks Canada, DOC · <button className="credit-link" onClick={() => navigate("/coverage")}>coverage</button>
+        Base map © OpenStreetMap contributors · OpenFreeMap · Terrain: Mapterhorn
+        <br />Data: Wikidata · Photos: Wikimedia Commons
       </p>
 
       <div className="globe-filters">
@@ -367,7 +361,6 @@ export default function Home() {
           onRelated={setPick}
           onClose={closePick}
           onOpenPlace={(slug) => navigate(`/place/${slug}`)}
-          onShowAround={showAround}
         />
       ) : null}
     </div>

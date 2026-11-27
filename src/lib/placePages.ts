@@ -7,7 +7,7 @@ import { destinationCategoryFor } from "../data/features";
  *
  * Atlas rows are already in the entry bundle, so those pages render immediately.
  * Reach pages load one small shard of `src/data/place-index/`; a page never
- * downloads all 24,474 records.
+ * downloads all 24,473 records.
  */
 export type PagePlace = {
   slug: string;

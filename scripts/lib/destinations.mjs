@@ -21,7 +21,7 @@ export function shardOf(slug) {
  * One destination model for the page pipeline.
  *
  * Atlas rows keep their type (peak/park/landmark) because the page applies the
- * existing name heuristic to it. Reach rows already carry the harvest kind, so
+ * existing name heuristic to it. Reach rows already carry the source kind, so
  * they use `cat`. Every row has a stable slug and a Wikidata Q id.
  */
 export function readDestinations() {

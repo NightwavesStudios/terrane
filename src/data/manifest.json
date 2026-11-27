@@ -1,19 +1,15 @@
 {
   "pipeline": 2,
   "days": {
-    "osm": "2026-11-18",
     "wikidata": "2026-11-20"
   },
   "totals": {
-    "all": 9440520,
-    "destinations": 24474,
-    "mapped": 9416046,
-    "trails": 485798
+    "all": 24473,
+    "destinations": 24473
   },
-  "categories": 30,
+  "categories": 16,
   "countries": {
-    "atlas": 157,
-    "mapped": 385
+    "atlas": 157
   },
   "byCategory": {
     "landmark": 190,
@@ -26,220 +22,21 @@
     "waterfall": 1310,
     "volcano": 327,
     "valley": 900,
-    "reserve": 2200,
+    "reserve": 2199,
     "cave": 817,
     "spring": 56,
     "beach": 965,
     "glacier": 1000,
-    "canyon": 1,
-    "camp": 239120,
-    "hut": 28913,
-    "shelter": 585409,
-    "water": 678605,
-    "parking": 5840666,
-    "view": 239844,
-    "picnic": 141322,
-    "pass": 39267,
-    "caravan": 29776,
-    "toilets": 445756,
-    "shower": 32234,
-    "info": 1053188,
-    "trailhead": 17024,
-    "trail": 485798
-  },
-  "files": 1869,
-  "sources": [
-    {
-      "id": "osm",
-      "name": "OpenStreetMap, via Geofabrik extracts",
-      "licence": "ODbL 1.0",
-      "records": 9371124,
-      "updated": "2026-11-18",
-      "note": "437 extracts · 385 countries"
-    },
-    {
-      "id": "wikidata",
-      "name": "Wikidata",
-      "licence": "CC0",
-      "records": 24474,
-      "updated": "2026-11-20",
-      "note": "1213 atlas destinations · 23261 long-tail records"
-    },
-    {
-      "id": "osm_routes",
-      "name": "OpenStreetMap hiking routes",
-      "licence": "ODbL 1.0",
-      "records": 334620,
-      "updated": "2026-11-20",
-      "note": "route=hiking relations, harvested by cached Geofabrik leaf boxes through Overpass and simplified per cell"
-    },
-    {
-      "id": "ridb",
-      "name": "Recreation.gov RIDB full export",
-      "licence": "Public domain (US Government)",
-      "records": 7790,
-      "updated": "2026-11-19",
-      "note": "Campground facilities, individual campsite counts, booking links and agency"
-    },
-    {
-      "id": "usfs_sites",
-      "name": "US Forest Service recreation sites",
-      "licence": "Public domain (US Government)",
-      "records": 26534,
-      "updated": "2026-11-19",
-      "note": "Campgrounds, dispersed sites, trailheads, viewpoints and picnic sites"
-    },
-    {
-      "id": "blm_sites",
-      "name": "Bureau of Land Management recreation sites",
-      "licence": "Public domain (US Government)",
-      "records": 694,
-      "updated": "2026-11-19",
-      "note": "Campgrounds, trailheads and other BLM recreation facilities"
-    },
-    {
-      "id": "nps_trails",
-      "name": "National Park Service public trails",
-      "licence": "Public domain (US Government)",
-      "records": 33906,
-      "updated": "2026-11-19",
-      "note": "Publicly displayable trail segments with name, class, surface and use"
-    },
-    {
-      "id": "usfs_trails",
-      "name": "US Forest Service National Forest System trails",
-      "licence": "Public domain (US Government)",
-      "records": 84564,
-      "updated": "2026-11-19",
-      "note": "164,360 miles of NFS trail, one segment per row"
-    },
-    {
-      "id": "blm_trails",
-      "name": "Bureau of Land Management GTLF public trails",
-      "licence": "Public domain (US Government)",
-      "records": 42671,
-      "updated": "2026-11-19",
-      "note": "Layers 2–7: motorized, non-motorized, non-mechanized and unassessed trails"
-    },
-    {
-      "id": "parks_canada",
-      "name": "Parks Canada accommodation",
-      "licence": "Open Government Licence – Canada",
-      "records": 9592,
-      "updated": "2026-11-19",
-      "note": "Campsites, backcountry camping, oTENTik, yurts, tipis and cabins"
-    },
-    {
-      "id": "doc_nz",
-      "name": "New Zealand Department of Conservation campsites",
-      "licence": "CC BY 4.0",
-      "records": 312,
-      "updated": "2026-11-19",
-      "note": "DOC campsites, categories and facilities"
-    }
-  ],
-  "coverage": "OpenStreetMap completeness follows mapping effort. Europe is mapped far more densely than most of Africa, South America and Central Asia; Wikidata is a selection, not a census.",
-  "trailStats": {
-    "input": 495761,
-    "cells": 1017,
-    "segments": 485798,
-    "max_cell_bytes": 11990719,
-    "bySource": {
-      "blm_trails": 29488,
-      "nps_trails": 36170,
-      "osm_routes": 329991,
-      "usfs_trails": 90149
-    },
-    "dropped": {
-      "duplicate_blm_trails_into_blm_trails": 15876,
-      "duplicate_nps_trails_into_nps_trails": 160,
-      "duplicate_osm_routes_into_osm_routes": 3529,
-      "duplicate_usfs_trails_into_usfs_trails": 771,
-      "osm_covered_by_agency": 4182
-    },
-    "candidateParts": 509429,
-    "emptyCells": 20,
-    "staleCellsEmptied": 20,
-    "updated": "2026-11-20",
-    "bytes": 317522181,
-    "byCountry": {
-      "Unspecified": 329989,
-      "United States": 155807,
-      "DE": 2
-    },
-    "quality": {
-      "checkedCells": 1037,
-      "emptyCells": 20,
-      "segments": 485798,
-      "points": 13478336,
-      "bytes": 317522181,
-      "maxCellBytes": 11990719,
-      "outOfTile": 0,
-      "invalidCoords": 0,
-      "under2": 0,
-      "chords": 0,
-      "chordRate": 0,
-      "duplicateCopies": 15,
-      "duplicateRate": 0.00003087703119403538,
-      "distanceMismatch": 7314,
-      "distanceMismatchRate": 0.015055640410211651,
-      "maxJumpKm": 1.8,
-      "bySource": {
-        "blm_trails": {
-          "segments": 29488,
-          "points": 198613,
-          "km": 17444.3,
-          "bytes": 6570192
-        },
-        "nps_trails": {
-          "segments": 36170,
-          "points": 281247,
-          "km": 25827.3,
-          "bytes": 9642195
-        },
-        "osm_routes": {
-          "segments": 329991,
-          "points": 11296250,
-          "km": 1555151.4,
-          "bytes": 258477291
-        },
-        "usfs_trails": {
-          "segments": 90149,
-          "points": 1702226,
-          "km": 217772.3,
-          "bytes": 42079503
-        }
-      },
-      "byCountry": {
-        "Unspecified": {
-          "segments": 329989,
-          "km": 1555146
-        },
-        "United States": {
-          "segments": 155807,
-          "km": 261043.8
-        },
-        "DE": {
-          "segments": 2,
-          "km": 5.3
-        }
-      },
-      "worstChordExamples": []
-    },
-    "checkedCells": 1037
+    "canyon": 1
   },
   "details": {
-    "pages": 24474,
-    "described": 23897,
-    "photographed": 20115,
-    "official": 800,
+    "pages": 24473,
+    "described": 23896,
+    "photographed": 20114,
+    "official": 799,
     "ranges": 7783,
     "protected": 3282,
     "updated": "2026-11-20"
-  },
-  "trailLinks": {
-    "linked": 11831,
-    "destinations": 24474
   },
   "validation": {
     "ok": true,
@@ -247,7 +44,7 @@
       {
         "name": "category ids are unique",
         "ok": true,
-        "detail": "30/30"
+        "detail": "16/16"
       },
       {
         "name": "every category has a known family",
@@ -256,11 +53,6 @@
       },
       {
         "name": "destination categories carry a colour",
-        "ok": true,
-        "detail": "ok"
-      },
-      {
-        "name": "practical categories carry an icon and a zoom floor",
         "ok": true,
         "detail": "ok"
       },
@@ -297,7 +89,7 @@
       {
         "name": "reach-more rows are valid",
         "ok": true,
-        "detail": "20589 rows"
+        "detail": "20588 rows"
       },
       {
         "name": "reach-more kinds are categories",
@@ -312,32 +104,17 @@
       {
         "name": "destination slugs are unique",
         "ok": true,
-        "detail": "24474 rows"
+        "detail": "24473 rows"
       },
       {
         "name": "page index covers every destination",
         "ok": true,
-        "detail": "24474/24474"
+        "detail": "24473/24473"
       },
       {
         "name": "page index slugs match destinations",
         "ok": true,
-        "detail": "24474 pages"
-      },
-      {
-        "name": "POI totals add up",
-        "ok": true,
-        "detail": "9371124"
-      },
-      {
-        "name": "POI categories add up",
-        "ok": true,
-        "detail": "9371124/9371124"
-      },
-      {
-        "name": "POI kinds are categories",
-        "ok": true,
-        "detail": "ok"
+        "detail": "24473 pages"
       },
       {
         "name": "every category has records",
@@ -362,112 +139,37 @@
       {
         "name": "manifest totals match",
         "ok": true,
-        "detail": "9440520"
+        "detail": "24473"
       },
       {
         "name": "manifest destination count matches",
         "ok": true,
-        "detail": "24474"
-      },
-      {
-        "name": "manifest mapped count matches",
-        "ok": true,
-        "detail": "9416046"
+        "detail": "24473"
       },
       {
         "name": "manifest categories match",
         "ok": true,
-        "detail": "30"
-      },
-      {
-        "name": "trail network has records",
-        "ok": true,
-        "detail": "485798 segments"
-      },
-      {
-        "name": "trail quality block is recorded",
-        "ok": true,
-        "detail": "reports/trail-quality.json"
-      },
-      {
-        "name": "no trail segment lies outside its tile",
-        "ok": true,
-        "detail": "0 outside"
-      },
-      {
-        "name": "trail chord rate is under 0.01%",
-        "ok": true,
-        "detail": "0 chords (0.000%)"
-      },
-      {
-        "name": "trail duplicate rate is under 0.5%",
-        "ok": true,
-        "detail": "15 copies (0.00%)"
-      },
-      {
-        "name": "trail distances match their geometry",
-        "ok": true,
-        "detail": "7314 mismatches"
-      },
-      {
-        "name": "trail cells stay under the wire limit",
-        "ok": true,
-        "detail": "11990719 bytes"
-      },
-      {
-        "name": "trail quality source counts add up",
-        "ok": true,
-        "detail": "485798/485798"
-      },
-      {
-        "name": "trail links use the 10 km radius",
-        "ok": true,
-        "detail": "10 km"
-      },
-      {
-        "name": "trail links only point at real pages",
-        "ok": true,
-        "detail": "11831 linked pages"
-      },
-      {
-        "name": "trail links cover the destination set",
-        "ok": true,
-        "detail": "24474/24474"
-      },
-      {
-        "name": "trail links stay within their radius and cap",
-        "ok": true,
-        "detail": "56505 links"
-      },
-      {
-        "name": "every trail link names a trail",
-        "ok": true,
-        "detail": "56505 links"
-      },
-      {
-        "name": "every source carries licence and attribution metadata",
-        "ok": true,
-        "detail": "all present"
+        "detail": "16"
       },
       {
         "name": "every destination page has a detail record",
         "ok": true,
-        "detail": "24474/24474"
+        "detail": "24473/24473"
       },
       {
         "name": "place details are well formed",
         "ok": true,
-        "detail": "24474 records"
+        "detail": "24473 records"
       },
       {
         "name": "manifest detail counts match",
         "ok": true,
-        "detail": "{\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282}"
+        "detail": "{\"pages\":24473,\"described\":23896,\"photographed\":20114,\"official\":799,\"ranges\":7783,\"protected\":3282}"
       },
       {
         "name": "detail summary matches records",
         "ok": true,
-        "detail": "{\"generated\":\"2026-11-20\",\"source\":\"wikidata\",\"pages\":24474,\"described\":23897,\"photographed\":20115,\"official\":800,\"ranges\":7783,\"protected\":3282,\"shards\":28}"
+        "detail": "{\"generated\":\"2026-11-20\",\"source\":\"wikidata\",\"pages\":24473,\"described\":23896,\"photographed\":20114,\"official\":799,\"ranges\":7783,\"protected\":3282,\"shards\":28}"
       },
       {
         "name": "the curated Experience selection is a deliberate list",
@@ -512,7 +214,7 @@
       {
         "name": "Experience statistics agree with their records",
         "ok": true,
-        "detail": "places, trails, photos"
+        "detail": "places and photos"
       },
       {
         "name": "Experience records claim no itinerary",
@@ -547,7 +249,7 @@
       {
         "name": "the sitemap covers the app routes and every detail page",
         "ok": true,
-        "detail": "24661 urls · 183 Experiences · 24474 places"
+        "detail": "24659 urls · 183 Experiences · 24473 places"
       }
     ]
   }

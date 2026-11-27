@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
+import type { FeatureCollection } from "geojson";
 import type { GuideCatalogRow, GuideExperience } from "../data/guide";
 import { GUIDE_KINDS, guideKind } from "../data/guide";
 import {
@@ -18,7 +19,7 @@ import { DEFAULT_LAYERS, layersForLens } from "../components/LayerControl";
 function fakeMap() {
   const sources = new Map<
     string,
-    { data: GeoJSON.FeatureCollection; setData: (next: GeoJSON.FeatureCollection) => void }
+    { data: FeatureCollection; setData: (next: FeatureCollection) => void }
   >();
   const layers = new Map<string, { id: string }>();
   const filters = new Map<string, unknown>();
@@ -33,10 +34,10 @@ function fakeMap() {
       return fitted;
     },
     getSource: (id: string) => sources.get(id),
-    addSource: (id: string, spec: { data: GeoJSON.FeatureCollection }) => {
+    addSource: (id: string, spec: { data: FeatureCollection }) => {
       sources.set(id, {
         ...spec,
-        setData(next: GeoJSON.FeatureCollection) {
+        setData(next: FeatureCollection) {
           this.data = next;
         },
       });
@@ -61,7 +62,6 @@ const row = (
   hue: 208,
   summary: "A recorded summit.",
   placeCount: 5,
-  trailCount: 2,
   associatedNames: [],
   ...overrides,
 });
@@ -94,7 +94,6 @@ describe("experienceFeatures", () => {
         lat: 46.36,
         lon: 14.09,
         placeCount: 4,
-        trailCount: 1,
       }),
     ];
     const collection = experienceFeatures(rows);
@@ -111,7 +110,6 @@ describe("experienceFeatures", () => {
       kind: "peak",
       colour: guideKind("peak").colour,
       places: 5,
-      trails: 2,
     });
     expect(collection.features[1].properties?.colour).toBe(guideKind("lake").colour);
   });

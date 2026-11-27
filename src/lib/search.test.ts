@@ -71,7 +71,7 @@ describe("search", () => {
 
   it("finds an accented name typed without accents", () => {
     const result = run("zurich", [
-      row({ name: "Zürich Viewpoint", cat: "view", lat: 47.37, lon: 8.54 }),
+      row({ name: "Zürich Viewpoint", cat: "landmark", lat: 47.37, lon: 8.54 }),
     ]);
     expect(result.hits).toHaveLength(1);
   });
@@ -171,7 +171,7 @@ describe("search", () => {
   it("understands a multi-word category phrase", () => {
     const result = run("hot springs", [
       row({ name: "Landmannalaugar", cat: "spring", lat: 63.9, lon: -19.0 }),
-      row({ name: "Some Camp", cat: "camp", lat: 63.9, lon: -19.0 }),
+      row({ name: "Some Lake", cat: "lake", lat: 63.9, lon: -19.0 }),
     ]);
     expect(result.hits).toHaveLength(1);
     expect(result.hits[0].kind === "place" && result.hits[0].row.cat).toBe("spring");

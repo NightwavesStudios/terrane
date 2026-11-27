@@ -51,14 +51,14 @@ describe("radiusForZoom", () => {
 describe("nearby", () => {
   it("sorts by distance, keeps the radius, and caps each category", () => {
     const rows = [
-      row({ name: "Camp A", cat: "camp", lat: north(1), lon: 8, tier: 4 }),
-      row({ name: "Camp B", cat: "camp", lat: north(2), lon: 8, tier: 4 }),
-      row({ name: "Camp C", cat: "camp", lat: north(3), lon: 8, tier: 4 }),
+      row({ name: "Park A", cat: "park", lat: north(1), lon: 8, tier: 4 }),
+      row({ name: "Park B", cat: "park", lat: north(2), lon: 8, tier: 4 }),
+      row({ name: "Park C", cat: "park", lat: north(3), lon: 8, tier: 4 }),
       row({ name: "Lake", cat: "lake", lat: north(4), lon: 8, tier: 3 }),
       row({ name: "Far", cat: "peak", lat: north(500), lon: 8, tier: 3 }),
     ];
     const result = nearby(rows, CENTER, 100, null, 4);
-    expect(result.map((item) => item.row.name)).toEqual(["Camp A", "Camp B", "Lake"]);
+    expect(result.map((item) => item.row.name)).toEqual(["Park A", "Park B", "Lake"]);
     expect(result[0].km).toBeCloseTo(1, 0);
   });
 

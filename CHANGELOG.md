@@ -248,16 +248,14 @@
   removed unused exports, dead CSS, the legacy Overpass harvester and the unused
   MVT reader.
 - Rewrote the README and split architecture, data-pipeline, deployment,
-  performance and audit documentation; the old design journal is in
-  [`docs/history.md`](docs/history.md).
+  performance and audit documentation; the old design journal has since been
+  removed.
 
 ## 2026-11-19 — Data store and coverage gates
 
-- The world harvest, trail cells, agency adapters and coverage report are
-  documented in `docs/data-pipeline.md`.
+- The world harvest, trail cells, agency adapters and coverage report were
+  documented in the data-pipeline docs (since removed).
 - Every publishing data job runs `coverage-report --strict`; a zero, missing or
   truncated source fails before the upload.
 - The cell store remains the published preview environment because a second
   environment would exceed the R2 allowance.
-
-Earlier history is in [`docs/history.md`](docs/history.md).

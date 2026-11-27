@@ -4,6 +4,7 @@ import type {
   LayerSpecification,
   Map as MlMap,
 } from "maplibre-gl";
+import type { Feature, FeatureCollection } from "geojson";
 import type { LayerState } from "../components/LayerControl";
 import {
   GUIDE_KINDS,
@@ -19,7 +20,7 @@ import { FONTS, PALETTE } from "./theme";
  *
  * These are the destinations in the editorial catalogue. They are not
  * every destination in the database. One beacon per Experience, in its kind's
- * colour, added above the pins. Selecting one draws the destination and its
+ * colour, added above the destinations. Selecting one draws the destination and its
  * recorded neighbours as neutral markers; there is no line between them and no
  * order, because an Experience is a place, not a route.
  *
@@ -43,7 +44,7 @@ export const EXPERIENCE_LAYERS = [
 ];
 
 const PLACE_LAYERS = ["experience-places", "experience-places-label"];
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 export function experienceWhere(row: Pick<GuideCatalogRow, "region" | "country">): string {
   if (row.region && row.country && row.region !== row.country) {
@@ -52,7 +53,7 @@ export function experienceWhere(row: Pick<GuideCatalogRow, "region" | "country">
   return row.region || row.country || "";
 }
 
-export function experienceFeatures(rows: GuideCatalogRow[]): GeoJSON.FeatureCollection {
+export function experienceFeatures(rows: GuideCatalogRow[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: rows.map((row) => {
@@ -70,16 +71,15 @@ export function experienceFeatures(rows: GuideCatalogRow[]): GeoJSON.FeatureColl
           country: row.country ?? "",
           region: row.region ?? "",
           places: row.placeCount,
-          trails: row.trailCount,
           hue: row.hue,
         },
-      } as GeoJSON.Feature;
+      } as Feature;
     }),
   };
 }
 
 /** The selected Experience and its recorded neighbours, with no connecting line. */
-export function placeFeatures(guide: GuideExperience): GeoJSON.FeatureCollection {
+export function placeFeatures(guide: GuideExperience): FeatureCollection {
   const colour = guideKind(guide.kind).colour;
   return {
     type: "FeatureCollection",
@@ -105,7 +105,7 @@ let rows: GuideCatalogRow[] = [];
 let catalog: Promise<GuideCatalogRow[]> | null = null;
 let mapRef: MlMap | null = null;
 let current: string | null = null;
-let placeData: GeoJSON.FeatureCollection | null = null;
+let placeData: FeatureCollection | null = null;
 
 const catFilter = (ids: string[]): ExpressionSpecification =>
   (ids.length
@@ -147,7 +147,7 @@ function ensureCatalog(map: MlMap) {
 
 /**
  * The layers, as data, so a test can validate them without a WebGL context.
- * `addExperiences` installs exactly this list, last, above every pin.
+ * `addExperiences` installs exactly this list, last, above every destination.
  */
 export function experienceLayerSpecs(): LayerSpecification[] {
   return [

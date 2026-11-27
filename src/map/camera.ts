@@ -118,9 +118,9 @@ export function readCamera(search = window.location.search): {
  * How close a click should fly for a category.
  *
  * One zoom for every destination meant a national park, a mountain range and a
- * single summit all landed at 14.2: a park filled the screen with one trailhead
+ * single summit all landed at 14.2: a park filled the screen with one valley
  * and a range was never visible. A park is a place you look at from 9.6, a lake
- * from 11.5, a summit from 13.4; a tent from 14.6.
+ * from 11.5, a summit from 13.4.
  */
 const FOCUS_ZOOM: Record<string, number> = {
   park: 9.6,
@@ -138,15 +138,6 @@ const FOCUS_ZOOM: Record<string, number> = {
   waterfall: 13.4,
   cave: 13.4,
   spring: 13.4,
-  camp: 14.6,
-  hut: 14.6,
-  caravan: 14.6,
-  shelter: 14.2,
-  pass: 14.2,
-  trailhead: 14.2,
-  view: 14.2,
-  parking: 15.4,
-  trail: 12.5,
 };
 
 /**
@@ -192,9 +183,9 @@ export function radiusZoom(
  *
  * Far away, the frame comes from the category and the elevation, never from the
  * zoom the reader happened to be at: a park clicked from street level has to
- * pull back to 9.6 or it is one trailhead. But a place already under the camera
+ * pull back to 9.6 or it is one valley. But a place already under the camera
  * (within 3 km) takes a step *in* from where the reader is — the earlier rule
- * kept the current zoom in that case, which made clicking a nearby pin a literal
+ * kept the current zoom in that case, which made clicking a nearby destination a literal
  * no-op.
  */
 export function focusFor(

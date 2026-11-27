@@ -1,21 +1,18 @@
 import PickSheet from "./PickSheet";
 import LogActions from "./LogActions";
-import { iconDataUrl, type KitIcon } from "../map/campIcon";
-import { SOURCE_LABEL, category, sourceLicence, type Pick } from "../data/features";
+import { SOURCE_LABEL, category, type Pick } from "../data/features";
 import { listsForPlace } from "../data/summits";
 import type { Place } from "../data/places";
-import { pickFacts, pickTitle, formatKm } from "../lib/present";
+import { pickFacts, pickTitle } from "../lib/present";
 import { targetForPick } from "../lib/logTargets";
-import { useTrailLinks } from "../lib/trailLinks";
 import { navigate } from "../lib/router";
 import RidgeArt from "./RidgeArt";
 
 /**
  * One card for every point on the map.
  *
- * A peak card carries what the product is for: elevation, its sourced list(s),
- * the recorded trails around it, and the two personal states. A campsite card
- * carries the same facts and actions without pretending to be a summit.
+ * A peak card carries what the product is for: elevation, its sourced list(s)
+ * and the two personal states.
  */
 export default function FeatureCard({
   pick,
@@ -25,7 +22,6 @@ export default function FeatureCard({
   onRelated,
   onClose,
   onOpenPlace,
-  onShowAround,
 }: {
   pick: Pick;
   nearPlace?: Place;
@@ -34,17 +30,14 @@ export default function FeatureCard({
   onRelated?: (pick: Pick) => void;
   onClose: () => void;
   onOpenPlace: (slug: string) => void;
-  onShowAround?: () => void;
 }) {
   const cat = category(pick.cat);
   const title = pickTitle(pick, cat.one);
   const near =
     nearPlace && nearKm != null ? { name: nearPlace.name, km: nearKm } : null;
   const source = pick.src ? SOURCE_LABEL[pick.src] ?? pick.src : "";
-  const licence = pick.src ? sourceLicence(pick.src) : null;
   const facts = pickFacts(pick, near);
   const lists = listsForPlace(pick.slug);
-  const trails = useTrailLinks(pick.slug ?? "");
   const target = targetForPick(pick);
   const osm = `https://www.openstreetmap.org/?mlat=${pick.lat.toFixed(4)}&mlon=${pick.lon.toFixed(
     4,
@@ -52,15 +45,13 @@ export default function FeatureCard({
 
   return (
     <PickSheet
-      className={`pick pick--feature${pick.slug ? "" : " pick--pin"}`}
+      className="pick"
       label={title}
       onClose={onClose}
     >
-      <div className={`pick-art${pick.slug ? "" : " pick-art--kit"}`}>
+      <div className={`pick-art${pick.slug ? "" : " pick-art--unlinked"}`}>
         {typeof pick.hue === "number" ? (
           <RidgeArt hue={pick.hue} className="pick-art-svg" />
-        ) : cat.icon ? (
-          <img src={iconDataUrl(cat.icon as KitIcon, 120)} alt="" width={74} height={74} />
         ) : (
           <span
             className="pick-reach-dot"
@@ -102,14 +93,6 @@ export default function FeatureCard({
         {source ? (
           <p className="mono pick-source">
             Data: {source}
-            {licence ? (
-              <>
-                {" · "}
-                <a href={licence.url} target="_blank" rel="noreferrer">
-                  {licence.licence}
-                </a>
-              </>
-            ) : null}
             {pick.url ? (
               <>
                 {" · "}
@@ -119,24 +102,6 @@ export default function FeatureCard({
               </>
             ) : null}
           </p>
-        ) : null}
-
-        {trails.length > 0 ? (
-          <div className="pick-around">
-            <p className="mono pick-related-title">Trails recorded nearby</p>
-            <ul className="pick-around-list">
-              {trails.slice(0, 4).map((trail) => (
-                <li key={`${trail.name}-${trail.km}`}>
-                  <span>{trail.name}</span>
-                  <span className="mono">{formatKm(trail.km)}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mono pick-around-note">
-              Named trails from the recorded trail links. Access and conditions are
-              not verified.
-            </p>
-          </div>
         ) : null}
 
         {related.length > 0 ? (
@@ -159,12 +124,6 @@ export default function FeatureCard({
               ))}
             </div>
           </div>
-        ) : null}
-
-        {onShowAround ? (
-          <button className="pick-around-cta mono" onClick={onShowAround}>
-            Show mapped camps, huts and trailheads →
-          </button>
         ) : null}
 
         <LogActions target={target} />

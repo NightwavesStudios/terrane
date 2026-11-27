@@ -82,6 +82,6 @@ export function setMeta({
 
 export const HOME_META: Meta = {
   title: SITE,
-  description: `A peakbagging globe with sourced summit lists, a local ascent log and ${MANIFEST.totals.all.toLocaleString("en-US")} recorded places. Bag a summit, keep the date, see the trails and mapped places around it.`,
+  description: `A peakbagging globe with sourced summit lists, a local ascent log and ${MANIFEST.totals.destinations.toLocaleString("en-US")} recorded destinations. Bag a summit, keep the date, and see what is around it.`,
   path: "/",
 };

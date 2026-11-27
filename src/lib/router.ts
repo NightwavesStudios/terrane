@@ -12,8 +12,7 @@ export type Route =
   | { name: "place"; slug: string }
   | { name: "lists"; list?: string }
   | { name: "log" }
-  | { name: "experience"; slug: string }
-  | { name: "coverage" };
+  | { name: "experience"; slug: string };
 
 const listeners = new Set<() => void>();
 
@@ -32,7 +31,6 @@ export function parseRoute(pathname: string): Route {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/") return { name: "home" };
   if (path === "/log" || path === "/saved") return { name: "log" };
-  if (path === "/coverage") return { name: "coverage" };
 
   if (path === "/lists" || path === "/summits") return { name: "lists" };
   const list = path.match(/^\/(?:lists|summits)\/([a-z0-9-]+)$/);
@@ -50,16 +48,18 @@ export function parseRoute(pathname: string): Route {
 /**
  * The canonical path for a removed URL.
  *
- * The generated Collections catalogue and the curated Experiences index were
- * both removed when the globe became the browse surface. They are not unknown
- * paths that should fall through the catch-all: a stale link lands on the globe
- * and the address bar is rewritten to it, so an old address never keeps
- * rendering a page that no longer exists. The `/experiences/:slug` detail pages
- * and the `/summits*` and `/saved` aliases are deliberately untouched.
+ * The generated Collections catalogue, the curated Experiences index and the
+ * Coverage page were all removed when the app was cut back to the destination
+ * globe. They are not unknown paths that should fall through the catch-all: a
+ * stale link lands on the globe and the address bar is rewritten to it, so an
+ * old address never keeps rendering a page that no longer exists. The
+ * `/experiences/:slug` detail pages and the `/summits*` and `/saved` aliases are
+ * deliberately untouched.
  */
 export function redirectFor(pathname: string): string | null {
   const path = pathname.replace(/\/+$/, "") || "/";
   if (path === "/experiences") return "/";
+  if (path === "/coverage") return "/";
   if (path === "/collections" || path.startsWith("/collections/")) return "/";
   return null;
 }

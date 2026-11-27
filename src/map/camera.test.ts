@@ -37,7 +37,7 @@ describe("focusZoomFor", () => {
   it("frames a category by what it is", () => {
     expect(focusZoomFor("park")).toBe(9.6);
     expect(focusZoomFor("peak")).toBe(12);
-    expect(focusZoomFor("camp")).toBe(14.6);
+    expect(focusZoomFor("waterfall")).toBe(13.4);
     expect(focusZoomFor("something-new")).toBe(13.2);
   });
 
@@ -71,14 +71,14 @@ describe("focusFor", () => {
   });
 
   it("steps in when the place is already under the camera", () => {
-    expect(focusFor("camp", null, 15.4, 0.4)).toBe(16);
-    expect(focusFor("camp", null, 11, 0.4)).toBe(14.6);
+    expect(focusFor("waterfall", null, 15.4, 0.4)).toBe(16);
+    expect(focusFor("waterfall", null, 11, 0.4)).toBe(13.4);
     expect(focusFor("peak", null, 12, 1.2)).toBe(13.4);
   });
 
   it("never asks for a zoom the map cannot show", () => {
-    expect(focusFor("camp", null, 3, 1)).toBeGreaterThanOrEqual(3);
-    expect(focusFor("camp", null, 20, 0)).toBe(16);
+    expect(focusFor("lake", null, 3, 1)).toBeGreaterThanOrEqual(3);
+    expect(focusFor("lake", null, 20, 0)).toBe(16);
   });
 });
 

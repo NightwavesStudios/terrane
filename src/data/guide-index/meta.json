@@ -12,12 +12,10 @@
   },
   "countries": 47,
   "associated": 846,
-  "trails": 457,
   "photos": 225,
   "shards": 16,
   "inputs": {
-    "destinations": 24474,
-    "withDetails": 24474,
-    "withTrails": 11831
+    "destinations": 24473,
+    "withDetails": 24473
   }
 }

@@ -7,7 +7,7 @@ import { kmBetween } from "./geo";
  *
  * Everything here is a pure function of rows and a centre: Discover recomputes
  * it on a settled camera or a category change, never mid-gesture. Each list is
- * capped per category so "nearby" cannot be four car parks and "lesser known"
+ * capped per category so "nearby" cannot be four near-identical rows and "lesser known"
  * cannot be four waterfalls in one valley.
  */
 
@@ -17,7 +17,7 @@ export type RankedRow = { row: CatalogRow; km: number };
  * How far "nearby" reaches at a zoom.
  *
  * The radius is a frame, not a filter: at planet scale a reader is asking what
- * is on this continent, at trail zoom what is on this ridge. The same list
+ * is on this continent, up close what is on this ridge. The same list
  * refresh from a zoom change never chases a file, because every row is local.
  */
 export function radiusForZoom(zoom: number): number {

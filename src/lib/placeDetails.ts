@@ -125,13 +125,6 @@ export function thumbAt(url: string, width: number, max?: number): string {
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=${capped}`;
 }
 
-/** OSM trail difficulty values as a reader reads them. */
-export function difficultyLabel(value?: string): string {
-  const raw = (value ?? "").trim();
-  if (!raw || raw.toLowerCase() === "unknown") return "";
-  return raw.replace(/_/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
-}
-
 /** A Wikidata description is lowercase and unpunctuated; make it a sentence. */
 export function sentence(value?: string): string {
   const raw = (value ?? "").trim();

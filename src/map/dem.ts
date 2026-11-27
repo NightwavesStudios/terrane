@@ -57,10 +57,10 @@ export const DEM_HTTP_TILE_URL = PRIMARY_HTTP_TILE_URL;
 /** Attribution for whatever both providers require. */
 export const DEM_ATTRIBUTION = `© Mapterhorn · Copernicus DEM · ${DEM_FALLBACK_ATTRIBUTION}`;
 
-const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
+const DIAGNOSTICS = import.meta.env.DEV;
 
 /* Which level a request is, and what may stand in for it, lives in ./tileRole so
-   the rule can be tested against a real ledger without MapLibre in the way. */
+   the rule can be tested without MapLibre in the way. */
 import { allowsCoarseStandIn, needsNativeSurface, tileRole } from "./tileRole";
 export { allowsCoarseStandIn, needsNativeSurface, tileRole, type TileRole } from "./tileRole";
 
@@ -73,7 +73,7 @@ export { allowsCoarseStandIn, needsNativeSurface, tileRole, type TileRole } from
    box six parallel tiles finish later than two run back to back, because each of
    the six is slower and none of them beats its timeout. */
 const CORES = typeof navigator === "undefined" ? 4 : navigator.hardwareConcurrency || 4;
-/* Raised from `min(4, CORES - 1)` after the ledger showed 27 of 61 requests at a
+/* Raised from `min(4, CORES - 1)` after measurements showed 27 of 61 requests at a
    stationary z9 view ending `no-slot`: the ceiling, not the work, was what kept
    the source's outstanding set from ever emptying. The worker decodes off the main
    thread, so a higher in-flight count does not block frames; it is the tile
@@ -94,7 +94,7 @@ const late = new Map<string, { bitmap: ImageBitmap; kind: TileResult["kind"]; fr
 const LATE_LIMIT = 24;
 /** Which tile each posted job belongs to, so a late reply can be recognised. */
 const posted = new Map<number, { z: number; x: number; y: number }>();
-/* A run of slow tiles worth saying out loud in a bench build. It is not a
+/* A run of slow tiles worth saying out loud in a diagnostics build. It is not a
    reason to take the worker apart — see the timeout path in `requestTile`. */
 const TIMEOUT_STREAK_LIMIT = 3;
 let timeoutStreak = 0;
@@ -203,7 +203,7 @@ async function fromAncestor(z: number, x: number, y: number, maxShift: number) {
   return { bitmap, kind: "resample" as TileKind, from: hit.z, computeMs: 0 };
 }
 
-/** What the main-thread bitmap copies cost, for the bench. */
+/** What the main-thread bitmap copies cost, for the diagnostics. */
 const copyStats = { n: 0, total: 0, max: 0, missed: 0 };
 
 /** `createImageBitmap` behind a saturated rasteriser can queue and never come
@@ -216,7 +216,7 @@ async function boundedBitmap(work: Promise<ImageBitmap>, ms = 1200) {
       window.setTimeout(() => resolve(null), ms);
     }),
   ]);
-  if (import.meta.env.DEV || import.meta.env.VITE_BENCH === "1") {
+  if (import.meta.env.DEV) {
     const ms = performance.now() - t0;
     copyStats.n += 1;
     copyStats.total += ms;
@@ -310,7 +310,7 @@ function takeNext(): Waiting | undefined {
 }
 
 function record(z: number, kind: string, total: number, compute: number, from?: number) {
-  if (!import.meta.env.DEV && import.meta.env.VITE_BENCH !== "1") return;
+  if (!import.meta.env.DEV) return;
   const scope = window as unknown as {
     __demStats?: { z: number; kind: string; total: number; compute: number; from?: number }[];
   };
@@ -330,7 +330,7 @@ function localPipeline() {
  *  late acknowledgement is the only evidence the work actually ended inside the
  *  worker, and it used to be thrown away with the orphan reply. */
 function noteWorkerEnd() {
-  if (!import.meta.env.DEV && import.meta.env.VITE_BENCH !== "1") return;
+  if (!import.meta.env.DEV) return;
   if (typeof window === "undefined") return;
   const s = window as unknown as { __demCancelledReplies?: number };
   s.__demCancelledReplies = (s.__demCancelledReplies ?? 0) + 1;
@@ -401,7 +401,7 @@ function ensureWorker(): Worker | null {
       });
     };
     instance.onerror = (event) => {
-      if (BENCH) {
+      if (DIAGNOSTICS) {
         const message = (event as unknown as { message?: string })?.message;
         console.error("[dem] worker error", message ?? "unknown");
       }
@@ -413,7 +413,7 @@ function ensureWorker(): Worker | null {
     worker = instance;
     return instance;
   } catch (err) {
-    if (BENCH) console.error("[dem] worker unavailable", String(err));
+    if (DIAGNOSTICS) console.error("[dem] worker unavailable", String(err));
     workerBroken = true;
     return null;
   }
@@ -469,13 +469,13 @@ function release() {
 
 /** Control mode: answer every request with a 1×1 sea-level plate.
  *
- *  Bench only, and not a product path. It removes every fetch, decode and
+ *  diagnostics only, and not a product path. It removes every fetch, decode and
  *  encode this pipeline does — leaving MapLibre with the same number of tiles
  *  to prepare and nothing of ours to pay for. The settle time it measures is
  *  therefore the page's own floor, which is what separates “our DEM work is
  *  slow” from “this rasteriser cannot prepare this many tiles”. */
 const PLATE_CONTROL = (() => {
-  if (!import.meta.env.DEV && import.meta.env.VITE_BENCH !== "1") return false;
+  if (!import.meta.env.DEV) return false;
   try {
     return new URLSearchParams(window.location.search).get("demcontrol") === "1";
   } catch {
@@ -503,10 +503,10 @@ async function requestTile(
   if (PLATE_CONTROL) {
     return { bitmap: plateTile(), kind: "native", from: z, computeMs: 0 };
   }
-  /* Bench: the levels MapLibre actually ASKS for. `__demStats` only records
+  /* diagnostics: the levels MapLibre actually ASKS for. `__demStats` only records
      finished tiles, so a level whose jobs are still queued looks like a level
      that was never requested — which is exactly the question this answers. */
-  if (import.meta.env.DEV || import.meta.env.VITE_BENCH === "1") {
+  if (import.meta.env.DEV) {
     const s = window as unknown as { __demRequested?: number[] };
     (s.__demRequested ??= []).push(z);
   }
@@ -515,7 +515,7 @@ async function requestTile(
      unreachable when the renderer froze, so an outstanding-tile account could
      only ever be a count. This one survives a wedged worker. */
   const ledger = (() => {
-    if (!import.meta.env.DEV && import.meta.env.VITE_BENCH !== "1") return null;
+    if (!import.meta.env.DEV) return null;
     const url = PRIMARY_HTTP_TILE_URL.replace("{z}", String(z))
       .replace("{x}", String(x))
       .replace("{y}", String(y));
@@ -685,13 +685,13 @@ async function requestTile(
         /* Tell the worker to stop as well: the fetch and the decode it had
            started were the reason the next viewport waited. */
         void instance.postMessage({ id, z, x, y, cancel: true });
-        if (import.meta.env.DEV || import.meta.env.VITE_BENCH === "1") {
+        if (import.meta.env.DEV) {
           const s = window as unknown as {
             __demCancels?: number;
             __demAborts?: { url: string; z: number; x: number; y: number; aborted: boolean }[];
           };
           s.__demCancels = (s.__demCancels ?? 0) + 1;
-          /* The URL, not just a count: the bench matches this against the
+          /* The URL, not just a count: the diagnostics matches this against the
              browser's own network cancellation for the same request. */
           const url = PRIMARY_HTTP_TILE_URL.replace("{z}", String(z))
             .replace("{x}", String(x))
@@ -702,7 +702,7 @@ async function requestTile(
       const timer = window.setTimeout(() => {
         pending.delete(id);
         timeoutStreak += 1;
-        /* The ledger has to say so. A timed-out tile used to keep its `queued`
+        /* The diagnostics have to say so. A timed-out tile used to keep its `queued`
            state for the life of the page: the request had settled (MapLibre got
            a plate), the worker had been told to stop, and every readout still
            counted it outstanding. That is the difference between a set that
@@ -713,7 +713,7 @@ async function requestTile(
            decoded tile and one of its runs: the deep band timed out six tiles at
            a time and never got far enough to answer any of them. */
         void instance.postMessage({ id, z, x, y, cancel: true });
-        if (BENCH) console.warn("[dem] tile timeout", z, "streak", timeoutStreak);
+        if (DIAGNOSTICS) console.warn("[dem] tile timeout", z, "streak", timeoutStreak);
         finish({ kind: "timeout" });
       }, TILE_TIMEOUT_MS);
       pending.set(id, {
@@ -758,7 +758,7 @@ async function requestTile(
        phone, three slow tiles were enough to turn the map into a slideshow.
        Let MapLibre ask again instead; a worker that is genuinely stuck just
        keeps timing out, which costs relief but never costs the frame rate. */
-    if (BENCH && timeoutStreak === TIMEOUT_STREAK_LIMIT) {
+    if (DIAGNOSTICS && timeoutStreak === TIMEOUT_STREAK_LIMIT) {
       console.warn("[dem] tiles still timing out after", timeoutStreak);
     }
     return null;
@@ -776,14 +776,14 @@ let installed = false;
 export function installDemProtocol() {
   if (installed) return;
   installed = true;
-  /* Handle for the browser bench: what the worker actually fetched. */
-  if (import.meta.env.DEV || import.meta.env.VITE_BENCH === "1") {
+  /* Handle for the browser diagnostics: what the worker actually fetched. */
+  if (import.meta.env.DEV) {
     (window as unknown as { __demTrace?: () => Promise<DemTrace | null> }).__demTrace = () =>
       new Promise((resolve) => {
         const instance = ensureWorker();
         if (!instance) {
           /* The counters live in whichever pipeline is resolving tiles, so a
-             dead worker must not blind the bench. */
+             dead worker must not blind the diagnostics. */
           resolve(localPipeline().trace());
           return;
         }

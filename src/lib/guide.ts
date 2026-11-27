@@ -137,7 +137,6 @@ export function guidePick(row: GuideCatalogRow): MapPick {
       region: row.region,
       country: row.country,
       places: row.placeCount,
-      trails: row.trailCount,
     },
     row.lon,
     row.lat,

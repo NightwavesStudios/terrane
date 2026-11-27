@@ -12,7 +12,7 @@ import { targetForPick } from "../../lib/logTargets";
  *
  * One destination, one page. Want and bagged go to the same local log as every
  * other point. The card prints only what the record holds: kind, recorded
- * neighbours and named trails.
+ * neighbours.
  */
 export default function ExperiencePickCard({
   pick,
@@ -38,14 +38,7 @@ export default function ExperiencePickCard({
       <div className="pick-body">
         <p className="mono pick-eyebrow">Experience · {kind.label}</p>
         <h2>{pick.name}</h2>
-        <p className="mono pick-meta">
-          {[
-            `${row.places} catalogued places nearby`,
-            row.trails ? `${row.trails} named trails` : "",
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+        <p className="mono pick-meta">{`${row.places} catalogued places nearby`}</p>
         {where ? <p className="mono pick-meta">{where}</p> : null}
         <LogActions target={target} />
         <div className="pick-actions">

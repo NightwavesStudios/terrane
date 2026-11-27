@@ -7,7 +7,6 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createStyle, FIRST_SYMBOL_LAYER } from "./style";
-import { addCampIcons } from "./campIcon";
 import { installDemProtocol, noteDemCamera } from "./dem";
 import { focusFor, pitchForZoom, readCamera, terrainExaggeration, worldZoom } from "./camera";
 import { circleRing, kmBetween } from "../lib/geo";
@@ -23,30 +22,13 @@ import {
   setDestinationCats,
 } from "./destinations";
 import {
-  MAPPED_LAYERS,
-  addMapped,
-  mappedStats,
-  refreshMapped,
-  refreshDuplicates,
-  resetMapped,
-  setMappedCats,
-} from "./mapped";
-import {
-  TRAIL_LAYERS,
-  addTrails,
-  refreshTrails,
-  resetTrails,
-  setTrailLayers,
-  trailStats,
-} from "./trails";
-import {
   EXPERIENCE_LAYERS,
   addExperiences,
   resetExperiences,
   setExperienceLayers,
   showExperience,
 } from "./experiences";
-import { category, pickOf, type Pick } from "../data/features";
+import { pickOf, type Pick } from "../data/features";
 import { DEFAULT_LAYERS, type LayerState } from "../components/LayerControl";
 import type { Place } from "../data/places";
 import {
@@ -63,15 +45,6 @@ import {
   setListedVisibility,
   type ListedPoint,
 } from "./listed";
-
-/** Dev, or a build made with `VITE_BENCH=1` for the browser bench. */
-const BENCH = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
-
-/** Bench-only timeline mark. The long-task log says the main thread was blocked;
- *  these say which phase was running when it was. */
-const mark = (name: string) => {
-  if (BENCH) performance.mark(name);
-};
 
 export interface GlobeFocus {
   lon: number;
@@ -150,11 +123,10 @@ interface Props {
 /* Which base layers answer to which switch. Relief is handled separately: the
    hillshade and the snow layer are two halves of one switch, so they cannot be
    turned on by a later key after `relief` turned everything off. Features are
-   handled by category in `destinations.ts` and `mapped.ts`, not here. */
+   handled by category in `destinations.ts`, not here. */
 const LAYER_GROUPS: Record<string, string[]> = {
   contours: ["contours-minor", "contours-major"],
   contourLabels: ["contours-label"],
-  trails: ["trails-casing", "trails-path", "trails-label", ...TRAIL_LAYERS],
   roads: ["road-glow", "road-casing", "road-minor", "road-major", "road-highway"],
   parks: ["park-area", "park-outline"],
   borders: ["boundary-country", "boundary-state", "boundary-disputed"],
@@ -175,8 +147,6 @@ const LAYER_GROUPS: Record<string, string[]> = {
 const RUNTIME_IDS = [
   "features-peak-glow",
   "features-dot-0",
-  "mapped-pin-0",
-  "trail-route-line",
   "experiences-dot",
   "log-done-ring",
   "listed-ring",
@@ -314,54 +284,9 @@ export default function Globe({
       cooperativeGestures: false,
       doubleClickZoom: true,
       keyboard: true,
-      /* Bench builds only: the canvas keeps its buffer after presentation so
-         the bench can read the frame back itself, instead of asking the
-         compositor for a screenshot (which times out under a software
-         rasteriser). Costs a buffer copy; never set in a normal build. */
-      canvasContextAttributes: BENCH ? { preserveDrawingBuffer: true } : undefined,
-      /* The cloud bench box renders on a software rasteriser and refuses to be
-         resized below its own window size, so the deep-zoom runs pin the
-         drawing buffer to roughly a 360 px wide stage instead. Scene graph,
-         tiles and terrain are untouched — only the pixel count drops. Never
-         set in a normal build. */
-      pixelRatio: BENCH ? 0.25 : Math.min(window.devicePixelRatio || 1, 1.5),
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     map.current = map_;
-
-    /* Dev-only probes for the browser bench: how many times the app asks for a
-       projection after the map exists (it should be never — the style declares
-       the globe), when the first frame actually painted, and when the mesh was
-       armed relative to it. */
-    if (BENCH) {
-      const scope = window as unknown as {
-        __terraneProjectionCalls?: number;
-        __terraneFirstFrame?: { ms: number; projection: string; frame?: number };
-        __terraneArmMs?: number;
-        __terraneFrames?: number;
-      };
-      scope.__terraneProjectionCalls = 0;
-      scope.__terraneFrames = 0;
-      const setProjection = map_.setProjection.bind(map_);
-      map_.setProjection = (...args: Parameters<MlMap["setProjection"]>) => {
-        scope.__terraneProjectionCalls = (scope.__terraneProjectionCalls ?? 0) + 1;
-        return setProjection(...args);
-      };
-      scope.__terraneFirstFrame = undefined;
-      map_.on("render", () => {
-        scope.__terraneFrames = (scope.__terraneFrames ?? 0) + 1;
-        /* The first frame that has a style at all: a frame before the style is
-           parsed has no projection to report, and reading one would call it
-           Mercator by default. */
-        const projection = map_.getStyle()?.projection?.type;
-        if (!scope.__terraneFirstFrame && projection) {
-          scope.__terraneFirstFrame = {
-            ms: Math.round(performance.now()),
-            projection: String(projection),
-            frame: scope.__terraneFrames,
-          };
-        }
-      });
-    }
 
     /* The settled centre and zoom, rounded to ~1 km. Discover recomputes its
        nearby lists from this, and a sub-kilometre camera jitter is not a new
@@ -401,10 +326,6 @@ export default function Globe({
     const canvas = map_.getCanvas();
     canvas.setAttribute("tabindex", "0");
     canvas.setAttribute("aria-label", "Map — arrow keys pan, + and − zoom");
-
-    if (BENCH) {
-      (window as unknown as { __terraneMap?: MlMap }).__terraneMap = map_;
-    }
 
     const addPickArea = () => {
       if (!map_.getSource("pick-area")) {
@@ -457,14 +378,10 @@ export default function Globe({
     const ensureRuntimeLayers = () => {
       if (!booted.current || !map_.getStyle()) return;
       if (!RUNTIME_IDS.every((id) => map_.getLayer(id))) {
-        addCampIcons(map_);
         addDestinations(map_);
-        mark("atlas:start");
         setAtlasPlaces(map_, dataRef.current);
-        mark("atlas:end");
-        addMapped(map_, layersRef.current);
-        addTrails(map_, layersRef.current);
-        /* Routes last: a beacon has to sit above every pin and every label. */
+        /* Experiences last: a beacon has to sit above every destination and
+           every label. */
         addExperiences(map_, layersRef.current);
         addLog(map_, layersRef.current.log);
         setLogPoints(map_, logRef.current);
@@ -474,8 +391,6 @@ export default function Globe({
         addPickRing();
       }
       setDestinationCats(map_, layersRef.current);
-      setMappedCats(map_, layersRef.current);
-      setTrailLayers(map_, layersRef.current);
       setExperienceLayers(map_, layersRef.current);
       if (layersRef.current.contours && !map_.getLayer("contours-minor")) {
         contours.current?.reload();
@@ -516,8 +431,7 @@ export default function Globe({
 
       ensureRuntimeLayers();
 
-      /* Two chunks, both after first paint: the famous half of the long tail and
-         the practical cells. The atlas dots are already on screen. */
+      /* Two chunks, both after first paint: the famous half of the long tail. The atlas dots are already on screen. */
       /* The mesh is created one frame after the planet first paints, not after
          an idle callback. The DEM tiles the hillshade needs are already in
          flight from the style itself, so the mesh costs a render-to-texture
@@ -531,10 +445,6 @@ export default function Globe({
         terrainTimer.current = null;
         if (terrainArmed.current) return;
         terrainArmed.current = true;
-        if (BENCH) {
-          (window as unknown as { __terraneArmMs?: number }).__terraneArmMs =
-            Math.round(performance.now());
-        }
         applyTerrainTo(map_, layersRef.current);
       };
       const armAfterPaint = () => {
@@ -546,43 +456,22 @@ export default function Globe({
       terrainTimer.current = window.setTimeout(armTerrain, 1500);
 
       const loadCore = () => {
-      mark("core:start");
       void loadDestinations().then(() => {
-        mark("core:end");
-        refreshDuplicates(map_);
       });
     };
       const idle = window.requestIdleCallback?.(loadCore, { timeout: 3000 });
       if (!idle) window.setTimeout(loadCore, 1600);
 
-      mark("mapped:start");
-      refreshMapped(map_);
-      mark("mapped:end");
-      mark("trails:start");
-      refreshTrails(map_);
-      mark("trails:end");
-      /* Time from navigation start to the first interactive frame, read by the
-         dev bench. `performance.now()` is measured from the navigation start. */
-      if (BENCH) {
-        (window as unknown as { __terraneReadyMs?: number }).__terraneReadyMs = Math.round(
-          performance.now(),
-        );
-      }
       reportView();
       setReady(true);
     };
 
-    /* One click, one pick. Routes are queried first because they sit above
-       everything, then destinations (which usually have a page), then pins. */
+    /* One click, one pick. Experiences are queried first because they sit above
+       everything, then the log and listed rings, then the destinations. */
     const featureLayers = () =>
-      [
-        ...EXPERIENCE_LAYERS,
-        ...LOG_LAYERS,
-        ...LISTED_LAYERS,
-        ...DEST_LAYERS,
-        ...MAPPED_LAYERS,
-        ...TRAIL_LAYERS,
-      ].filter((id) => map_.getLayer(id));
+      [...EXPERIENCE_LAYERS, ...LOG_LAYERS, ...LISTED_LAYERS, ...DEST_LAYERS].filter((id) =>
+        map_.getLayer(id),
+      );
 
     const pickAt = (x: number, y: number): MapGeoJSONFeature | undefined => {
       const layers = featureLayers();
@@ -601,7 +490,7 @@ export default function Globe({
        is a 10 px box, so a click beside a dot lands kilometres away at world
        zoom, and the card, the ring and "near X" all read that coordinate. A line
        has no single coordinate, so it takes the vertex nearest the click — the
-       midpoint used to send a 40 km trail's camera twenty kilometres away. */
+       midpoint would send a 40 km area's camera twenty kilometres away. */
     const nearestVertex = (coords: [number, number][], lon: number, lat: number) => {
       let best = coords[0];
       let bestKm = Infinity;
@@ -694,10 +583,7 @@ export default function Globe({
          enough for it to mean something, and until the frame is idle. */
       if (map_.getZoom() >= 8.2) {
         const more = () => {
-          mark("tail:start");
           void loadMoreDestinations().then(() => {
-            mark("tail:end");
-            refreshDuplicates(map_);
           });
         };
         const idle = window.requestIdleCallback?.(more, { timeout: 2500 });
@@ -746,8 +632,6 @@ export default function Globe({
       ro.disconnect();
       window.cancelAnimationFrame(resizeFrame);
       map_.off("styledata", ensureRuntimeLayers);
-      resetTrails();
-      resetMapped();
       resetDestinations();
       resetExperiences();
       window.clearTimeout(t);
@@ -791,8 +675,6 @@ export default function Globe({
     contours.current?.setEnabled(layers.contours);
     contours.current?.setLabels(layers.contourLabels && layers.contours);
     setDestinationCats(map_, layers);
-    setMappedCats(map_, layers);
-    setTrailLayers(map_, layers);
     setExperienceLayers(map_, layers);
     setLogVisibility(map_, layers.log);
     setListedVisibility(map_, layers.listed);
@@ -823,13 +705,9 @@ export default function Globe({
   useEffect(() => {
     const map_ = map.current;
     if (!map_ || !ready) return;
-    /* A route is drawn by its own layer, from its own shard; a selection ring at
-       one stop would be the wrong shape. The camera still lands on the stop — an
-       earlier pass skipped it for beacons, so clicking one framed the whole route
-       instead of the point under the pointer. */
     const isExperience = pick?.cat === "experience";
     const area = map_.getSource("pick-area") as GeoJSONSource | undefined;
-    const radiusKm = pick && category(pick.cat).family === "practical" ? 2 : 10;
+    const radiusKm = 10;
     area?.setData(
       pick
         ? {
@@ -969,71 +847,22 @@ export default function Globe({
     const id = window.setInterval(() => {
       const map_ = map.current;
       if (!map_) return;
-      const pins = mappedStats();
-      const trails = trailStats();
       const scope = window as unknown as { __demStats?: unknown[] };
       const demTiles = scope.__demStats?.length ?? 0;
       const lines = [
         `z ${map_.getZoom().toFixed(2)} · pitch ${map_.getPitch().toFixed(0)}° · ${fps.value} fps`,
-        `pins ${pins.drawn.toLocaleString()} / ${pins.cached.toLocaleString()} cached · ${pins.duplicates} dup · setData ${pins.lastSetDataMs.toFixed(1)} ms`,
-        `trails ${trails.drawn.toLocaleString()} · ${trails.cells} cells · setData ${trails.lastSetDataMs.toFixed(1)} ms`,
-        `dem ${demTiles} · terrain ${map_.getTerrain() ? `on ×${map_.terrain?.exaggeration.toFixed(1)}` : "off"} · ${pins.cells + pins.parkingCells} cells`,
+        `dem ${demTiles} · terrain ${map_.getTerrain() ? `on ×${map_.terrain?.exaggeration.toFixed(1)}` : "off"}`,
       ];
       if (debugOn.current) setDebugLines(lines);
       (window as unknown as { __terraneStats?: unknown }).__terraneStats = {
         zoom: map_.getZoom(),
         fps: fps.value,
-        ...pins,
-        trails,
       };
     }, 700);
 
     return () => {
       alive = false;
       window.clearInterval(id);
-    };
-  }, [ready]);
-
-  /* ── bench: three 0.4-zoom jumps, medians ───────────── */
-  useEffect(() => {
-    if (!import.meta.env.DEV || !ready) return;
-    const scope = window as unknown as {
-      __terraneBench?: (zoom?: number, lat?: number, lon?: number) => Promise<number[]>;
-    };
-
-    const run = (zoom: number) =>
-      new Promise<number>((resolve) => {
-        const map_ = map.current;
-        if (!map_) return resolve(0);
-        let frames = 0;
-        const started = performance.now();
-        const step = () => {
-          frames += 1;
-          if (performance.now() - started < 1200) {
-            window.requestAnimationFrame(step);
-          } else {
-            resolve((frames * 1000) / (performance.now() - started));
-          }
-        };
-        window.requestAnimationFrame(step);
-        map_.easeTo({ zoom, duration: 1200, essential: true });
-      });
-
-    scope.__terraneBench = async (zoom = 11, lat = 46.5, lon = 8) => {
-      const map_ = map.current;
-      if (!map_) return [];
-      const runs: number[] = [];
-      for (let i = 0; i < 3; i += 1) {
-        map_.jumpTo({ center: [lon, lat], zoom });
-        await new Promise((r) => window.setTimeout(r, 900));
-        runs.push(Number((await run(zoom + 0.4)).toFixed(1)));
-        await new Promise((r) => window.setTimeout(r, 600));
-      }
-      return runs;
-    };
-
-    return () => {
-      delete scope.__terraneBench;
     };
   }, [ready]);
 

@@ -1,38 +1,7 @@
 node_modules
 dist
-bench-samples
 *.tsbuildinfo
 .DS_Store
 .env
 .env.local
-shots/
-.cache
-
-# POI cells live in object storage, not in git: ~382 MB. `npm run poi:push`
-# sends them to the bucket; the map reads them from there. The rebuilt trail
-# cells are committed so a clean checkout can run the strict geometry gate.
-public/poi/
-public/.poi-staging
-public/.poi-previous
-
-# Generated at build time from the source data, never committed.
-public/coverage.json
-
-# Python bytecode from the harvest scripts
-__pycache__/
-*.pyc
-
-# Normalized source rows are reproduced by the adapters, not committed.
-data/sources/*.ndjson
-data/sources/*.ndjson.gz
-data/upload-manifest.json
-
-# Generated reports. `reports/coverage.json` and `reports/merge.json` are the
-# committed strict-gate and trail-provenance baselines; everything else is
-# written by a local run.
-reports/*
-!reports/coverage.json
-!reports/merge.json
-
-# The dev server's own log, and the local Vercel link (`vercel link`).
 .vercel

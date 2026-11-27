@@ -12,7 +12,6 @@ const Place = lazy(() => import("./pages/Place"));
 const Experience = lazy(() => import("./pages/Experience"));
 const Lists = lazy(() => import("./pages/Lists"));
 const LogPage = lazy(() => import("./pages/Log"));
-const Coverage = lazy(() => import("./pages/Coverage"));
 
 export default function App() {
   const route = useRoute();
@@ -44,8 +43,6 @@ export default function App() {
         <Lists listId={route.list} />
       ) : route.name === "log" ? (
         <LogPage />
-      ) : route.name === "coverage" ? (
-        <Coverage />
       ) : (
         <Home />
       )}

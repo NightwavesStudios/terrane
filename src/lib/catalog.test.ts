@@ -25,7 +25,6 @@ describe("buildCatalog", () => {
     const data = buildCatalog(
       [matterhorn],
       [tail({ name: "Matterhorn", cat: "peak", lat: 45.977, lon: 7.659 })],
-      [],
     );
     expect(data.rows).toHaveLength(1);
     expect(data.rows[0].source).toBe("atlas");
@@ -44,7 +43,6 @@ describe("buildCatalog", () => {
           srcId: "Q6583",
         }),
       ],
-      [],
     );
     const row = data.rows.find((item) => item.name === "Sahara");
     expect(row?.pick.slug).toBe("sahara");
@@ -56,7 +54,6 @@ describe("buildCatalog", () => {
     const data = buildCatalog(
       [matterhorn],
       [tail({ name: "Matterhorn", cat: "peak", lat: 60, lon: 8 })],
-      [],
     );
     expect(data.rows).toHaveLength(2);
   });
@@ -65,7 +62,6 @@ describe("buildCatalog", () => {
     const data = buildCatalog(
       [matterhorn],
       [tail({ name: "Riffelhorn", cat: "peak", lat: 45.99, lon: 7.67 })],
-      [],
     );
     const row = data.rows.find((item) => item.name === "Riffelhorn");
     expect(row?.near?.name).toBe("Matterhorn");
@@ -86,7 +82,6 @@ describe("buildCatalog", () => {
           near: "matterhorn",
         }),
       ],
-      [],
     );
     const row = data.rows.find((item) => item.name === "Somewhere");
     expect(row?.near?.slug).toBe("matterhorn");
@@ -106,55 +101,10 @@ describe("buildCatalog", () => {
           near: "far",
         }),
       ],
-      [],
     );
     const row = data.rows.find((item) => item.name === "Somewhere");
     expect(row?.near).toBeUndefined();
     expect(row?.country).toBeUndefined();
-  });
-
-  it("appends named practical pins with their own tier and location", () => {
-    const data = buildCatalog(
-      [matterhorn],
-      [],
-      [
-        {
-          cat: "camp",
-          name: "Camping Zermatt",
-          lat: 46.02,
-          lon: 7.75,
-          region: "Valais",
-          country: "Switzerland",
-          src: "osm",
-        },
-      ],
-    );
-    const poi = data.rows.find((item) => item.name === "Camping Zermatt");
-    expect(poi?.tier).toBe(5);
-    expect(poi?.source).toBe("poi");
-    expect(poi?.country).toBe("Switzerland");
-  });
-
-  it("drops a named pin that repeats an indexed row within 10 km", () => {
-    const data = buildCatalog(
-      [matterhorn],
-      [],
-      [{ cat: "peak", name: "Matterhorn", lat: 45.977, lon: 7.659, src: "osm" }],
-    );
-    expect(data.rows.filter((item) => item.name === "Matterhorn")).toHaveLength(1);
-    expect(data.rows[0].source).toBe("atlas");
-  });
-
-  it("dedupes named pins against each other", () => {
-    const data = buildCatalog(
-      [],
-      [],
-      [
-        { cat: "camp", name: "Camp", lat: 46, lon: 7, src: "osm" },
-        { cat: "camp", name: "Camp", lat: 46.01, lon: 7.01, src: "osm" },
-      ],
-    );
-    expect(data.rows).toHaveLength(1);
   });
 
   it("groups countries and regions into areas with a fit", () => {
@@ -166,7 +116,6 @@ describe("buildCatalog", () => {
         place({ slug: "lake", name: "Lake", type: "landmark", region: "Bern", lat: 46.5, lon: 7.9 }),
       ],
       [tail({ name: "Tail Lake", cat: "lake", lat: 46.02, lon: 7.66 })],
-      [],
     );
     const switzerland = data.areas.find((item) => item.kind === "country");
     expect(switzerland?.count).toBe(5);

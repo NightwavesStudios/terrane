@@ -20,6 +20,11 @@
       "source": "/collections/:path*",
       "destination": "/",
       "permanent": true
+    },
+    {
+      "source": "/coverage",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "rewrites": [
@@ -58,15 +63,6 @@
     },
     {
       "source": "/experiences/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/coverage",
       "headers": [
         {
           "key": "Cache-Control",

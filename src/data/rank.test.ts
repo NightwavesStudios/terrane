@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANDS, cellOf, importance, rankPlaces } from "./rank";
+import { BANDS, gridOf, importance, rankPlaces } from "./rank";
 import type { Place } from "./places";
 
 function place(over: Partial<Place> & Pick<Place, "slug" | "lat" | "lon">): Place {
@@ -12,7 +12,7 @@ function place(over: Partial<Place> & Pick<Place, "slug" | "lat" | "lon">): Plac
   };
 }
 
-/** Ten summits stacked on one point, so the cell quota is the only thing that
+/** Ten summits stacked on one point, so the grid quota is the only thing that
     decides where they land. */
 function cluster(n: number): Place[] {
   return Array.from({ length: n }, (_, i) =>
@@ -20,22 +20,22 @@ function cluster(n: number): Place[] {
   );
 }
 
-describe("cellOf", () => {
+describe("gridOf", () => {
   it("puts the equator and the prime meridian in the middle of a z4 world", () => {
-    expect(cellOf(0, 0, 4)).toBe("8/8");
+    expect(gridOf(0, 0, 4)).toBe("8/8");
   });
 
   it("clamps latitude to the Web Mercator limit", () => {
-    expect(cellOf(89, 10, 4)).toBe(cellOf(85, 10, 4));
-    expect(cellOf(-89, 10, 4)).toBe(cellOf(-85, 10, 4));
+    expect(gridOf(89, 10, 4)).toBe(gridOf(85, 10, 4));
+    expect(gridOf(-89, 10, 4)).toBe(gridOf(-85, 10, 4));
   });
 
   it("moves east and north as longitude and latitude grow", () => {
-    const [west, westY] = cellOf(0, -170, 4).split("/").map(Number);
-    const [east, eastY] = cellOf(0, 170, 4).split("/").map(Number);
+    const [west, westY] = gridOf(0, -170, 4).split("/").map(Number);
+    const [east, eastY] = gridOf(0, 170, 4).split("/").map(Number);
     expect(east).toBeGreaterThan(west);
     expect(eastY).toBe(westY);
-    expect(cellOf(60, 0, 4)).not.toBe(cellOf(0, 0, 4));
+    expect(gridOf(60, 0, 4)).not.toBe(gridOf(0, 0, 4));
   });
 });
 
@@ -77,7 +77,7 @@ describe("rankPlaces", () => {
     );
   });
 
-  it("caps a crowded cell at one band-0 row, two band-1 and six band-2", () => {
+  it("caps a crowded grid at one band-0 row, two band-1 and six band-2", () => {
     const counts = BANDS.map(() => 0);
     for (const p of rankPlaces(cluster(10))) counts[p.band ?? 3] += 1;
     expect(counts[0]).toBe(1);

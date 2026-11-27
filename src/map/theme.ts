@@ -6,9 +6,9 @@ import type { HillshadeLayerSpecification } from "maplibre-gl";
  * The globe and the Experience map are the same product at
  * different crops, so they read from one palette instead of three sets of
  * literals. Values here are the "blue-hour survey" palette: deep water with a
- * luminous coast, hypsometric land, quiet borders, warm trail ink, cool type.
+ * luminous coast, hypsometric land, quiet borders, cool type.
  * Nothing in this file fetches, computes or depends on React — it is data, and
- * `style.ts` is the only consumer that turns it into layers.
+ * the map modules turn it into layers.
  */
 export const PALETTE = {
   space: "#05070c",
@@ -27,7 +27,7 @@ export const PALETTE = {
 
   /* Land cover: distinct hues, not one green family. Kept translucent in the
      style so the relief reads through, but opaque enough at detail zooms to tell
-     a forest from a meadow from a harvested field. */
+     a forest from a meadow from a cropped field. */
   wood: "#1c6339",
   grass: "#4f7d24",
   farmland: "#9c8b3a",
@@ -53,8 +53,6 @@ export const PALETTE = {
   road: "#50616e",
   roadHighway: "#63758a",
   roadGlow: "#a9c3d4",
-  trail: "#c79a5f",
-  trailStep: "#e0c08a",
 
   label: "#dbe9f3",
   labelTown: "#e8ddc6",
@@ -62,12 +60,10 @@ export const PALETTE = {
   labelCountry: "#a8c1d1",
   labelState: "#7f9aab",
   labelWater: "#7fb0c6",
-  labelPoi: "#f0e2c8",
-  labelTrail: "#eddbb8",
   labelPeak: "#d7e5ee",
   halo: "#04070c",
   white: "#f4fbff",
-  /* Beacon cores: warm cream, so a screen of pins reads as lit stations rather
+  /* Beacon cores: warm cream, so a screen of beacons reads as lit stations rather
      than white noise over a dark relief. */
   dot: "#f7eeda",
   contour: "#dcefe6",
@@ -81,7 +77,7 @@ export const PALETTE = {
  * one: these stops put a dry belt either side of 30°, keep the equatorial and
  * temperate belts green, and cool the boreal and tundra edges. Landcover paints
  * over it wherever OSM has polygons, so this only decides where nothing is
- * mapped. The steps are wider apart than the earlier pass on purpose: at world
+ * drawn. The steps are wider apart than the earlier pass on purpose: at world
  * zoom the Sahara must read as a different place from the Congo, not as the same
  * olive under two names.
  */
@@ -159,9 +155,6 @@ export const FONTS = {
   bold: ["Noto Sans Bold"],
   italic: ["Noto Sans Italic"],
 };
-
-/** The halo under every map label: a shadow, not a sticker outline. */
-export const HALO = { color: PALETTE.halo, width: 1.2, blur: 0.6 };
 
 /**
  * The single hillshade.

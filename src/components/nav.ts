@@ -35,7 +35,7 @@ export const NAV: NavItem[] = [
   },
 ];
 
-/** The tab a route belongs to. Coverage is a utility, not a destination. */
+/** The tab a route belongs to. The log is a utility, not a destination. */
 export function activeNav(route: Route): NavId | null {
   switch (route.name) {
     case "home":

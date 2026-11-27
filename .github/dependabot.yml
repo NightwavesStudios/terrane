@@ -1,8 +1,8 @@
 version: 2
 
 # The app has three runtime dependencies and the map provider is deliberately
-# pinned (see `docs/performance.md`), so a major bump is a decision rather than a
-# merge. Minor and patch updates go through CI like any other PR.
+# pinned, so a major bump is a decision rather than a merge. Minor and patch
+# updates go through CI like any other PR.
 updates:
   - package-ecosystem: npm
     directory: "/"
@@ -13,8 +13,8 @@ updates:
     commit-message:
       prefix: deps
     ignore:
-      # Deliberately held at v5 (`docs/performance.md`); a v6 bump is a mapping
-      # decision, not a dependency chore.
+      # Deliberately held at v5; a v6 bump is a mapping decision, not a
+      # dependency chore.
       - dependency-name: "maplibre-gl"
         update-types: ["version-update:semver-major"]
     groups:

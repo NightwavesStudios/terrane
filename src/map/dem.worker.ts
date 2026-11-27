@@ -29,8 +29,8 @@ const running = new Map<number, AbortController>();
  *  and the renderer starved. Two at a time drains the band instead of thrashing
  *  it, and a stationary view only ever needs a couple of tiles. */
 const DEEP_FROM_Z = 9;
-/* Two was chosen when the deep band never finished and the guess was thrash. The
-   ledger afterwards showed the opposite failure: a stationary view issued ~60
+/* Two was chosen when the deep band never finished and the guess was thrash.
+   Later measurements showed the opposite failure: a stationary view issued ~60
    requests and 27 of them never got a slot at all, so a two-deep cap guaranteed
    the set could not close. The cap still bounds the deep band, it just no longer
    guarantees starvation. */

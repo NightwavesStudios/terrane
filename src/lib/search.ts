@@ -8,8 +8,8 @@ import { normalize, singular } from "./text";
  * Geographic search over the discovery catalog.
  *
  * A query is not one string match. Words are classified first: a category word
- * ("falls", "camping", "hot springs") becomes a filter over the taxonomy, an
- * area word ("Iceland", "Valais") becomes a region result that can be flown to,
+ * ("falls", "hot springs") becomes a filter over the taxonomy, an area word
+ * ("Iceland", "Valais") becomes a region result that can be flown to,
  * and the rest must appear in a place's name or context. Every text word must
  * match — "falls iceland" cannot return a French waterfall because "falls"
  * matched — and the ordering is deterministic: exact, prefix, word prefix,
@@ -84,31 +84,6 @@ const SYNONYMS: [string, string[]][] = [
   ["valleys", ["valley"]],
   ["deserts", ["desert"]],
   ["volcanoes", ["volcano"]],
-  ["camping", ["camp", "caravan"]],
-  ["campground", ["camp"]],
-  ["campgrounds", ["camp"]],
-  ["campsite", ["camp"]],
-  ["campsites", ["camp"]],
-  ["refuge", ["hut"]],
-  ["refuges", ["hut"]],
-  ["mountain hut", ["hut"]],
-  ["mountain huts", ["hut"]],
-  ["car park", ["parking"]],
-  ["car parks", ["parking"]],
-  ["parking lot", ["parking"]],
-  ["toilet", ["toilets"]],
-  ["loo", ["toilets"]],
-  ["lookout", ["view"]],
-  ["lookouts", ["view"]],
-  ["viewpoint", ["view"]],
-  ["viewpoints", ["view"]],
-  ["picnic", ["picnic"]],
-  ["picnic area", ["picnic"]],
-  ["information", ["info"]],
-  ["info board", ["info"]],
-  ["trail head", ["trailhead"]],
-  ["trail heads", ["trailhead"]],
-  ["parking area", ["parking"]],
 ];
 
 for (const [word, ids] of SYNONYMS) addTerm(word, ids);

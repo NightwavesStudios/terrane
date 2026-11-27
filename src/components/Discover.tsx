@@ -9,13 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { CATEGORIES, category, type Category, type Pick } from "../data/features";
-import { iconDataUrl, type KitIcon } from "../map/campIcon";
-import {
-  startCatalog,
-  syncCatalog,
-  useCatalog,
-  type AreaRow,
-} from "../lib/catalog";
+import { startCatalog, useCatalog, type AreaRow } from "../lib/catalog";
 import { search, rowWhy } from "../lib/search";
 import {
   hiddenGems,
@@ -57,17 +51,7 @@ type Action =
   | { kind: "area"; area: AreaRow; key: string }
   | { kind: "point"; lat: number; lon: number; label: string; key: string };
 
-const CATS: Category[] = CATEGORIES.filter((cat) => cat.family !== "route");
-const ICONS = new Map<string, string>();
-
-function iconFor(cat: Category): string | null {
-  if (!cat.icon) return null;
-  const cached = ICONS.get(cat.icon);
-  if (cached) return cached;
-  const url = iconDataUrl(cat.icon as KitIcon, 32);
-  ICONS.set(cat.icon, url);
-  return url;
-}
+const CATS: Category[] = CATEGORIES;
 
 /** A stable DOM id for one option, so the field can point at the active row. */
 function optionId(action: Action): string {
@@ -142,7 +126,6 @@ function ActionRow({
   }
 
   const cat = category(action.pick.cat);
-  const icon = iconFor(cat);
   return (
     <button
       className={`discover-row${active ? " is-active" : ""}`}
@@ -153,11 +136,7 @@ function ActionRow({
       id={optionId}
     >
       <span className="discover-row-icon" aria-hidden="true">
-        {icon ? (
-          <img src={icon} alt="" width={18} height={18} />
-        ) : (
-          <i className="cat-dot" style={{ background: cat.colour }} />
-        )}
+        <i className="cat-dot" style={{ background: cat.colour }} />
       </span>
       <span className="discover-row-text">
         <span className="discover-row-name">
@@ -282,16 +261,8 @@ export default function Discover({
     setCursor(0);
   }, [open, query, activeCat]);
 
-  /* Cells arrive as the camera settles; rebuild the index only while open. */
-  useEffect(() => {
-    if (!open) return;
-    const id = window.setTimeout(() => syncCatalog(), 350);
-    return () => window.clearTimeout(id);
-  }, [open, view.lat, view.lon, catalog.rows.length]);
-
   const searching = term.trim().length >= 2;
   const settled = query === term;
-  const practicalCat = activeCat ? category(activeCat).family === "practical" : false;
 
   const result = useMemo(() => {
     if (!open || !searching || !settled || query.trim().length < 2) return null;
@@ -399,7 +370,7 @@ export default function Discover({
       ? "Loading the full place index…"
       : catalog.status === "error"
         ? "Atlas only — the long tail could not be loaded"
-        : `${catalog.rows.length.toLocaleString()} named places indexed · unnamed map pins are browsed by zoom, not searched`;
+        : `${catalog.rows.length.toLocaleString()} destinations indexed`;
 
   const offsetNearby = 0;
   const offsetNotable = sections ? sections.nearby.length : 0;
@@ -445,7 +416,7 @@ export default function Discover({
               value={term}
               onChange={(event) => setTerm(event.target.value)}
               onKeyDown={onFieldKey}
-              placeholder="Peak, lake, camp, country, 46.5, 8.0…"
+              placeholder="Peak, lake, park, country, 46.5, 8.0…"
               aria-label="Search places by name, category or country"
               role="combobox"
               aria-expanded
@@ -474,11 +445,7 @@ export default function Discover({
                 aria-pressed={activeCat === cat.id}
                 onClick={() => setActiveCat(activeCat === cat.id ? null : cat.id)}
               >
-                {cat.icon ? (
-                  <img src={iconFor(cat) ?? ""} alt="" width={13} height={13} />
-                ) : (
-                  <i className="cat-dot" style={{ background: cat.colour }} />
-                )}
+                <i className="cat-dot" style={{ background: cat.colour }} />
                 {cat.label}
               </button>
             ))}
@@ -508,7 +475,7 @@ export default function Discover({
                 ) : (
                   <p className="discover-empty mono">
                     {result
-                      ? `Nothing matches “${query.trim()}” in ${catalog.rows.length.toLocaleString()} places. Unnamed map pins are found by zooming in, not by name.`
+                      ? `Nothing matches “${query.trim()}” in ${catalog.rows.length.toLocaleString()} destinations.`
                       : "Searching…"}
                   </p>
                 )}
@@ -545,9 +512,7 @@ export default function Discover({
                         </div>
                       ) : (
                         <p className="discover-empty mono">
-                          {practicalCat
-                            ? "These pins come from OpenStreetMap cells; zoom in to load them here."
-                            : `Nothing within ${formatKm(sections.radius)} — drag the map onto land, or widen the view.`}
+                          {`Nothing within ${formatKm(sections.radius)} — drag the map onto land, or widen the view.`}
                         </p>
                       )}
                     </Section>

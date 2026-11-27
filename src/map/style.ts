@@ -3,7 +3,6 @@ import { DEM_ATTRIBUTION, DEM_MAX_ZOOM, DEM_SCHEME, DEM_TILE_SIZE } from "./dem"
 import {
   CLIMATE,
   FONTS,
-  HALO,
   HILLSHADE_NEAR,
   HILLSHADE_PAINT,
   HYPSOMETRY,
@@ -723,7 +722,7 @@ const MAP_STYLE: StyleSpecification = {
       filter: ["in", ["get", "class"], ["literal", ["minor", "service", "track"]]],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        /* Thin and dark, and narrower than the marked trails: the minor network
+        /* Thin and dark, and narrower than the marked roads: the minor network
            was the layer that read as a footpath and made routes ambiguous. */
         "line-color": PALETTE.road,
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.4, 16, 2.4],
@@ -756,71 +755,6 @@ const MAP_STYLE: StyleSpecification = {
         "line-color": PALETTE.roadHighway,
         "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 12, 2.6, 16, 4],
         "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 4.9, 1],
-      },
-    },
-
-    /* ── paths: warm ink, not a gold web ───────────────────────────────── */
-
-    {
-      id: "trails-casing",
-      type: "line",
-      source: "openmaptiles",
-      "source-layer": "transportation",
-      minzoom: 13.5,
-      filter: ["in", ["get", "class"], ["literal", ["path", "footway", "steps", "pedestrian"]]],
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": PALETTE.halo,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 13.5, 1.6, 16, 3.4],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 13.5, 0, 14.2, 0.45],
-      },
-    },
-    {
-      id: "trails-path",
-      type: "line",
-      source: "openmaptiles",
-      "source-layer": "transportation",
-      minzoom: 11.4,
-      filter: ["in", ["get", "class"], ["literal", ["path", "footway", "steps", "pedestrian"]]],
-      layout: { "line-cap": "butt", "line-join": "round" },
-      /* The basemap's own footpaths, demoted to a dotted texture. At full
-         strength and full casing the network at z11–14 was a gold web over the
-         whole range; named routes carry the colour now, and these are the
-         texture of access underneath them. */
-      paint: {
-        "line-color": ["match", ["get", "subclass"], "steps", PALETTE.trailStep, PALETTE.trail],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 11.4, 0.5, 14, 1.1, 16, 1.7],
-        "line-dasharray": [2.4, 2.2],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 11.4, 0, 12.4, 0.45, 14, 0.58, 16, 0.7],
-      },
-    },
-    {
-      id: "trails-label",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "transportation_name",
-      minzoom: 12.4,
-      /* `pedestrian` is excluded even though it is drawn as a trail: in towns
-         that class is the shopping street, and a street name set in gold along a
-         pale dashed line reads as a route. */
-      filter: ["in", ["get", "class"], ["literal", ["path", "footway", "steps"]]],
-      layout: {
-        "symbol-placement": "line",
-        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
-        "text-font": FONTS.italic,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 12.4, 9.5, 16, 12],
-        "text-letter-spacing": 0.06,
-        "text-padding": 3,
-        "symbol-spacing": 260,
-        "text-max-angle": 40,
-        "text-keep-upright": true,
-      },
-      paint: {
-        "text-color": PALETTE.labelTrail,
-        "text-halo-color": HALO.color,
-        "text-halo-width": 1.3,
-        "text-halo-blur": 0.5,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.4, 0, 13, 0.92],
       },
     },
 
@@ -1156,40 +1090,6 @@ const MAP_STYLE: StyleSpecification = {
         "text-halo-width": 1.2,
         "text-halo-blur": 0.5,
         "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.2, 0.7],
-      },
-    },
-    {
-      id: "camp-label",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "poi",
-      minzoom: 14.4,
-      filter: [
-        "any",
-        ["==", ["get", "class"], "campsite"],
-        ["==", ["get", "class"], "shelter"],
-        [
-          "all",
-          ["==", ["get", "class"], "lodging"],
-          ["in", ["get", "subclass"], ["literal", ["alpine_hut", "wilderness_hut"]]],
-        ],
-      ],
-      layout: {
-        "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
-        "text-font": FONTS.regular,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14.4, 10, 16, 12],
-        "text-anchor": "top",
-        "text-offset": [0, 1.15],
-        "text-max-width": 9,
-        "text-padding": 4,
-        "text-optional": true,
-      },
-      paint: {
-        "text-color": PALETTE.labelPoi,
-        "text-halo-color": PALETTE.halo,
-        "text-halo-width": 1.3,
-        "text-halo-blur": 0.5,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 14.4, 0, 15, 1],
       },
     },
   ],

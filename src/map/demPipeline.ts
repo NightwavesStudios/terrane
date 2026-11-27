@@ -78,27 +78,27 @@ export const FALLBACK: Provider = {
 };
 
 /**
- * The coverage cell a tile belongs to.
+ * The availability area a tile belongs to.
  *
- * The cell is the tile itself at or above the provider's global level, and the
+ * The area is the tile itself at or above the provider's global level, and the
  * provider's global-max ancestor below it. The shift therefore has to be
  * clamped: `z - globalMax` is negative at z2, and a negative shift in JS wraps
- * modulo 32, so every level under the global max used to hash to the same cell.
+ * modulo 32, so every level under the global max used to hash to the same area.
  * One z1 globe tile then recorded "level 1 here" for the whole world, and every
  * later z6–11 request was answered from z1 and resampled up: the smooth mush
  * the relief turned into after the globe opened.
  *
- * `coverage` and `blankCoverage` are both keyed by this, so they cannot drift
+ * `availability` and `blankAreas` are both keyed by this, so they cannot drift
  * apart the way the two hand-written expressions did.
  */
-export function demCell(p: Provider, z: number, x: number, y: number): string {
+export function demArea(p: Provider, z: number, x: number, y: number): string {
   const level = Math.min(z, p.globalMax);
   const shift = z - level;
   return `${p.id}:${level}/${x >> shift}/${y >> shift}`;
 }
 
 /**
- * Whether this request has anything to learn about coverage.
+ * Whether this request has anything to learn about availability.
  *
  * Below the global level there is nothing to learn anywhere: the provider has
  * every tile there. At the global level it depends on the provider — Mapterhorn
@@ -122,20 +122,20 @@ export const PRIMARY_HTTP_TILE_URL = PRIMARY.template;
 /** Extra credit the fallback provider asks for. */
 export const DEM_FALLBACK_ATTRIBUTION = "AWS Terrain Tiles";
 
-/** One coverage probe that actually answered, and how much it carried. */
-export type CoverageProbe = { level: number; bytes: number };
+/** One availability probe that actually answered, and how much it carried. */
+export type AvailabilityProbe = { level: number; bytes: number };
 
-/** What a coverage walk learned: the deepest level that answered, whether that
+/** What a availability walk learned: the deepest level that answered, whether that
  *  level was a blank plate, and whether anything answered at all.
  *
  *  `learned` is the part that matters. A walk whose probes all failed — a 404,
  *  a 5xx, a socket that never came back — learned nothing about the ground, and
- *  caching that as "level 0 here" pinned the whole cell to a planet-scale grid:
- *  every later tile in it was remapped from a z0 tile, i.e. a kilometre or two
+ *  caching that as "level 0 here" pinned the whole area to a planet-scale grid:
+ *  every later tile in it was resampled from a z0 tile, i.e. a kilometre or two
  *  of height in the wrong place. That is a spike, and it lasts for the session. */
-export type CoverageVerdict = { level: number; blank: boolean; learned: boolean };
+export type AvailabilityVerdict = { level: number; blank: boolean; learned: boolean };
 
-export function coverageVerdict(probes: CoverageProbe[]): CoverageVerdict {
+export function availabilityVerdict(probes: AvailabilityProbe[]): AvailabilityVerdict {
   let level = 0;
   let blank = false;
   for (const probe of probes) {
@@ -154,7 +154,7 @@ export type TileResult = {
   bitmap: ImageBitmap;
   kind: TileKind;
   /** The level the surface actually came from: the accepted native level, or
-   *  the ancestor a blank one was remapped up from. Diagnostics and tests. */
+   *  the ancestor a blank one was resampled up from. Diagnostics and tests. */
   from?: number;
   /** Time spent resampling, which is the work that used to block the main thread. */
   computeMs: number;
@@ -195,13 +195,13 @@ export type DemReply =
   | { id: number; error: string };
 
 /**
- * What the worker actually did, for the dev bench. Fetch counts per level are
+ * What the worker actually did, for the dev diagnostics. Fetch counts per level are
  * the only honest way to show that a zoom no longer probes the pyramid: the
  * resolved-tile log alone would look the same either way.
  */
 export type DemTrace = {
   fetches: { provider: string; level: number }[];
-  /** One entry per coverage probe, with the zoom that asked for it. */
+  /** One entry per availability probe, with the zoom that asked for it. */
   probes: { provider: string; root: number; level: number }[];
   /** One entry per tile produced: the level it came from and the elevation
    *  spread of the surface encoded. `min === max` means a flat plate, so this
@@ -225,7 +225,7 @@ const DOWN_MS = 5 * 60_000;
      exaggeration slider multiplied both into spikes across every water body.
    - Placeholder tiles. Mapterhorn answers 200 with a 52–126 byte blank tile
      where it has no national dataset (the Ligurian Apennines at z12–z14, for
-     one), and a 200 used to read as coverage: a 1 500 m ridge got painted at
+     one), and a 200 used to read as availability: a 1 500 m ridge got painted at
      0 m beside full-height neighbours, which is the wedge and the shelves
      seen over the coast.
 
@@ -353,18 +353,18 @@ function boundedSignal(signal?: AbortSignal): AbortSignal | undefined {
 }
 
 export function createDemPipeline() {
-  /* Dev counters, and the browser bench's production build (VITE_BENCH=1).
-     Without the flag the pushes are compiled out of the bundle entirely. */
-  const TRACE = import.meta.env.DEV || import.meta.env.VITE_BENCH === "1";
+  /* Dev counters. Only development builds collect them; without the flag the
+     pushes are compiled out of the bundle entirely. */
+  const TRACE = import.meta.env.DEV;
   const trace: DemTrace = { fetches: [], probes: [], tiles: [] };
   const grids = new Map<string, Grid>();
   /** Exact tiles known to 404, so a pan back over a gap costs nothing. */
   const missing = new Set<string>();
-  /** z12 cell → deepest native zoom the provider actually has there. */
-  const coverage = new Map<string, number>();
+  /** z12 area → deepest native zoom the provider actually has there. */
+  const availability = new Map<string, number>();
   /** The same key where that level turned out to be a blank plate: open water,
    *  not a gap, so the tile can be served flat without resampling the pyramid. */
-  const blankCoverage = new Set<string>();
+  const blankAreas = new Set<string>();
   /** The tile a probe just accepted, so the caller does not fetch it again. */
   const recent = new Map<string, { bitmap: ImageBitmap; bytes: number }>();
   /** Provider id → epoch ms until which it is considered unavailable. */
@@ -515,7 +515,7 @@ export function createDemPipeline() {
    *
    * A z13 request probes z12, accepts it, and then resamples it — so nothing
    * ever reads the bitmap the probe parked under the z12 key. Unbounded, that
-   * is a megabyte of decoded tile per cell for the life of the worker, and a
+   * is a megabyte of decoded tile per area for the life of the worker, and a
    * phone panning a range collects enough of them to be evicted mid-gesture. */
   function keepRecent(key: string, hit: { bitmap: ImageBitmap; bytes: number }) {
     recent.set(key, hit);
@@ -570,8 +570,8 @@ export function createDemPipeline() {
 
   /**
    * Deepest native level this provider can serve for the tile, learning
-   * per-z12-cell coverage once. Without this, every tile at z13/z14 over open
-   * terrain would probe the provider and log a 404; with it, a cell costs at
+   * per-z12-area availability once. Without this, every tile at z13/z14 over open
+   * terrain would probe the provider and log a 404; with it, a area costs at
    * most two probes for the whole session and its neighbours cost none.
    */
   async function nativeZoomFor(
@@ -582,20 +582,20 @@ export function createDemPipeline() {
     signal?: AbortSignal,
   ): Promise<number> {
     /* Probing used to cost a fetch per level and then cache the answer on a
-       cell that every level shared — see `demCell`. */
+       area that every level shared — see `demArea`. */
     if (!needsProbe(p, z)) return z;
     const capped = Math.min(z, p.nativeMax);
-    const key = demCell(p, z, x, y);
-    const known = coverage.get(key);
+    const key = demArea(p, z, x, y);
+    const known = availability.get(key);
     if (known !== undefined) return Math.min(capped, known);
 
-    /* Coverage is decided by payload, not by status. The provider answers 200
+    /* Availability is decided by payload, not by status. The provider answers 200
        with an empty tile wherever it has no dataset, and a blank taken as a
        level would put a 0 m plate under a 1 500 m ridge: the wedges and
        shelves that used to hang over the Ligurian coast. Descend until a tile
-       carries data; the budget stops a flat sea cell walking the whole
-       pyramid, and the answer is cached per cell either way. */
-    const probes: CoverageProbe[] = [];
+       carries data; the budget stops a flat sea area walking the whole
+       pyramid, and the answer is cached per area either way. */
+    const probes: AvailabilityProbe[] = [];
     let accepted: { bitmap: ImageBitmap; bytes: number; level: number } | null = null;
     for (let probe = capped, budget = 6; probe >= 0 && budget > 0; probe -= 1, budget -= 1) {
       const s = z - probe;
@@ -609,14 +609,14 @@ export function createDemPipeline() {
       }
     }
     if (signal?.aborted) return Math.min(z, p.nativeMax);
-    const verdict = coverageVerdict(probes);
+    const verdict = availabilityVerdict(probes);
     /* Nothing answered, so nothing was learned. Ask for the native level and let
        this tile fail honestly: the caller then walks real ancestors, one fetch
-       each, instead of resampling the cell from a z0 tile for the session. */
+       each, instead of resampling the area from a z0 tile for the session. */
     if (!verdict.learned) return Math.min(z, p.nativeMax);
-    coverage.set(key, verdict.level);
-    if (verdict.blank) blankCoverage.add(key);
-    else blankCoverage.delete(key);
+    availability.set(key, verdict.level);
+    if (verdict.blank) blankAreas.add(key);
+    else blankAreas.delete(key);
     /* The bitmap is kept: at the level it accepts, the caller needs exactly
        this tile, and fetching it twice would decode it twice. */
     if (accepted) {
@@ -878,7 +878,7 @@ export function createDemPipeline() {
     /* A parent of the camera's level, answered with exactly one fetch.
 
        The full path is right for the surface the camera is on and wasteful for a
-       fallback: it probes coverage, then walks the pyramid a level at a time if
+       fallback: it probes availability, then walks the pyramid a level at a time if
        the tile is missing, and every attempt may burn an eight second fetch
        deadline. At z11 that turned two z6 parents into 72 and 84 second tiles,
        long after every visible tile had arrived — the last thing keeping the
@@ -904,7 +904,7 @@ export function createDemPipeline() {
        tile has already been conditioned for this ground, so this one is passed
        through as the provider drew it — no readback, no sharpening, no 512
        encode. A blank plate is the one thing it may not pass on: that is a
-       coverage hole, and the parent is the right answer there. */
+       availability hole, and the parent is the right answer there. */
     if (child) {
       const size = gridForZoom(z);
       const hit = await fetchBitmap(p, z, x, y, signal, size);
@@ -972,17 +972,17 @@ export function createDemPipeline() {
       }
     }
     /* Every level this provider has is blank. That is water over open sea, but
-       it is also what a coverage hole looks like (the Ligurian coast at z13):
+       it is also what a availability hole looks like (the Ligurian coast at z13):
        before calling it flat, let the other provider answer — AWS keeps real
        relief there, and a flat plate beside an 800 m neighbour is the wedge.
        Only the last provider in the chain may conclude "water". */
-    const cellKey = demCell(p, z, x, y);
-    if (blankCoverage.has(cellKey)) {
+    const areaKey = demArea(p, z, x, y);
+    if (blankAreas.has(areaKey)) {
       if (p === PRIMARY) return null;
       if (TRACE) trace.tiles.push({ z, kind: "flat", from: nz, min: 0, max: 0 });
       return { bitmap: await flatTile(z), kind: "flat", from: nz, computeMs: 0 };
     }
-    /* The on-screen surface is never remapped up from an ancestor: that is the
+    /* The on-screen surface is never resampled up from an ancestor: that is the
        coarse neighbour beside native tiles MapLibre draws a skirt wall on. */
     if (strict) return null;
     for (let pz = Math.min(nz, z - 1); pz >= 0; pz -= 1) {

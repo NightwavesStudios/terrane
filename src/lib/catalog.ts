@@ -2,7 +2,6 @@ import { useSyncExternalStore } from "react";
 import { PLACES, subscribeAtlas, type Place } from "../data/places";
 import {
   destinationCategory,
-  getMappedRows,
   pickOfRow,
   type FeatureRow,
   type Pick,
@@ -13,15 +12,13 @@ import { normalize } from "./text";
 /**
  * One lazy index of everything Discover can show.
  *
- * The atlas is bundled, the 23,261-row reach tail is two chunks, and the named
- * OpenStreetMap pins arrive with the map's cells. Discover and search read a
- * single flat list built from all three, so a row does not change shape — or
- * disappear from search — depending on which loader happened to run first.
+ * The atlas is bundled and the 23,260-row reach tail is two chunks. Discover
+ * and search read a single flat list built from both, so a row does not change
+ * shape — or disappear from search — depending on which loader ran first.
  *
  * The build is deliberately boring: dedupe, attach the nearest named
- * destination as context, and aggregate countries and regions into areas.
- * It runs once on the first open (the atlas-only index is ready immediately)
- * and again only when a map cell adds named pins.
+ * destination as context, and aggregate countries and regions into areas. It
+ * runs once on the first open; the atlas-only index is ready immediately.
  */
 
 export interface CatalogRow {
@@ -35,12 +32,12 @@ export interface CatalogRow {
   lon: number;
   region?: string;
   country?: string;
-  /** 0 atlas, 1–4 reach fame cohort, 5 practical pin. */
+  /** 0 atlas, 1–4 reach fame cohort. */
   tier: number;
   hasPage: boolean;
   /** Nearest named destination, for context and "near X" prose. */
   near?: { name: string; km: number; slug?: string };
-  source: "atlas" | "reach" | "poi";
+  source: "atlas" | "reach";
 }
 
 export interface AreaRow {
@@ -64,8 +61,8 @@ type CatalogStatus = "idle" | "loading" | "ready" | "error";
 
 interface CatalogSnapshot extends CatalogData {
   status: CatalogStatus;
-  /** "atlas" until the tail and named pins are in, then "full". */
-  coverage: "atlas" | "full";
+  /** "atlas" until the reach tail is in, then "full". */
+  extent: "atlas" | "full";
   /** Every place row in the snapshot, atlas and tail together. */
   total: number;
 }
@@ -120,7 +117,7 @@ function pushBucket(buckets: Map<string, CatalogRow[]>, row: CatalogRow): void {
   else buckets.set(key, [row]);
 }
 
-/** A same-name row within `km`: one place described by two harvests. */
+/** A same-name row within `km`: one place described by two records. */
 function duplicateNear(
   buckets: Map<string, CatalogRow[]>,
   norm: string,
@@ -219,11 +216,7 @@ function toAreas(
   return out;
 }
 
-export function buildCatalog(
-  places: Place[],
-  tail: FeatureRow[],
-  pois: FeatureRow[],
-): CatalogData {
+export function buildCatalog(places: Place[], tail: FeatureRow[]): CatalogData {
   const grid = placeGrid(places);
   const bySlug = new Map(places.map((place) => [place.slug, place]));
   const rows: CatalogRow[] = [];
@@ -274,7 +267,7 @@ export function buildCatalog(
     const bakedKm = baked
       ? kmBetween(feature.lat, feature.lon, baked.lat, baked.lon)
       : Infinity;
-    /* A baked neighbour is only context when it is actually near. The harvest
+    /* A baked neighbour is only context when it is actually near. The source
        records one for every row, but a stale or cross-border link should not
        claim "near X" from a hundred kilometres away. */
     const close =
@@ -308,32 +301,6 @@ export function buildCatalog(
     pushBucket(buckets, row);
   }
 
-  for (const feature of pois) {
-    if (!feature.name) continue;
-    const norm = normalize(feature.name);
-    if (!norm) continue;
-    /* A named pin can repeat an atlas or tail row: the cell harvest and the
-       destination harvest overlap. Prefer the row already indexed, which is
-       the one with a page when there is one. */
-    if (duplicateNear(buckets, norm, feature.lat, feature.lon)) continue;
-    const row: CatalogRow = {
-      key: `p${rows.length}`,
-      pick: pickOfRow(feature),
-      name: feature.name,
-      norm,
-      cat: feature.cat,
-      lat: feature.lat,
-      lon: feature.lon,
-      region: feature.region,
-      country: feature.country,
-      tier: 5,
-      hasPage: Boolean(feature.slug),
-      source: "poi",
-    };
-    rows.push(row);
-    pushBucket(buckets, row);
-  }
-
   /* Areas are made from the finished catalog: atlas rows use their recorded
      country/region, tail rows use the nearest named destination's. That makes
      the count, centroid and fit describe the same set of places. */
@@ -361,7 +328,7 @@ export function buildCatalog(
 
 /* ── the lazy store ─────────────────────────────────────────────────────── */
 
-let atlasOnly = buildCatalog(PLACES, [], []);
+let atlasOnly = buildCatalog(PLACES, []);
 
 /** The atlas index, empty until the deferred atlas chunk arrives. */
 export function atlasCatalogRows(): CatalogRow[] {
@@ -371,13 +338,11 @@ export function atlasCatalogRows(): CatalogRow[] {
 let snapshot: CatalogSnapshot = {
   ...atlasOnly,
   status: "idle",
-  coverage: "atlas",
+  extent: "atlas",
   total: atlasOnly.rows.length,
 };
 let started = false;
 let loading = false;
-let poiCount = 0;
-let tailCache: FeatureRow[] = [];
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -387,26 +352,24 @@ function emit(): void {
 /* The atlas arrives after the map shell. Rebuild the atlas-only index then, so
    Discover and the related lists are populated without a second request. */
 subscribeAtlas(() => {
-  atlasOnly = buildCatalog(PLACES, [], []);
-  if (snapshot.coverage !== "atlas") return;
+  atlasOnly = buildCatalog(PLACES, []);
+  if (snapshot.extent !== "atlas") return;
   snapshot = {
     ...atlasOnly,
     status: snapshot.status === "loading" ? "loading" : "idle",
-    coverage: "atlas",
+    extent: "atlas",
     total: atlasOnly.rows.length,
   };
   emit();
 });
 
-function rebuild(tail: FeatureRow[], pois: FeatureRow[], status: CatalogStatus): void {
-  const data = buildCatalog(PLACES, tail, pois);
+function rebuild(tail: FeatureRow[], status: CatalogStatus): void {
+  const data = buildCatalog(PLACES, tail);
   const full = data.rows.length > PLACES.length;
-  tailCache = tail;
-  poiCount = pois.length;
   snapshot = {
     ...data,
     status: full ? status : "error",
-    coverage: full ? "full" : "atlas",
+    extent: full ? "full" : "atlas",
     total: data.rows.length,
   };
   emit();
@@ -428,22 +391,11 @@ export function startCatalog(): void {
      opens, which is the first call to this function. */
   void import("../map/destinations")
     .then((mod) => mod.ensureDestinationRows())
-    .then((tail) => rebuild(tail, getMappedRows(), "ready"))
-    .catch(() => rebuild([], getMappedRows(), "error"))
+    .then((tail) => rebuild(tail, "ready"))
+    .catch(() => rebuild([], "error"))
     .finally(() => {
       loading = false;
     });
-}
-
-/**
- * Named pins arrive with map cells after the index is built. Rebuilding is only
- * worth it when their count changed, and only while Discover is open.
- */
-export function syncCatalog(): void {
-  if (snapshot.coverage !== "full") return;
-  const pois = getMappedRows();
-  if (pois.length === poiCount) return;
-  rebuild(tailCache, pois, "ready");
 }
 
 function subscribe(listener: () => void): () => void {

@@ -25,7 +25,7 @@ export type LogState = "want" | "done";
 export type LogEntry = {
   key: string;
   kind: LogKind;
-  /** Display category: peak, park, experience, camp site, custom… */
+  /** Display category: peak, park, experience, custom… */
   cat: string;
   name: string;
   state: LogState;
@@ -519,7 +519,7 @@ export function logStats(entries: LogEntry[]): LogStats {
 }
 
 /** The entries that can be drawn on the globe. */
-export function mappedEntries(
+export function locatedEntries(
   entries: LogEntry[],
   resolve?: (slug: string) => { lat: number; lon: number } | undefined,
 ): (LogEntry & { lat: number; lon: number })[] {

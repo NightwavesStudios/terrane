@@ -4,6 +4,7 @@ import type {
   LayerSpecification,
   Map as MlMap,
 } from "maplibre-gl";
+import type { FeatureCollection } from "geojson";
 import { FIRST_SYMBOL_LAYER } from "./style";
 
 /**
@@ -30,7 +31,7 @@ export type LogMapPoint = {
 };
 
 const SOURCE = "reader-log";
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 export const LOG_LAYERS = [
   "log-want-halo",
@@ -43,7 +44,7 @@ export const LOG_LAYERS = [
 const DONE = "#e8c17a";
 const WANT = "#9fc4e8";
 
-export function logFeatures(points: LogMapPoint[]): GeoJSON.FeatureCollection {
+export function logFeatures(points: LogMapPoint[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: points.map((point) => ({

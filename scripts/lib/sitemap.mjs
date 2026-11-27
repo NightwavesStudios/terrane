@@ -5,8 +5,8 @@
  * `validate-data.mjs` asserts the surviving routes are in it, so the sitemap
  * cannot drift from the page index or the curated experience catalogue.
  *
- * The route set is the globe, the sourced lists, the local log, coverage, the
- * curated experience detail pages and the place pages.
+ * The route set is the globe, the sourced lists, the local log, the curated
+ * experience detail pages and the place pages.
  */
 
 /**
@@ -29,7 +29,6 @@ export function sitemapPaths({ slugs = [], experiences = [] } = {}) {
     { path: "/", priority: "1.0", changefreq: "weekly" },
     { path: "/lists", priority: "0.9", changefreq: "weekly" },
     { path: "/log", priority: "0.6", changefreq: "weekly" },
-    { path: "/coverage", priority: "0.4", changefreq: "weekly" },
     ...experiences.map((row) => ({
       path: `/experiences/${row.slug}`,
       priority: "0.8",

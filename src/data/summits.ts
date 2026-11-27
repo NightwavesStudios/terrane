@@ -2,7 +2,7 @@
  * Summit challenge lists.
  *
  * These are the lists people actually complete, not every peak the map knows:
- * the Georgia Appalachian Trail Club's 4,000-foot challenge, the AMC New
+ * the Georgia 4,000 challenge, the AMC New
  * Hampshire 48, the Adirondack 46ers and the 58 named Colorado fourteeners.
  * Names and elevations follow the publishing club's own list. Elevations vary by
  * a few feet between surveys, which is why each list carries its source and a
@@ -59,9 +59,9 @@ export const SUMMIT_LISTS: SummitList[] = [
     zoom: 8.6,
     blurb:
       "All 32 Georgia summits over 4,000 feet, from Brasstown Bald to the viewless knobs of the southern Nantahala.",
-    note: "The Georgia Appalachian Trail Club's official 32-peak challenge. Elevations and counties follow the club's 2017 list; several summits require a bushwhack and some lie on private land.",
+    note: "The GATC's official 32-peak challenge. Elevations and counties follow the club's 2017 list; several summits require a bushwhack and some lie on private land.",
     source: {
-      label: "Georgia Appalachian Trail Club",
+      label: "GATC",
       url: "https://georgia-atclub.org/for-hikers/georgia-4000",
     },
     peaks: [
@@ -337,7 +337,7 @@ export const SUMMIT_PEAK_COUNT = SUMMIT_LISTS.reduce(
 export type ListMembership = { list: SummitList; peak: SummitPeak };
 
 /**
- * The mapped members of the lists, by place slug.
+ * The page-backed members of the lists, by place slug.
  *
  * A list peak has a globe point only when it also has a real place page; this
  * lookup never invents a coordinate for the other peaks.

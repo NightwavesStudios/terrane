@@ -1,19 +1,16 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { iconDataUrl, type KitIcon } from "../map/campIcon";
 import { CATEGORIES, FAMILIES, type Family } from "../data/features";
 import { GUIDE_KINDS } from "../data/guide";
 import { SUMMIT_PEAK_COUNT } from "../data/summits";
+import MANIFEST from "../data/manifest.json";
 import { useGuideCatalog } from "../lib/guide";
 import { useLog } from "../lib/log";
-import { useManifest } from "../lib/live";
 
 /**
- * Every switch on the map, grouped by what a person is looking for rather than by
- * which harvest a pin came from. There is no "named", "famous", "mapped" or
- * "nearby" row: those were four names for one thing.
+ * Every switch on the map, grouped by what a person is looking for.
  *
  * The base map is not a category, and a destination owns its own labels. A group
- * master turns a whole family on or off; a row turns one category on or off.
+ * master turns the whole family on or off; a row turns one category on or off.
  */
 export interface LayerState {
   relief: boolean;
@@ -25,16 +22,15 @@ export interface LayerState {
   snow: boolean;
   contours: boolean;
   contourLabels: boolean;
-  trails: boolean;
   roads: boolean;
   roadLabels: boolean;
   parks: boolean;
   borders: boolean;
   labels: boolean;
-  /** Master switch for every point on the map. */
+  /** Master switch for every destination on the map. */
   features: boolean;
   cats: Record<string, boolean>;
-  /** Routes are their own layer, not a category of pin. */
+  /** Curated Experiences are their own layer, not a destination category. */
   experience: boolean;
   expCats: Record<string, boolean>;
   /** The reader's own bagged and wanted points. */
@@ -43,11 +39,10 @@ export interface LayerState {
   listed: boolean;
 }
 
-/** The four ways the globe can be read. */
-export type GlobeLens = "peaks" | "places" | "around" | "all";
+/** The three ways the globe can be read. */
+export type GlobeLens = "peaks" | "places" | "all";
 
 const DEST_CATS = CATEGORIES.filter((c) => c.family === "destination").map((c) => c.id);
-const PRACTICAL_CATS = CATEGORIES.filter((c) => c.family === "practical").map((c) => c.id);
 const PEAK_CATS = DEST_CATS.filter((id) => id === "peak" || id === "volcano");
 
 const BASE_LAYERS = {
@@ -58,7 +53,6 @@ const BASE_LAYERS = {
   snow: true,
   contours: false,
   contourLabels: true,
-  trails: true,
   roads: true,
   roadLabels: true,
   parks: true,
@@ -69,38 +63,22 @@ const BASE_LAYERS = {
   listed: true,
 };
 
-function catsFor(dest: string[], practical: string[]): Record<string, boolean> {
-  return Object.fromEntries(
-    CATEGORIES.map((c) => [
-      c.id,
-      c.family === "practical" ? practical.includes(c.id) : dest.includes(c.id),
-    ]),
-  );
-}
-
 /**
  * A lens is a preset, not a new layer system. The Layers panel still owns every
  * individual switch; picking a lens sets the switches that belong to that job.
  */
 export function layersForLens(lens: GlobeLens): LayerState {
-  const peak = lens === "peaks" || lens === "around" || lens === "all";
+  const peak = lens === "peaks" || lens === "all";
   const places = lens === "places" || lens === "all";
-  const dest = places
-    ? DEST_CATS
-    : lens === "peaks" || lens === "around"
-      ? PEAK_CATS
-      : DEST_CATS;
-  const practical = lens === "around" || lens === "all" ? PRACTICAL_CATS : [];
-  const experience = lens !== "around";
+  const dest = places ? DEST_CATS : peak ? PEAK_CATS : DEST_CATS;
   const expCats = Object.fromEntries(
     GUIDE_KINDS.map((kind) => [kind.id, places ? true : kind.id === "peak"]),
   );
   return {
     ...BASE_LAYERS,
-    features: true,
-    cats: catsFor(dest, practical),
-    experience,
-    expCats: experience ? expCats : Object.fromEntries(GUIDE_KINDS.map((k) => [k.id, false])),
+    cats: Object.fromEntries(DEST_CATS.map((id) => [id, dest.includes(id)])),
+    experience: true,
+    expCats,
     log: true,
     listed: peak,
   };
@@ -115,7 +93,6 @@ const BASE_ROWS: { key: keyof LayerState; label: string }[] = [
   { key: "snow", label: "Elevation snow" },
   { key: "contours", label: "Contours" },
   { key: "contourLabels", label: "Contour labels" },
-  { key: "trails", label: "Paths" },
   { key: "roads", label: "Roads" },
   { key: "roadLabels", label: "Road names" },
   { key: "parks", label: "Park areas" },
@@ -143,7 +120,6 @@ export default function LayerControl({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const manifest = useManifest();
   const log = useLog();
   const bagged = log.filter((entry) => entry.state === "done").length;
   const experience = useGuideCatalog();
@@ -154,8 +130,7 @@ export default function LayerControl({
     }
     return counts;
   }, [experience.rows]);
-  const rawCount = (id: string) =>
-    Number((manifest.byCategory as Record<string, number>)[id] ?? 0);
+  const rawCount = (id: string) => Number((MANIFEST.byCategory as Record<string, number>)[id] ?? 0);
   const count = (id: string) => compact.format(rawCount(id));
   const box = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -223,34 +198,18 @@ export default function LayerControl({
     };
   }, [open]);
 
-  /* Pictograms are drawn once, when the panel first opens. */
-  const icons = useMemo(
-    () =>
-      (open
-        ? Object.fromEntries(
-            CATEGORIES.filter((c) => c.icon).map((c) => [
-              c.id,
-              iconDataUrl(c.icon as KitIcon, 32),
-            ]),
-          )
-        : {}) as Record<string, string>,
-    [open],
-  );
-
   const activeCats = CATEGORIES.filter((c) => value.features && value.cats[c.id]).length;
   const baseOn = BASE_ROWS.filter((r) => value[r.key]).length;
   const active = baseOn + activeCats + (value.experience ? 1 : 0);
   const total = BASE_ROWS.length + CATEGORIES.length + 1;
   const activeExp = GUIDE_KINDS.filter((c) => value.expCats[c.id]).length;
 
-  /* The panel lists 30-odd switches in a column. A query narrows the rows in
-     place rather than making the reader scroll a wall of checkboxes. */
+  /* The panel lists the switches in a column. A query narrows the rows in place
+     rather than making the reader scroll a wall of checkboxes. */
   const q = query.trim().toLowerCase();
   const match = (label: string) => !q || label.toLowerCase().includes(q);
   const baseRows = BASE_ROWS.filter((row) => match(row.label));
-  const expKinds = q
-    ? GUIDE_KINDS.filter((c) => match(c.label) || match("Experiences"))
-    : GUIDE_KINDS;
+  const expKinds = q ? GUIDE_KINDS.filter((c) => match(c.label) || match("Experiences")) : GUIDE_KINDS;
 
   function setExpCat(id: string, on: boolean) {
     onChange({ ...value, expCats: { ...value.expCats, [id]: on } });
@@ -265,9 +224,7 @@ export default function LayerControl({
   function group(id: Family) {
     const family = FAMILIES.find((f) => f.id === id);
     const cats = CATEGORIES.filter((c) => c.family === id);
-    const shown = q
-      ? cats.filter((c) => match(c.label) || match(family?.label ?? ""))
-      : cats;
+    const shown = q ? cats.filter((c) => match(c.label) || match(family?.label ?? "")) : cats;
     if (shown.length === 0) return null;
     const on = cats.filter((c) => value.cats[c.id]).length;
     const all = on === cats.length;
@@ -280,9 +237,7 @@ export default function LayerControl({
             onChange={() => setCats(cats.map((c) => c.id), !all)}
           />
           <span className="layers-text">
-            <span className="layers-label">
-              {FAMILIES.find((f) => f.id === id)?.label}
-            </span>
+            <span className="layers-label">{family?.label}</span>
             <span className="layers-note mono">
               {on}/{cats.length}
             </span>
@@ -297,11 +252,7 @@ export default function LayerControl({
             />
             <span className="layers-text">
               <span className="layers-label layers-label--cat">
-                {cat.icon ? (
-                  <img src={icons[cat.id]} alt="" width={13} height={13} />
-                ) : (
-                  <i className="cat-dot" style={{ background: cat.colour }} />
-                )}
+                <i className="cat-dot" style={{ background: cat.colour }} />
                 {cat.label}
               </span>
               <span className="layers-note mono">
@@ -361,8 +312,8 @@ export default function LayerControl({
             ) : null}
           </div>
 
-          {/* Routes first and on their own: an experience is not a pin, and the
-              panel says so before the lists of peaks and campsites. */}
+          {/* Experiences first and on their own: an experience is not a dot, and
+              the panel says so before the list of peaks. */}
           <div className="layers-group layers-group--experiences">
             <label className="layers-row layers-row--group layers-row--experience">
               <input
@@ -391,9 +342,7 @@ export default function LayerControl({
                     <i className="cat-dot cat-dot--experience" style={{ background: cat.colour }} />
                     {cat.label}
                   </span>
-                  <span className="layers-note mono">
-                    {compact.format(expCounts[cat.id] ?? 0)}
-                  </span>
+                  <span className="layers-note mono">{compact.format(expCounts[cat.id] ?? 0)}</span>
                 </span>
               </label>
             ))}
@@ -408,9 +357,7 @@ export default function LayerControl({
               />
               <span className="layers-text">
                 <span className="layers-label">Your log</span>
-                <span className="layers-note mono">
-                  {bagged ? `${bagged} bagged` : "empty"}
-                </span>
+                <span className="layers-note mono">{bagged ? `${bagged} bagged` : "empty"}</span>
               </span>
             </label>
             <label className="layers-row">
@@ -472,10 +419,8 @@ export default function LayerControl({
               onChange={() => onChange({ ...value, features: !value.features })}
             />
             <span className="layers-text">
-              <span className="layers-label">Places &amp; pins</span>
-              <span className="layers-note mono">
-                {value.features ? `${activeCats} on` : "off"}
-              </span>
+              <span className="layers-label">Destinations</span>
+              <span className="layers-note mono">{value.features ? `${activeCats} on` : "off"}</span>
             </span>
           </label>
 

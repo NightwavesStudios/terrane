@@ -8,8 +8,7 @@
  * whose heights differ by tens of metres at the shared edge, and MapLibre draws
  * its terrain skirt wall on exactly that disagreement. That is the fin.
  *
- * Kept free of MapLibre and of the worker so the rule can be pinned in a test
- * against a real ledger.
+ * Kept free of MapLibre and of the worker so the rule can be pinned in a test.
  */
 
 export type TileRole = "camera" | "child" | "under" | "over" | "unknown";
@@ -40,19 +39,4 @@ export function allowsCoarseStandIn(role: TileRole, moving: boolean): boolean {
 /** Tiles that must be served by a native surface or not at all. */
 export function needsNativeSurface(role: TileRole): boolean {
   return role === "camera" || role === "child";
-}
-
-/** A ledger line, as the bench records it. */
-export type LedgerLine = { z: number; x: number; y: number; state: string };
-
-/**
- * Ledger lines that break the rule above: a tile that has to be native answered
- * by an ancestor crop, a fallback surface or a flat plate.
- */
-export function seamCandidates(ledger: readonly LedgerLine[], cameraZoom: number): LedgerLine[] {
-  return ledger.filter((line) => {
-    const role = tileRole(line.z, cameraZoom, false);
-    if (!needsNativeSurface(role)) return false;
-    return /^(ancestor:|flat|resample)/.test(line.state);
-  });
 }

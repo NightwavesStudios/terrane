@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  coverageVerdict,
-  demCell,
+  availabilityVerdict,
+  demArea,
   FALLBACK,
   isPlaceholder,
   LOWLAND_M,
@@ -82,21 +82,21 @@ describe("sharpenAmountFor", () => {
   });
 });
 
-/* The coverage cache is the part of the pipeline that decides *which level* a
+/* The availability cache is the part of the pipeline that decides *which level* a
    tile comes from. A wrong key is not a slow tile, it is a wrong surface for the
-   rest of the session, so the cell maths is pinned here. */
-describe("demCell", () => {
+   rest of the session, so the area maths is pinned here. */
+describe("demArea", () => {
   it("keeps a level at or below the global max on its own tile", () => {
-    expect(demCell(PRIMARY, 2, 1, 1)).toBe("mapterhorn:2/1/1");
-    expect(demCell(PRIMARY, 11, 1024, 700)).toBe("mapterhorn:11/1024/700");
-    expect(demCell(PRIMARY, 12, 1024, 700)).toBe("mapterhorn:12/1024/700");
-    expect(demCell(FALLBACK, 11, 1024, 700)).toBe("aws:11/1024/700");
+    expect(demArea(PRIMARY, 2, 1, 1)).toBe("mapterhorn:2/1/1");
+    expect(demArea(PRIMARY, 11, 1024, 700)).toBe("mapterhorn:11/1024/700");
+    expect(demArea(PRIMARY, 12, 1024, 700)).toBe("mapterhorn:12/1024/700");
+    expect(demArea(FALLBACK, 11, 1024, 700)).toBe("aws:11/1024/700");
   });
 
-  it("groups the deep levels by the global-max cell", () => {
-    expect(demCell(PRIMARY, 13, 2048, 1400)).toBe("mapterhorn:12/1024/700");
-    expect(demCell(PRIMARY, 14, 4096, 2800)).toBe("mapterhorn:12/1024/700");
-    expect(demCell(FALLBACK, 13, 4096, 0)).toBe("aws:11/1024/0");
+  it("groups the deep levels by the global-max area", () => {
+    expect(demArea(PRIMARY, 13, 2048, 1400)).toBe("mapterhorn:12/1024/700");
+    expect(demArea(PRIMARY, 14, 4096, 2800)).toBe("mapterhorn:12/1024/700");
+    expect(demArea(FALLBACK, 13, 4096, 0)).toBe("aws:11/1024/0");
   });
 
   it("probes only where a mask can exist", () => {
@@ -114,39 +114,39 @@ describe("demCell", () => {
 
   it("learns nothing from a walk whose probes all failed", () => {
     /* The regression: a probe that never answered left `best` at 0, that was
-       cached as the cell's coverage, and every later tile in the cell was
+       cached as the area's availability, and every later tile in the area was
        resampled from a z0 planet-scale grid — a spike that outlived the tile. */
-    expect(coverageVerdict([])).toEqual({ level: 0, blank: false, learned: false });
+    expect(availabilityVerdict([])).toEqual({ level: 0, blank: false, learned: false });
   });
 
   it("takes the deepest level that answered with data", () => {
-    expect(coverageVerdict([{ level: 13, bytes: 150_000 }])).toEqual({
+    expect(availabilityVerdict([{ level: 13, bytes: 150_000 }])).toEqual({
       level: 13,
       blank: false,
       learned: true,
     });
     expect(
-      coverageVerdict([
+      availabilityVerdict([
         { level: 13, bytes: 90 },
         { level: 12, bytes: 140_000 },
       ]),
     ).toEqual({ level: 12, blank: false, learned: true });
   });
 
-  it("calls a cell blank only when every answering level was blank", () => {
+  it("calls an area blank only when every answering level was blank", () => {
     expect(
-      coverageVerdict([
+      availabilityVerdict([
         { level: 13, bytes: 90 },
         { level: 12, bytes: 110 },
       ]),
     ).toEqual({ level: 12, blank: true, learned: true });
   });
 
-  it("never collapses different levels onto one cell", () => {
+  it("never collapses different levels onto one area", () => {
     /* The regression: a negative shift wrapped modulo 32, so every level from
        z1 to z11 hashed to mapterhorn:12/0/0 and one globe tile capped the
        whole session at z1. */
-    const keys = new Set([2, 4, 8, 11, 12].map((z) => demCell(PRIMARY, z, 3, 5)));
+    const keys = new Set([2, 4, 8, 11, 12].map((z) => demArea(PRIMARY, z, 3, 5)));
     expect(keys.size).toBe(5);
   });
 });

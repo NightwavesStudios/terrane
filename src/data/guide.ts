@@ -2,9 +2,9 @@
  * Curated Experiences.
  *
  * An Experience is one significant destination with an editorial page, not a
- * group of places and not a POI. The selection is committed in
+ * group of places. The selection is committed in
  * `guide-selection.json`; the page record is generated from the same detail,
- * photograph and trail data the rest of Terrane uses, so every sentence can be
+ * photograph data the rest of Terrane uses, so every sentence can be
  * traced to a record. A destination that is merely present in the geographic
  * database never becomes an Experience by itself.
  *
@@ -90,13 +90,6 @@ export interface GuidePhoto {
   page: string;
 }
 
-export interface GuideTrail {
-  name: string;
-  km: number;
-  difficulty?: string;
-  src?: string;
-}
-
 export interface GuideSource {
   label: string;
   url: string;
@@ -114,7 +107,6 @@ export interface GuideAssociated {
 
 export interface GuideStats {
   places: number;
-  trails: number;
   photos: number;
   elevation?: number;
 }
@@ -135,7 +127,6 @@ export interface GuideExperience {
   /** Why this destination is in the curated catalogue, one fact per line. */
   reasons: string[];
   associated: GuideAssociated[];
-  trails: GuideTrail[];
   photo?: GuidePhoto;
   photos: GuidePhoto[];
   source: GuideSource;
@@ -160,7 +151,6 @@ export interface GuideCatalogRow {
   hue: number;
   summary: string;
   placeCount: number;
-  trailCount: number;
   photo?: Pick<GuidePhoto, "url" | "credit" | "licence" | "max">;
   associatedNames: string[];
 }

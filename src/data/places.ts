@@ -28,7 +28,7 @@ export interface Place {
 
 /* ── Atlas ──────────────────────────────────────────────────
    National parks, peaks and natural landmarks pulled from Wikidata (CC0) by
-   scripts/build-atlas.py. Structured records only: real coordinates and facts,
+   the atlas build. Structured records only: real coordinates and facts,
    no invented prose. Peaks are ranked by topographic prominence, so the set is
    major summits rather than every high shoulder on the map. */
 

@@ -1,14 +1,14 @@
 import type { ExpressionSpecification, GeoJSONSource, Map as MlMap } from "maplibre-gl";
+import type { FeatureCollection } from "geojson";
 import {
   DEST_COLOUR,
   DESTINATION_CATS,
   placesToRows,
-  registerDestinationPoints,
   type FeatureRow,
 } from "../data/features";
 import type { Place } from "../data/places";
 import type { LayerState } from "../components/LayerControl";
-import { cellOf } from "../data/rank";
+import { gridOf } from "../data/rank";
 import { FIRST_SYMBOL_LAYER } from "./style";
 import { FONTS, PALETTE } from "./theme";
 import bandsFile from "../data/bands.json";
@@ -77,7 +77,7 @@ let activeMap: MlMap | null = null;
 
 const allRows = (): FeatureRow[] => [...atlasRows, ...coreRows, ...moreRows];
 
-function collection(rows: FeatureRow[]): GeoJSON.FeatureCollection {
+function collection(rows: FeatureRow[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: rows.map((r) => ({
@@ -442,7 +442,7 @@ export function loadMoreDestinations(): Promise<void> {
 /**
  * Every destination row, whether or not a map is mounted.
  *
- * Discover and search need the whole 24,474-row set the first time they open,
+ * Discover and search need the whole 24,473-row set the first time they open,
  * not the slice a particular camera has happened to load. Both chunks are
  * already cached modules, so asking here costs one download and the map's
  * loader re-uses it.
@@ -460,19 +460,19 @@ export function resetDestinations(): void {
 /**
  * Reach cohorts: fame tier → the band it first appears in, plus a density cap.
  *
- * A tier is not a zoom. One Alpine z6 cell holds 1,415 tier-3 rows, and a whole
+ * A tier is not a zoom. One Alpine z6 grid holds 1,415 tier-3 rows, and a whole
  * tier revealed at once put a thousand dots on one screen. Each cohort shows up
- * to `per` rows per cell at its band; the rest wait for the overflow band, which
+ * to `per` rows per grid at its band; the rest wait for the overflow band, which
  * is the way a place gets its name when you are actually there rather than in
  * the first frame of a continent.
  */
-type ReachCohort = { band: number; overflow: number; cell: number; per: number };
+type ReachCohort = { band: number; overflow: number; grid: number; per: number };
 
 const REACH_COHORT: Record<number, ReachCohort> = {
-  1: { band: 3, overflow: 4, cell: 6, per: 3 },
-  2: { band: 3, overflow: 4, cell: 6, per: 3 },
-  3: { band: 4, overflow: 6, cell: 7, per: 16 },
-  4: { band: 5, overflow: 6, cell: 9, per: 10 },
+  1: { band: 3, overflow: 4, grid: 6, per: 3 },
+  2: { band: 3, overflow: 4, grid: 6, per: 3 },
+  3: { band: 4, overflow: 6, grid: 7, per: 16 },
+  4: { band: 5, overflow: 6, grid: 9, per: 10 },
 };
 
 function rowsFromReach(file: ReachFile): FeatureRow[] {
@@ -489,7 +489,7 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
       string,
     ];
     const cohort = REACH_COHORT[tier] ?? REACH_COHORT[3];
-    const key = `${cohort.band}:${cellOf(lat, lon, cohort.cell)}`;
+    const key = `${cohort.band}:${gridOf(lat, lon, cohort.grid)}`;
     const seen = (used.get(key) ?? 0) + 1;
     used.set(key, seen);
     const band = bandOf(seen <= cohort.per ? cohort.band : cohort.overflow);
@@ -511,4 +511,3 @@ function rowsFromReach(file: ReachFile): FeatureRow[] {
 }
 
 /* Discovery reads the same row store the map draws, so the two cannot drift. */
-registerDestinationPoints(allRows);

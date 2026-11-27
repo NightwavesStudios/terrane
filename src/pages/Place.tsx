@@ -7,33 +7,25 @@ import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceHero from "../components/place/PlaceHero";
 import PlaceSection from "../components/place/PlaceSection";
 import RelationList from "../components/place/RelationList";
-import { category, SOURCE_LABEL } from "../data/features";
+import { category } from "../data/features";
 import { startCatalog, useCatalog, type CatalogRow } from "../lib/catalog";
 import { relatedPlaces } from "../lib/discover";
 import { kmBetween } from "../lib/geo";
 import { globeHref, readLastView } from "../lib/lastView";
 import { setMeta } from "../lib/meta";
-import {
-  difficultyLabel,
-  landscapeRows,
-  sentence,
-  thumbAt,
-  usePlaceDetail,
-} from "../lib/placeDetails";
+import { landscapeRows, sentence, thumbAt, usePlaceDetail } from "../lib/placeDetails";
 import { usePlacePage } from "../lib/placePages";
-import { coordinates, formatKm, placeLine } from "../lib/present";
+import { coordinates, placeLine } from "../lib/present";
 import LogActions from "../components/LogActions";
 import { placeKey, toggleWant, useLogEntry, type LogEntry } from "../lib/log";
 import { targetForPlace } from "../lib/logTargets";
 import { focusZoomFor } from "../map/camera";
 import { navigate } from "../lib/router";
-import { TRAIL_RADIUS_KM, useTrailLinks } from "../lib/trailLinks";
 
 export default function Place({ slug }: { slug: string }) {
   const { place, loading } = usePlacePage(slug);
   const catalog = useCatalog();
   const detail = usePlaceDetail(slug);
-  const trails = useTrailLinks(slug);
   const logEntry = useLogEntry(place ? placeKey(place.slug) : null);
 
   /* The relationships come from the same lazy catalog Discover uses, so the
@@ -44,8 +36,7 @@ export default function Place({ slug }: { slug: string }) {
   }, []);
 
   /* Activities are what is actually around, by category: one count per category
-     within 30 km from the full catalog, plus named trails within 10 km. Nothing
-     is inferred beyond the records. */
+     within 30 km from the full catalog. Nothing is inferred beyond the records. */
   const activities = useMemo(() => {
     if (!place) return [] as { id: string; label: string; count: number }[];
     const counts = new Map<string, number>();
@@ -58,11 +49,8 @@ export default function Place({ slug }: { slug: string }) {
       .map(([id, count]) => ({ id, label: category(id).label, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
-    if (trails.length > 0) {
-      list.push({ id: "hiking", label: "Hiking", count: trails.length });
-    }
     return list;
-  }, [catalog.rows, place, trails.length]);
+  }, [catalog.rows, place]);
 
   useEffect(() => {
     if (!place) {
@@ -258,38 +246,8 @@ export default function Place({ slug }: { slug: string }) {
               </PlaceSection>
             ) : null}
 
-            {trails.length > 0 ? (
-              <PlaceSection title="Trails here" note={`within ${TRAIL_RADIUS_KM} km`}>
-                <ol className="around-list">
-                  {trails.map((trail) => (
-                    <li key={`${trail.name}-${trail.km}`}>
-                      <div className="around-row around-row--static">
-                        <span className="around-name">{trail.name}</span>
-                        <span className="around-type mono">
-                          {[
-                            difficultyLabel(trail.difficulty),
-                            SOURCE_LABEL[trail.src] ?? trail.src,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                        <span className="around-km mono">{formatKm(trail.km)}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </PlaceSection>
-            ) : null}
-
             {activities.length > 0 ? (
-              <PlaceSection
-                title="Activities"
-                note={
-                  trails.length > 0
-                    ? "within 30 km · hiking counts trails within 10 km"
-                    : "within 30 km"
-                }
-              >
+              <PlaceSection title="Activities" note="within 30 km">
                 <ul className="around-acts">
                   {activities.map((activity) => (
                     <li key={activity.id}>

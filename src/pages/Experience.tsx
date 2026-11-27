@@ -6,10 +6,8 @@ import WantButton from "../components/WantButton";
 import PlaceFacts, { type Fact } from "../components/place/PlaceFacts";
 import PlaceSection from "../components/place/PlaceSection";
 import RidgeArt from "../components/RidgeArt";
-import ExperiencePois from "../components/experiences/ExperiencePois";
 import { category } from "../data/features";
 import { guideKind } from "../data/guide";
-import { useExperiencePois } from "../lib/experiencePois";
 import {
   guideWhere,
   nearbyGuides,
@@ -29,14 +27,13 @@ const GuideMap = lazy(() => import("../components/guide/GuideMap"));
  *
  * One destination, one lazy shard. The page states what the records hold — its
  * description, protected area, range, elevation, neighbouring destinations,
- * named trails and credited photographs — and nothing about current access,
+ * credited photographs — and nothing about current access,
  * closures, facilities or a route. Those are deliberately not claimed because
  * they are not verified.
  */
 export default function Experience({ slug }: { slug: string }) {
   const { guide, loading } = useGuide(slug);
   const catalog = useGuideCatalog();
-  const pois = useExperiencePois(guide?.bounds ?? null);
   const [active, setActive] = useState<string | null>(null);
   const [heroFailed, setHeroFailed] = useState(false);
 
@@ -129,12 +126,6 @@ export default function Experience({ slug }: { slug: string }) {
       k: "Nearby places",
       v: guide.stats.places
         ? `${guide.stats.places} catalogued within 30 km`
-        : "none recorded",
-    },
-    {
-      k: "Trails",
-      v: guide.stats.trails
-        ? `${guide.stats.trails} named within 10 km`
         : "none recorded",
     },
     ...(guide.stats.elevation
@@ -261,30 +252,6 @@ export default function Experience({ slug }: { slug: string }) {
               </PlaceSection>
             ) : null}
 
-            {guide.trails.length > 0 ? (
-              <PlaceSection
-                title="Trails recorded nearby"
-                note={`${guide.trails.length} named within 10 km`}
-              >
-                <ul className="guide-trails">
-                  {guide.trails.map((trail) => (
-                    <li key={trail.name}>
-                      <span className="guide-trail-name">{trail.name}</span>
-                      <span className="mono guide-trail-meta">
-                        {[trail.difficulty, formatKm(trail.km)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mono exp-note">
-                  Trail names and lengths are recorded data. Their condition,
-                  access and seasonal status are not verified here.
-                </p>
-              </PlaceSection>
-            ) : null}
-
             <PlaceSection
               title="Map"
               note={`${guide.associated.length + 1} catalogued places · no route`}
@@ -294,13 +261,6 @@ export default function Experience({ slug }: { slug: string }) {
               >
                 <GuideMap guide={guide} activeSlug={active} onSelect={selectPlace} />
               </Suspense>
-            </PlaceSection>
-
-            <PlaceSection
-              title="Campsites, huts and trailheads nearby"
-              note="OpenStreetMap cells"
-            >
-              <ExperiencePois pois={pois.pois} status={pois.status} />
             </PlaceSection>
 
             {guide.photos.length > 1 ? (
@@ -391,7 +351,6 @@ export default function Experience({ slug }: { slug: string }) {
               </p>
               <p className="mono exp-aside-note">
                 {guide.stats.places} catalogued places within 30 km ·{" "}
-                {guide.stats.trails} named trails within 10 km ·{" "}
                 {guide.stats.photos} credited photographs.
               </p>
             </div>
@@ -402,8 +361,7 @@ export default function Experience({ slug }: { slug: string }) {
       <footer className="foot">
         <span>Terrane — the world, worth the detour</span>
         <span className="mono">
-          MAP © OPENSTREETMAP · OPENFREEMAP · DATA: WIKIDATA · TRAILS: OSM AND AGENCY
-          INVENTORIES · PHOTOS: WIKIMEDIA COMMONS
+          MAP © OPENSTREETMAP · OPENFREEMAP · DATA: WIKIDATA · PHOTOS: WIKIMEDIA COMMONS
         </span>
       </footer>
     </div>

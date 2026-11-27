@@ -23,7 +23,7 @@ const CONTOUR_MIN_ZOOM = 9;
 
    The old version also fixed the DEM level at z10 and thinned each level to 220
    segments. That looks fine from z10 and falls apart close in: at z14 a z10
-   cell is ~450 m wide on the ground, so every line arrives as a huge staircase
+   grid square is ~450 m wide on the ground, so every line arrives as a huge staircase
    with most of its segments missing. The levels now follow the camera and the
    caps are high enough that the linework stays continuous. */
 const MAX_TILES = 2;
@@ -200,12 +200,12 @@ function intervalForZoom(zoom: number) {
 /* DEM level per camera zoom: close enough to the camera that the marching
    squares grid is a few tens of metres on the ground, deep enough that one or
    two tiles still cover the viewport. Capped at z12, the last level that exists
-   worldwide, so contours never vanish over ranges outside national coverage. */
+   worldwide, so contours never vanish over ranges outside national data. */
 function demZoomForZoom(zoom: number) {
   return Math.max(9, Math.min(12, Math.floor(zoom) - 1));
 }
 
-/* 256 cells per tile is what this always ran at; past z12 a wider grid is
+/* 256 samples per tile is what this always ran at; past z12 a wider grid is
    affordable (one tile, few levels) and keeps the lines off a coarse staircase. */
 function gridForZoom(zoom: number) {
   return zoom >= 12.5 ? 512 : 256;

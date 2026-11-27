@@ -46,29 +46,6 @@ describe("pickContext", () => {
 });
 
 describe("pickFacts", () => {
-  it("orders context, elevation, facilities, distance and difficulty once", () => {
-    expect(
-      pickFacts({
-        ...base,
-        note: "Free · 20 pitches",
-        distance: 4200,
-        difficulty: "Class 3",
-      }),
-    ).toEqual([
-      "Valais, Switzerland",
-      "4,478 m",
-      "Free · 20 pitches",
-      "4.2 km",
-      "Class 3",
-    ]);
-  });
-
-  it("drops a note that repeats the elevation", () => {
-    expect(
-      pickFacts({ ...base, note: "4,478 m" }),
-    ).toEqual(["Valais, Switzerland", "4,478 m"]);
-  });
-
   it("adds prominence after elevation when the record has it", () => {
     expect(pickFacts({ ...base, prom: 1042 })).toEqual([
       "Valais, Switzerland",
@@ -79,8 +56,8 @@ describe("pickFacts", () => {
 });
 
 describe("pickTitle", () => {
-  it("names an unnamed pin by its category", () => {
-    expect(pickTitle({ ...base, name: "  " }, "Camp site")).toBe("Unnamed camp site");
+  it("names an unnamed record by its category", () => {
+    expect(pickTitle({ ...base, name: "  " }, "Lake")).toBe("Unnamed lake");
     expect(pickTitle(base, "Peak")).toBe("Matterhorn");
   });
 });

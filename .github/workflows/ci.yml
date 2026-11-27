@@ -4,9 +4,8 @@ name: ci
 # the unit tests, so a green check means Vercel is building something that
 # typechecks, validates its data and still produces a sitemap matching the atlas.
 #
-# The data workflows are separate on purpose: they write to the cell bucket on a
-# cron and never deploy the site. This workflow never touches the bucket, so it
-# needs no secrets and runs on forks too.
+# Everything here is offline: the data files are committed and the build needs no
+# secrets, so this workflow runs on forks too.
 
 on:
   push:
@@ -34,18 +33,13 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: typecheck
-        run: npm run typecheck
-
       - name: unit tests
         run: npm test
 
-      # Manifest + schema + duplicate checks, without the full build.
-      - name: validate data
-        run: npm run validate
-
-      # Absolute canonical/og:url and sitemap when the repository variable is
-      # set; the documented placeholder origin when it is not, so the artifact
+      # The build runs the data generators, validation and typecheck before
+      # Vite; keeping it one step avoids doing those checks twice. It writes
+      # absolute canonical/og:url and sitemap values when SITE_URL is set, and
+      # the documented placeholder origin when it is not, so the artifact
       # always carries a complete route set.
       - name: build
         run: npm run build

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  difficultyLabel,
   landscapeRows,
   sentence,
   thumbAt,
@@ -32,18 +31,6 @@ describe("thumbAt", () => {
 
   it("leaves a non-thumbnail URL alone", () => {
     expect(thumbAt("https://example.com/a.jpg", 640)).toBe("https://example.com/a.jpg");
-  });
-});
-
-describe("difficultyLabel", () => {
-  it("humanises OSM values", () => {
-    expect(difficultyLabel("demanding_mountain_hiking")).toBe("Demanding mountain hiking");
-    expect(difficultyLabel("hiking")).toBe("Hiking");
-  });
-
-  it("drops an unknown difficulty", () => {
-    expect(difficultyLabel("")).toBe("");
-    expect(difficultyLabel("Unknown")).toBe("");
   });
 });
 
