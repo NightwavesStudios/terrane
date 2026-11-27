@@ -12,18 +12,19 @@ function renderAt(path: string) {
 }
 
 describe("App", () => {
-  it("renders the four-section shell and the 388-peak index", () => {
+  it("renders the four-section shell and the 467-peak index", () => {
     const html = renderAt("/peaks");
 
     expect(html).toContain("Explore");
     expect(html).toContain("Peaks");
     expect(html).toContain("Lists");
     expect(html).toContain("Progress");
-    expect(html).toContain("388 peaks indexed");
+    expect(html).toContain("467 peaks indexed");
     expect(html).toContain("Mount Elbert");
     expect(html).toContain("14,438 ft");
     expect(html).toContain("Mount Washington");
     expect(html).toContain("Ben Nevis");
+    expect(html).toContain("Mount Marcy");
   });
 
   it("renders the Progress empty state without invented statistics", () => {

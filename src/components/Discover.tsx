@@ -8,7 +8,7 @@ function matchingPeaks(term: string): Peak[] {
   const query = term.trim().toLowerCase();
   if (!query) return PEAKS.slice(0, 4);
   return PEAKS.filter((peak) =>
-    [peak.name, peak.range, peakListLabel(peak), "new hampshire", "colorado", "scotland", "munros"]
+    [peak.name, peak.range, peakListLabel(peak), "new hampshire", "colorado", "scotland", "munros", "adirondack", "catskills"]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(query)),
   ).slice(0, 8);

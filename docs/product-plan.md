@@ -15,7 +15,7 @@ This file is the one full plan. The shareable artifact is an executive brief tha
 The fixed decisions from the previous round still hold:
 
 1. **Stack:** Postgres + PostGIS on Neon, field-level provenance. ADR-001 remains accepted. The Python ingest pipeline and snapshot machinery are deferred, not replaced.
-2. **Target inventory:** three regions — US Northeast, Colorado, Scotland — and five lists: NH 48 (48), Adirondack 46 (46), Catskill 3500 (35), Colorado 14ers (58 named), Munros (282). 469 peaks is the supported-list catalogue target, not the first engineering milestone and not a global coverage target. Public beta ships the first three complete lists; ADK 46 and Catskill 3500 follow in Phase D.
+2. **Target inventory:** three regions — US Northeast, Colorado, Scotland — and five lists: NH 48 (48), Adirondack 46 (46), Catskill 3500 (33 current; historically 35), Colorado 14ers (58 named), Munros (282). 467 peaks is the supported-list catalogue target, not the first engineering milestone and not a global coverage target. Public beta shipped the first three complete lists; ADK 46 and the current Catskill 33 were added in Phase D.
 3. **The first build is the NH 48 vertical slice.** One list, 48 peaks, a real list page, a quick log, progress and export. No Colorado, no Munros, no badge catalogue, no GPX, no community in the slice.
 4. **Ten badges launch.** The other 33 stay in `data/badges.json` as a documented backlog. They are not deleted and not promised.
 
@@ -49,7 +49,7 @@ v2.0 was a platform thesis. It combined a global geographic database, a peak-bag
 v3.0 makes five changes:
 
 1. **One primary user.** The list-driven climber with an existing history, not the generic explorer. Discovery is acquisition; the record is retention.
-2. **One first loop.** NH 48 end to end, not 469 peaks and seven surfaces in parallel. The slice proves whether the list-to-record loop is worth expanding.
+2. **One first loop.** NH 48 end to end, not 467 peaks and seven surfaces in parallel. The slice proves whether the list-to-record loop is worth expanding.
 3. **Field-level truth.** A peak is an identity, not a single quality grade. Elevation, prominence and range are optional attributes with their own sources. Missing means missing, not “imported”.
 4. **A smaller passport.** Ten meaningful marks at launch, not 43. The full catalog remains as backlog.
 5. **A gated roadmap.** No phase starts until the previous phase produces evidence that users want the next one. The target inventory stays at five lists, but it is earned list by list.
@@ -398,7 +398,7 @@ The slice is not a demo. It is the first real product, with real data and real u
 
 **Out of scope for the slice**
 
-- Colorado, the Munros, ADK 46 or Catskill 3500.
+- Colorado, the Munros, ADK 46 or the current Catskill 33.
 - Badges and the immutable `list_completion` snapshot (the passport and completion mark start in Phase C).
 - Photos, GPX import, routes, conditions, forecasts, reports.
 - Public profiles, companions, witness or steward verification.
@@ -448,7 +448,7 @@ The 10-user test is a private alpha, not a public launch. Public launch waits fo
 
 ### 7.1 Catalogue discipline
 
-The target catalogue is five lists, but a list is published only when it is complete. Public beta ships the first three; ADK 46 and Catskill 3500 follow in Phase D.
+The target catalogue is five lists, but a list is published only when it is complete. Public beta shipped the first three; ADK 46 and the current Catskill 33 shipped in Phase D.
 
 | List | Publisher | Peaks | Phase |
 |---|---|---|---|
@@ -456,7 +456,7 @@ The target catalogue is five lists, but a list is published only when it is comp
 | Colorado 14ers | Colorado Mountain Club | 58 named | B |
 | Munros | Scottish Mounting Club | 282 | C |
 | Adirondack 46ers | Adirondack 46ers | 46 | D, only after the first three are stable |
-| Catskill 3500 | Catskill 3500 Club | 35 | D, only after the first three are stable |
+| Catskill 3500 | Catskill 3500 Club | 33 current (35 before 2021) | D, only after the first three are stable |
 
 No partial list is published. A list with an unsupported rule (choice groups, winter-only membership, route requirements) is labelled **not supported** and is not shown as a completable list. Do not fake a flat list for a rule the product cannot represent.
 
@@ -1029,7 +1029,7 @@ Steps 1–2 of the earlier list are complete: this file is canonical and the ten
 9. **Build the NH 48 seed and region context.** Run the data contract against the real list. *Output:* 48/48 matched; one list version; sources and checked dates.
 10. **Run the Phase 0 gate review.** If any readiness item is open, do not start UI code. *Output:* Phase A kickoff decision, with the one-flow and measurement plans attached.
 
-When these ten are done, Terrane has one verified list, one honest data contract and a testable loop. That is the right foundation for the app build — not a 469-peak platform built on assumptions.
+When these ten are done, Terrane has one verified list, one honest data contract and a testable loop. That is the right foundation for the app build — not a 467-peak platform built on assumptions.
 
 ---
 

@@ -1,22 +1,31 @@
 import { describe, expect, it } from "vitest";
+import { ADK46_LIST, ADK46_PEAKS } from "./adk46";
+import { CATSKILL3500_LIST, CATSKILL3500_PEAKS } from "./catskills";
 import { CO14ERS_LIST, CO14ERS_PEAKS } from "./co14ers";
 import { LISTS, PEAKS, getList, getListForPeak, getPeak } from "./lists";
 import { MUNROS_LIST, MUNROS_PEAKS } from "./munros";
 import { NH48_LIST } from "./nh48";
 
 describe("complete list registry", () => {
-  it("has the NH 48, 58 named Colorado 14ers and 282 Munros", () => {
-    expect(LISTS.map((list) => list.id)).toEqual(["nh48", "co14ers", "munros"]);
+  it("has all five complete lists", () => {
+    expect(LISTS.map((list) => list.id)).toEqual(["nh48", "co14ers", "munros", "adk46", "catskill3500"]);
     expect(NH48_LIST.peaks).toHaveLength(48);
     expect(CO14ERS_LIST.peaks).toHaveLength(58);
     expect(CO14ERS_PEAKS).toHaveLength(58);
     expect(MUNROS_LIST.peaks).toHaveLength(282);
     expect(MUNROS_PEAKS).toHaveLength(282);
-    expect(PEAKS).toHaveLength(388);
+    expect(ADK46_LIST.peaks).toHaveLength(46);
+    expect(ADK46_PEAKS).toHaveLength(46);
+    expect(CATSKILL3500_LIST.peaks).toHaveLength(33);
+    expect(CATSKILL3500_PEAKS).toHaveLength(33);
+    expect(PEAKS).toHaveLength(467);
   });
 
-  it("keeps peak identity unique across lists", () => {
-    expect(new Set(PEAKS.map((peak) => peak.slug)).size).toBe(PEAKS.length);
+  it("keeps peak identity unique across all 467 entries", () => {
+    expect(PEAKS).toHaveLength(467);
+    expect(new Set(PEAKS.map((peak) => peak.slug)).size).toBe(467);
+    expect(getPeak("mount-marcy")?.listIds).toEqual(["adk46"]);
+    expect(getPeak("slide")?.listIds).toEqual(["catskill3500"]);
   });
 
   it("exposes list membership and exact elevations", () => {
@@ -28,6 +37,8 @@ describe("complete list registry", () => {
     expect(washington && getListForPeak(washington).map((list) => list.id)).toEqual(["nh48"]);
     expect(getList("co14ers")?.title).toBe("Colorado 14ers");
     expect(getList("munros")?.title).toBe("Munros");
+    expect(getList("adk46")?.title).toBe("Adirondack 46");
+    expect(getList("catskills")?.title).toBe("Catskill 3500");
     expect(getList("missing")).toBeUndefined();
   });
 

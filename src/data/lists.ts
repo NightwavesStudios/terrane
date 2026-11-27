@@ -1,4 +1,6 @@
 import type { Peak } from "../types/geography";
+import { ADK46_LIST, ADK46_PEAKS } from "./adk46";
+import { CATSKILL3500_LIST, CATSKILL3500_PEAKS } from "./catskills";
 import { CO14ERS_LIST, CO14ERS_PEAKS } from "./co14ers";
 import { MUNROS_LIST, MUNROS_PEAKS } from "./munros";
 import { NH48_LIST, NH48_PEAKS } from "./nh48";
@@ -34,6 +36,14 @@ export const LISTS: MountainList[] = [
     peaks: MUNROS_PEAKS,
     license: "DoBIH data CC BY 4.0",
   },
+  {
+    ...ADK46_LIST,
+    peaks: ADK46_PEAKS,
+  },
+  {
+    ...CATSKILL3500_LIST,
+    peaks: CATSKILL3500_PEAKS,
+  },
 ];
 
 export const PEAKS: Peak[] = LISTS.flatMap((list) => list.peaks);
@@ -63,7 +73,11 @@ export function listShortName(list: MountainList): string {
       ? "CO 14ers"
       : list.id === "munros"
         ? "Munros"
-        : list.title;
+        : list.id === "adk46"
+          ? "ADK 46"
+          : list.id === "catskill3500"
+            ? "Catskills"
+            : list.title;
 }
 
 export function peakListLabel(peak: Peak): string {

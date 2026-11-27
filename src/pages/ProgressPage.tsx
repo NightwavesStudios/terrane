@@ -108,7 +108,7 @@ export default function ProgressPage() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">The lists</p>
-            <h2 id="lists-progress-title">Three complete records.</h2>
+            <h2 id="lists-progress-title">{LISTS.length} complete records.</h2>
           </div>
           <span className="panel-heading__meta">Publisher editions · not official</span>
         </div>

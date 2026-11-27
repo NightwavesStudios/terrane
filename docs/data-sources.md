@@ -37,10 +37,28 @@ Terrane shows the named list and says so. It does not call the list â€œofficialâ
 
 All 282 entries are present. Heights are metres and feet from DoBIH; drops are metres. Coordinates are WGS84 latitude/longitude. The DoBIH is licensed CC BY 4.0 and is attributed in the app and on every peak page. The SMC list is membership; DoBIH is the fact source. Names are kept as published, including bracketed alternative names. Duplicate names use section-qualified slugs so every identity is unique.
 
+## Adirondack 46
+
+| Field | Source |
+|---|---|
+| Membership and rules | [Adirondack 46ers](https://adk46er.org/peaks/) |
+| Name, elevation, prominence, coordinates | [Wikipedia: Adirondack High Peaks](https://en.wikipedia.org/wiki/Adirondack_High_Peaks), table citing club and USGS sources (CC BY-SA 4.0) |
+
+All 46 entries are present, ordered by the published height rank. Mount Marcy is marked as the New York highpoint. The article records that the list has been unchanged since the 1920s and that several members fall below 4,000 feet or the usual prominence test; Terrane keeps the club's 46 rather than substituting a modern prominence filter.
+
+## Catskill 3500
+
+| Field | Source |
+|---|---|
+| Current membership and rules | [Catskill 3500 Club](https://www.catskill3500club.org/peaks), 33 peaks after the 2021 revision |
+| Elevation, coordinates, location | [Catskill Hiker peak list](https://www.catskillhiker.net/Catskill35/peak_list.shtml) and linked peak pages |
+
+All 33 current required peaks are present. Graham and Doubletop are closed and remain off the list; South Doubletop and Millbrook Ridge are not current entries. The Club additionally requires winter repeats of Slide, Blackhead, Balsam and Panther for membership; those repeats are not extra peaks in Terrane's progress count. Prominence is not supplied and remains unknown rather than invented. The page ranks by current elevation so the gaps left by removed peaks are not shown as official ranks.
+
 ## Checked dates and limits
 
 - Seed retrieval: November 2026.
-- No global peak inventory, ADK 46 or Catskill 3500 data is included in this build.
+- No global peak inventory is included in this build.
 - No elevation is invented for an unknown field. No peak is added to complete a count.
 - Terrane summaries are its own words; publisher names, editions and links are attributed.
 

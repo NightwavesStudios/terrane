@@ -73,6 +73,8 @@ export default function ListsPage() {
         More lists arrive only when their membership, edition and rules are complete. No partial list is published.
         The CMC recognises 54 Colorado 14ers for completion; this list shows 58 named summits and states that
         difference on the list page. Munro heights, drops and coordinates are from DoBIH v18 (CC BY 4.0).
+        The Catskills use the current 33-peak list: Graham and Doubletop are closed, and the four winter repeats
+        are a 3500 Club membership rule rather than extra entries.
       </p>
     </div>
   );

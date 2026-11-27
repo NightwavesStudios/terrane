@@ -8,9 +8,9 @@ import SearchField from "../components/SearchField";
 import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { useRecord } from "../state/RecordContext";
 
-type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Munros" | "Climbed" | "Remaining";
+type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Munros" | "ADK 46" | "Catskills" | "Climbed" | "Remaining";
 
-const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Munros", "Climbed", "Remaining"];
+const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Munros", "ADK 46", "Catskills", "Climbed", "Remaining"];
 
 export default function PeaksPage() {
   const { completedSlugs, profile } = useRecord();
@@ -30,6 +30,8 @@ export default function PeaksPage() {
       if (filter === "NH 48") return peak.listIds?.includes("nh48");
       if (filter === "Colorado 14ers") return peak.listIds?.includes("co14ers");
       if (filter === "Munros") return peak.listIds?.includes("munros");
+      if (filter === "ADK 46") return peak.listIds?.includes("adk46");
+      if (filter === "Catskills") return peak.listIds?.includes("catskill3500");
       if (filter === "Climbed") return completedSlugs.has(peak.slug);
       if (filter === "Remaining") return !completedSlugs.has(peak.slug);
       return true;
@@ -118,8 +120,9 @@ export default function PeaksPage() {
 
       <p className="page-footnote">
         NH 48 facts come from the <a href="https://nh48.info/catalog">NH48.info catalog</a>. Colorado facts use
-        NGS 2024 elevations and 14ers.com coordinates. Munro facts use the Database of British and Irish Hills v18
-        (CC BY 4.0). Every peak page links its field-level sources; no list is presented as official.
+        NGS 2024 elevations and 14ers.com coordinates.         Munro facts use the Database of British and Irish Hills v18
+        (CC BY 4.0); Adirondack and Catskill facts are attributed on the list pages. Every peak page links its
+        field-level sources; no list is presented as official.
       </p>
       <Link to="/lists" className="text-link">
         Open the lists <span aria-hidden="true">→</span>
