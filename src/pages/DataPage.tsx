@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { NH48_LIST } from "../data/nh48";
+import { LISTS } from "../data/lists";
 
 export default function DataPage() {
   return (
@@ -18,35 +18,40 @@ export default function DataPage() {
 
       <div className="data-layout">
         <section className="data-card">
-          <p className="eyebrow">The first list</p>
-          <h2>{NH48_LIST.title}</h2>
-          <p>{NH48_LIST.description}</p>
-          <dl className="data-facts">
-            <div>
-              <dt>Publisher</dt>
-              <dd>
-                <a href={NH48_LIST.publisherUrl} target="_blank" rel="noreferrer">
-                  {NH48_LIST.publisher}
-                </a>
-              </dd>
-            </div>
-            <div>
-              <dt>Edition</dt>
-              <dd>{NH48_LIST.edition}</dd>
-            </div>
-            <div>
-              <dt>Membership</dt>
-              <dd>48 required peaks</dd>
-            </div>
-            <div>
-              <dt>Official record</dt>
-              <dd>No. The publisher is authoritative.</dd>
-            </div>
-          </dl>
+          <p className="eyebrow">The complete lists</p>
+          <h2>Two publishers, two rule sets.</h2>
+          <table className="source-table">
+            <thead>
+              <tr>
+                <th scope="col">List</th>
+                <th scope="col">Peaks</th>
+                <th scope="col">Publisher / edition</th>
+                <th scope="col">Rule note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LISTS.map((list) => (
+                <tr key={list.id}>
+                  <th scope="row">
+                    <Link to={`/lists/${list.slug}`}>{list.title}</Link>
+                  </th>
+                  <td>{list.peaks.length}</td>
+                  <td>
+                    <a href={list.sourceUrl} target="_blank" rel="noreferrer">
+                      {list.publisher}
+                    </a>
+                    <br />
+                    {list.edition}
+                  </td>
+                  <td>{list.rules}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <p>
-            <a href={NH48_LIST.sourceUrl} target="_blank" rel="noreferrer" className="text-link">
-              Publisher list <span aria-hidden="true">→</span>
-            </a>
+            The Colorado 14ers list is inclusive: 58 named summits. 53 clear 300 feet of prominence and the
+            Colorado Mountain Club recognises 54 for completion. Terrane does not collapse that difference into a
+            single “official” count.
           </p>
         </section>
 
@@ -57,52 +62,51 @@ export default function DataPage() {
             <thead>
               <tr>
                 <th scope="col">Field</th>
-                <th scope="col">Source</th>
-                <th scope="col">Notes</th>
+                <th scope="col">NH 48</th>
+                <th scope="col">Colorado 14ers</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <th scope="row">Name</th>
                 <td>NH48.info catalog</td>
-                <td>Normalized only for display; source names preserved in the data.</td>
+                <td>14ers.com; NGS 2024 name changes reflected</td>
               </tr>
               <tr>
                 <th scope="row">Coordinates</th>
                 <td>OpenStreetMap via NH48.info</td>
-                <td>Each peak page links its OSM node.</td>
+                <td>14ers.com peak pages</td>
               </tr>
               <tr>
-                <th scope="row">Elevation, prominence</th>
+                <th scope="row">Elevation</th>
                 <td>USGS GNIS via NH48.info</td>
-                <td>Stored in metres; displayed in chosen units.</td>
+                <td>NGS 2024 / 5280 table</td>
+              </tr>
+              <tr>
+                <th scope="row">Prominence</th>
+                <td>USGS GNIS via NH48.info</td>
+                <td>14ers.com peak pages</td>
               </tr>
               <tr>
                 <th scope="row">Membership</th>
-                <td>AMC</td>
-                <td>2026 edition; list rules belong to the publisher.</td>
-              </tr>
-              <tr>
-                <th scope="row">Range</th>
-                <td>NH48.info catalog</td>
-                <td>Editorial grouping, not a survey boundary.</td>
+                <td>AMC, 2026 edition</td>
+                <td>14ers.com named list; CMC 54 noted</td>
               </tr>
             </tbody>
           </table>
           <p>
-            <a href="https://nh48.info/catalog" target="_blank" rel="noreferrer" className="text-link">
-              NH48.info catalog <span aria-hidden="true">→</span>
-            </a>
+            Each peak page links its source. List membership and rules belong to the publisher; Terrane is not an
+            official finisher record.
           </p>
         </section>
 
         <section className="data-card">
-          <p className="eyebrow">Phase A boundary</p>
+          <p className="eyebrow">Current boundary</p>
           <h2>What is not here yet.</h2>
           <p>
-            This build contains one complete list: the NH 48. It does not contain the other four launch lists, the
-            469-peak local expansion, the global atlas or experiences. Those need complete membership, edition,
-            licensing and provenance before they are published. An incomplete peak is worse than a missing one.
+            This build contains two complete lists: the NH 48 and the 58 named Colorado 14ers. It does not contain
+            the Munros, ADK 46, Catskill 3500, a global peak catalogue or sourced experiences. Those need complete
+            membership, edition, licensing and provenance before they are published.
           </p>
           <p>
             The record is stored in this browser with <code>localStorage</code>. There is no production account,
@@ -110,7 +114,7 @@ export default function DataPage() {
           </p>
           <div className="form-actions">
             <Link to="/progress" className="button">Your record</Link>
-            <Link to="/lists/nh48" className="button button--bright">Open the NH 48</Link>
+            <Link to="/lists" className="button button--bright">Open the lists</Link>
           </div>
         </section>
       </div>

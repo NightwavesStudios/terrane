@@ -1,4 +1,6 @@
-import { NH48_LIST, NH48_PEAKS } from "../data/nh48";
+import { getList } from "../data/lists";
+import { NH48_LIST } from "../data/nh48";
+import type { Peak } from "../types/geography";
 import type { ListProgress, Trip, TripPeak } from "../types/record";
 
 const MONTHS = [
@@ -29,11 +31,15 @@ export function summitSlugs(trips: Trip[]): Set<string> {
 export function listProgress(
   trips: Trip[],
   startedLists: string[],
-  listId = NH48_LIST.id,
+  listId: string = NH48_LIST.id,
+  listPeaks: Peak[] = getList(listId)?.peaks ?? [],
 ): ListProgress {
-  const total = listId === NH48_LIST.id ? NH48_LIST.peaks.length : 0;
-  const completedSlugs = summitSlugs(trips);
-  const completed = NH48_PEAKS.filter((peak) => completedSlugs.has(peak.slug)).length;
+  const total = listPeaks.length;
+  const climbed = summitSlugs(trips);
+  const completedSlugs = new Set(
+    listPeaks.filter((peak) => climbed.has(peak.slug)).map((peak) => peak.slug),
+  );
+  const completed = completedSlugs.size;
 
   return {
     listId,
@@ -103,6 +109,7 @@ export function statsFor(trips: Trip[]) {
     const month = Number(trip.date.slice(5, 7));
     return month === 12 || month === 1 || month === 2 || month === 3;
   }).length;
+  const daysOut = new Set(trips.map((trip) => trip.date)).size;
 
   return {
     uniquePeaks: climbed.size,
@@ -111,6 +118,7 @@ export function statsFor(trips: Trip[]) {
       0,
     ),
     trips: trips.length,
+    daysOut,
     attempts,
     winterTrips: winter,
   };

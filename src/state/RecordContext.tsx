@@ -7,13 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { NH48_LIST, NH48_PEAKS } from "../data/nh48";
+import { getList, PEAKS } from "../data/lists";
+import { NH48_LIST } from "../data/nh48";
 import { listProgress, statsFor, summitSlugs } from "../lib/progress";
 import type {
+  ListStart,
   NewTripInput,
   Profile,
   RecordState,
   Trip,
+  TripPeak,
 } from "../types/record";
 
 const STORAGE_KEY = "terrane.record.v1";
@@ -21,16 +24,19 @@ const STORAGE_KEY = "terrane.record.v1";
 const EMPTY: RecordState = {
   profile: null,
   startedLists: [],
+  listStarts: {},
   trips: [],
 };
 
 interface RecordContextValue {
   profile: Profile | null;
   startedLists: string[];
+  listStarts: Record<string, ListStart>;
   trips: Trip[];
   hydrated: boolean;
   completedSlugs: Set<string>;
   progress: ReturnType<typeof listProgress>;
+  progressFor: (listId: string) => ReturnType<typeof listProgress>;
   stats: ReturnType<typeof statsFor>;
   signIn: (displayName: string, email: string) => void;
   updateProfile: (displayName: string, email: string, units?: Profile["units"]) => void;
@@ -38,6 +44,8 @@ interface RecordContextValue {
   signOut: () => void;
   startList: (listId?: string) => void;
   addTrip: (input: NewTripInput) => Trip;
+  importTrips: (inputs: NewTripInput[]) => Trip[];
+  mergeTripPeaks: (id: string, peaks: TripPeak[]) => void;
   updateTrip: (id: string, input: NewTripInput) => void;
   deleteTrip: (id: string) => void;
   deleteRecord: () => void;
@@ -61,6 +69,8 @@ function readStored(): RecordState {
     return {
       profile: parsed.profile ?? null,
       startedLists: Array.isArray(parsed.startedLists) ? parsed.startedLists : [],
+      listStarts:
+        parsed.listStarts && typeof parsed.listStarts === "object" ? parsed.listStarts : {},
       trips: Array.isArray(parsed.trips) ? parsed.trips : [],
     };
   } catch {
@@ -77,7 +87,9 @@ function tripFrom(input: NewTripInput, existing?: Trip): Trip {
     precision: input.precision,
     source: input.source,
     notes: input.notes?.trim() ?? "",
-    peaks: input.peakSlugs.map((slug) => ({ slug, outcome: input.outcome })),
+    peaks: input.peaks?.length
+      ? input.peaks
+      : input.peakSlugs.map((slug) => ({ slug, outcome: input.outcome })),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -139,18 +151,54 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startList = useCallback((listId: string = NH48_LIST.id) => {
-    setState((current) => ({
-      ...current,
-      startedLists: current.startedLists.includes(listId)
-        ? current.startedLists
-        : [...current.startedLists, listId],
-    }));
+    setState((current) => {
+      if (current.startedLists.includes(listId)) return current;
+      const list = getList(listId);
+      return {
+        ...current,
+        startedLists: [...current.startedLists, listId],
+        listStarts: list
+          ? {
+              ...current.listStarts,
+              [listId]: {
+                version: list.version,
+                edition: list.edition,
+                peakSlugs: list.peaks.map((peak) => peak.slug),
+                startedAt: new Date().toISOString(),
+              },
+            }
+          : current.listStarts,
+      };
+    });
   }, []);
 
   const addTrip = useCallback((input: NewTripInput) => {
     const trip = tripFrom(input);
     setState((current) => ({ ...current, trips: [trip, ...current.trips] }));
     return trip;
+  }, []);
+
+  const importTrips = useCallback((inputs: NewTripInput[]) => {
+    const created = inputs.map((input) => tripFrom(input));
+    if (created.length) {
+      setState((current) => ({ ...current, trips: [...created, ...current.trips] }));
+    }
+    return created;
+  }, []);
+
+  const mergeTripPeaks = useCallback((id: string, peaks: TripPeak[]) => {
+    setState((current) => ({
+      ...current,
+      trips: current.trips.map((trip) => {
+        if (trip.id !== id) return trip;
+        const missing = peaks.filter(
+          (peak) => !trip.peaks.some((existing) => existing.slug === peak.slug),
+        );
+        return missing.length
+          ? { ...trip, peaks: [...trip.peaks, ...missing], updatedAt: new Date().toISOString() }
+          : trip;
+      }),
+    }));
   }, []);
 
   const updateTrip = useCallback((id: string, input: NewTripInput) => {
@@ -178,16 +226,22 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     () => listProgress(state.trips, state.startedLists),
     [state.trips, state.startedLists],
   );
+  const progressFor = useCallback(
+    (listId: string) => listProgress(state.trips, state.startedLists, listId),
+    [state.trips, state.startedLists],
+  );
   const stats = useMemo(() => statsFor(state.trips), [state.trips]);
 
   const value = useMemo<RecordContextValue>(
     () => ({
       profile: state.profile,
       startedLists: state.startedLists,
+      listStarts: state.listStarts,
       trips: state.trips,
       hydrated,
       completedSlugs,
       progress,
+      progressFor,
       stats,
       signIn,
       updateProfile,
@@ -195,6 +249,8 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       signOut,
       startList,
       addTrip,
+      importTrips,
+      mergeTripPeaks,
       updateTrip,
       deleteTrip,
       deleteRecord,
@@ -202,10 +258,12 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     [
       state.profile,
       state.startedLists,
+      state.listStarts,
       state.trips,
       hydrated,
       completedSlugs,
       progress,
+      progressFor,
       stats,
       signIn,
       updateProfile,
@@ -213,6 +271,8 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       signOut,
       startList,
       addTrip,
+      importTrips,
+      mergeTripPeaks,
       updateTrip,
       deleteTrip,
       deleteRecord,
@@ -228,4 +288,4 @@ export function useRecord(): RecordContextValue {
   return value;
 }
 
-export const PEAK_NAMES = new Map(NH48_PEAKS.map((peak) => [peak.slug, peak.name]));
+export const PEAK_NAMES = new Map(PEAKS.map((peak) => [peak.slug, peak.name]));

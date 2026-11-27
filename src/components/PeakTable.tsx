@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { peakListLabel } from "../data/lists";
 import { formatElevation, type Units } from "../lib/format";
 import type { Peak } from "../types/geography";
 
@@ -7,13 +8,14 @@ interface Props {
   completed: Set<string>;
   units: Units;
   limit?: number;
+  label?: string;
 }
 
-export default function PeakTable({ peaks, completed, units, limit }: Props) {
+export default function PeakTable({ peaks, completed, units, limit, label = "Peak list" }: Props) {
   const rows = limit ? peaks.slice(0, limit) : peaks;
 
   return (
-    <div className="peak-table" role="table" aria-label="NH 48 peaks">
+    <div className="peak-table" role="table" aria-label={label}>
       <div className="peak-table__head" role="row">
         <span role="columnheader">#</span>
         <span role="columnheader">Peak</span>
@@ -35,12 +37,13 @@ export default function PeakTable({ peaks, completed, units, limit }: Props) {
             </span>
             <span className="peak-row__name" role="cell">
               {peak.name}
+              <small>{peakListLabel(peak)}</small>
             </span>
             <span className="peak-row__range" role="cell">
               {peak.range ?? "Unknown range"}
             </span>
             <span className="peak-row__elevation" role="cell">
-              {formatElevation(peak.elevationM, units)}
+              {formatElevation(peak.elevationM, units, peak.elevationFt)}
             </span>
             <span className="peak-row__status" role="cell">
               {climbed ? "Climbed" : "Remaining"}

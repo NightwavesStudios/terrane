@@ -4,6 +4,7 @@ export type IconName =
   | "arrow"
   | "check"
   | "compass"
+  | "download"
   | "list"
   | "peak"
   | "pin"
@@ -23,6 +24,13 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="8.5" />
       <path d="m14.8 9.2-1.7 4.1-4.1 1.7 1.7-4.1 4.1-1.7Z" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v11" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 20h14" />
     </>
   ),
   list: (

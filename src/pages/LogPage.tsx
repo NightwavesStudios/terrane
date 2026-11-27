@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import { NH48_LIST, NH48_PEAKS } from "../data/nh48";
+import { getList, PEAKS } from "../data/lists";
 import { dateForPrecision, dateInputForPrecision } from "../lib/progress";
 import { useRecord } from "../state/RecordContext";
+import type { Peak } from "../types/geography";
 import type { DatePrecision, PeakOutcome, Trip, TripSource } from "../types/record";
 
 function today(): string {
@@ -23,16 +24,17 @@ interface FormProps {
   editing?: Trip;
   initialPeak?: string;
   mode: TripSource;
-  listId?: string;
+  listPeaks: Peak[];
+  listTitle: string;
   returnTo: string;
 }
 
-function LogForm({ editing, initialPeak, mode, listId, returnTo }: FormProps) {
+function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }: FormProps) {
   const navigate = useNavigate();
   const { addTrip, updateTrip, deleteTrip } = useRecord();
   const [selected, setSelected] = useState<string[]>(() => {
     if (editing) return editing.peaks.map((peak) => peak.slug);
-    return initialPeak && NH48_PEAKS.some((peak) => peak.slug === initialPeak)
+    return initialPeak && listPeaks.some((peak) => peak.slug === initialPeak)
       ? [initialPeak]
       : [];
   });
@@ -107,7 +109,7 @@ function LogForm({ editing, initialPeak, mode, listId, returnTo }: FormProps) {
     navigate(returnTo, { replace: true });
   }
 
-  const available = NH48_PEAKS.filter((peak) => !selected.includes(peak.slug));
+  const available = listPeaks.filter((peak) => !selected.includes(peak.slug));
 
   return (
     <div className="log-layout">
@@ -126,7 +128,7 @@ function LogForm({ editing, initialPeak, mode, listId, returnTo }: FormProps) {
           {selected.length ? (
             <div className="selected-peaks">
               {selected.map((slug) => {
-                const peak = NH48_PEAKS.find((item) => item.slug === slug);
+                const peak = listPeaks.find((item) => item.slug === slug);
                 return (
                   <span className="selected-peak" key={slug}>
                     {peak?.name ?? slug}
@@ -230,7 +232,7 @@ function LogForm({ editing, initialPeak, mode, listId, returnTo }: FormProps) {
                 selected.length > 1
                   ? "A ridge day"
                   : selected.length === 1
-                    ? `Climbing ${NH48_PEAKS.find((peak) => peak.slug === selected[0])?.name ?? "a summit"}`
+                    ? `Climbing ${listPeaks.find((peak) => peak.slug === selected[0])?.name ?? "a summit"}`
                     : "Climbing day"
               }
             />
@@ -278,7 +280,7 @@ function LogForm({ editing, initialPeak, mode, listId, returnTo }: FormProps) {
         <dl className="log-facts">
           <div>
             <dt>List</dt>
-            <dd>{listId === NH48_LIST.id ? NH48_LIST.title : "Your record"}</dd>
+            <dd>{listTitle}</dd>
           </div>
           <div>
             <dt>Source</dt>
@@ -305,10 +307,13 @@ export default function LogPage() {
   const editing = tripId ? trips.find((trip) => trip.id === tripId) : undefined;
   const mode: TripSource = params.get("mode") === "backfill" ? "backfill" : "manual";
   const listId = params.get("list") ?? undefined;
+  const list = listId ? getList(listId) : undefined;
+  const listPeaks = list?.peaks ?? PEAKS;
+  const listTitle = list?.title ?? "Your record";
   const initialPeak = params.get("peak") ?? undefined;
   const returnTo = safeReturnTo(
     params.get("returnTo") ??
-      (listId === NH48_LIST.id ? "/lists/nh48" : "/progress"),
+      (list ? `/lists/${list.slug}` : "/progress"),
   );
   const current = `${location.pathname}${location.search}`;
 
@@ -350,11 +355,12 @@ export default function LogPage() {
       />
 
       <LogForm
-        key={editing?.id ?? `${initialPeak ?? "new"}-${mode}`}
+        key={editing?.id ?? `${initialPeak ?? "new"}-${mode}-${listId ?? "all"}`}
         editing={editing}
         initialPeak={initialPeak}
         mode={mode}
-        listId={listId}
+        listPeaks={listPeaks}
+        listTitle={listTitle}
         returnTo={returnTo}
       />
     </div>

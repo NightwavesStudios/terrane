@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
 import DataPage from "./pages/DataPage";
 import ExplorePage from "./pages/ExplorePage";
+import ImportPage from "./pages/ImportPage";
 import ListDetailPage from "./pages/ListDetailPage";
 import ListsPage from "./pages/ListsPage";
 import LogPage from "./pages/LogPage";
@@ -24,6 +25,7 @@ export function AppRoutes() {
           <Route path="lists" element={<ListsPage />} />
           <Route path="lists/:slug" element={<ListDetailPage />} />
           <Route path="log" element={<LogPage />} />
+          <Route path="import" element={<ImportPage />} />
           <Route path="progress" element={<ProgressPage />} />
           <Route path="signin" element={<SignInPage />} />
           <Route path="settings" element={<SettingsPage />} />

@@ -1,4 +1,5 @@
-import { NH48_LIST, NH48_PEAKS } from "../data/nh48";
+import { LISTS, PEAKS } from "../data/lists";
+import { NH48_LIST } from "../data/nh48";
 import { formatTripDate, listProgress } from "./progress";
 import type { RecordState } from "../types/record";
 
@@ -22,6 +23,24 @@ export function buildExport(state: RecordState) {
   return {
     exportedAt: new Date().toISOString(),
     profile: state.profile,
+    listStarts: state.listStarts,
+    lists: LISTS.map((list) => {
+      const listState = listProgress(state.trips, state.startedLists, list.id);
+      return {
+        slug: list.slug,
+        title: list.title,
+        publisher: list.publisher,
+        edition: list.edition,
+        version: list.version,
+        sourceUrl: list.sourceUrl,
+        totalPeaks: list.peaks.length,
+        completed: listState.completed,
+        remaining: listState.remaining,
+        percent: listState.percent,
+        started: listState.started,
+      };
+    }),
+    // Kept for Phase A clients that read the single NH 48 shape.
     list: {
       slug: NH48_LIST.slug,
       title: NH48_LIST.title,
@@ -41,9 +60,7 @@ export function buildExport(state: RecordState) {
       displayDate: formatTripDate(trip),
       peakNames: trip.peaks.map((peak) => ({
         slug: peak.slug,
-        name:
-          NH48_PEAKS.find((candidate) => candidate.slug === peak.slug)?.name ??
-          peak.slug,
+        name: PEAKS.find((candidate) => candidate.slug === peak.slug)?.name ?? peak.slug,
         outcome: peak.outcome,
       })),
     })),
@@ -68,7 +85,7 @@ export function exportCsv(state: RecordState) {
         trip.precision,
         trip.source,
         peak.slug,
-        NH48_PEAKS.find((candidate) => candidate.slug === peak.slug)?.name ?? peak.slug,
+        PEAKS.find((candidate) => candidate.slug === peak.slug)?.name ?? peak.slug,
         peak.outcome,
         trip.title,
         trip.notes,

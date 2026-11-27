@@ -16,6 +16,7 @@ export const NH48_LIST = {
   publisher: "Appalachian Mountain Club",
   publisherUrl: "https://www.outdoors.org/resources/itineraries/4000-footers",
   edition: "2026 edition",
+  version: "amc-2026",
   sourceUrl: "https://www.amc4000footer.org/whitemountainfourk.html",
   description:
     "The 48 New Hampshire peaks above 4,000 feet, published by the Appalachian Mountain Club.",

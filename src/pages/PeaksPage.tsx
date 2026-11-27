@@ -5,10 +5,12 @@ import FilterChips from "../components/FilterChips";
 import PageHeader from "../components/PageHeader";
 import PeakTable from "../components/PeakTable";
 import SearchField from "../components/SearchField";
-import { NH48_LIST, NH48_PEAKS } from "../data/nh48";
+import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { useRecord } from "../state/RecordContext";
 
-type Filter = "All peaks" | "Climbed" | "Remaining";
+type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Climbed" | "Remaining";
+
+const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Climbed", "Remaining"];
 
 export default function PeaksPage() {
   const { completedSlugs, profile } = useRecord();
@@ -18,12 +20,15 @@ export default function PeaksPage() {
 
   const peaks = useMemo(() => {
     const term = query.trim().toLowerCase();
-    const filtered = NH48_PEAKS.filter((peak) => {
+    const filtered = PEAKS.filter((peak) => {
       const matches =
         !term ||
         peak.name.toLowerCase().includes(term) ||
-        (peak.range ?? "").toLowerCase().includes(term);
+        (peak.range ?? "").toLowerCase().includes(term) ||
+        peakListLabel(peak).toLowerCase().includes(term);
       if (!matches) return false;
+      if (filter === "NH 48") return peak.listIds?.includes("nh48");
+      if (filter === "Colorado 14ers") return peak.listIds?.includes("co14ers");
       if (filter === "Climbed") return completedSlugs.has(peak.slug);
       if (filter === "Remaining") return !completedSlugs.has(peak.slug);
       return true;
@@ -31,7 +36,7 @@ export default function PeaksPage() {
 
     return [...filtered].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
-      return b.elevationM - a.elevationM;
+      return (b.elevationFt ?? b.elevationM * 3.28084) - (a.elevationFt ?? a.elevationM * 3.28084);
     });
   }, [query, filter, sort, completedSlugs]);
 
@@ -45,12 +50,12 @@ export default function PeaksPage() {
             The <span className="display-italic">high</span> places.
           </>
         }
-        description="The 48 New Hampshire summits above 4,000 feet, with identity, elevation, range and list membership sourced. Unknown fields stay unknown."
+        description="Two complete lists, 106 sourced summits. Identity, elevation, range and list membership are explicit; unsupported fields stay unknown."
         aside={
           <div className="status-card">
             <span className="status-card__label">Peak index</span>
-            <strong>48 peaks indexed</strong>
-            <span>{NH48_LIST.publisher} · 2026</span>
+            <strong>{PEAKS.length} peaks indexed</strong>
+            <span>{LISTS.length} complete lists · 2026 editions</span>
           </div>
         }
       />
@@ -58,8 +63,8 @@ export default function PeaksPage() {
       <section className="catalog-toolbar" aria-label="Peak discovery controls">
         <SearchField
           label="Search peaks"
-          placeholder="Search by peak or range"
-          hint="Search the NH 48. No global index is loaded in this slice."
+          placeholder="Search by peak, range or list"
+          hint="Two complete lists are indexed. The global atlas is a later phase."
           onChange={setQuery}
           onSubmit={setQuery}
         />
@@ -75,7 +80,7 @@ export default function PeaksPage() {
 
       <FilterChips
         label="Filter peaks"
-        items={["All peaks", "Climbed", "Remaining"]}
+        items={filters}
         active={filter}
         onSelect={(value) => setFilter(value as Filter)}
       />
@@ -95,7 +100,7 @@ export default function PeaksPage() {
         <EmptyState
           eyebrow="No matching peaks"
           title="No summit matches that filter."
-          description="Try a different name, clear the search, or show all 48 peaks."
+          description="Try a different name, clear the search, or show the full catalogue."
         >
           <button
             type="button"
@@ -105,18 +110,18 @@ export default function PeaksPage() {
               setFilter("All peaks");
             }}
           >
-            Show all 48 <span aria-hidden="true">→</span>
+            Show all {PEAKS.length} <span aria-hidden="true">→</span>
           </button>
         </EmptyState>
       )}
 
       <p className="page-footnote">
-        Elevations and coordinates are facts from the <a href={NH48_LIST.sourceUrl}>AMC list</a> and the{" "}
-        <a href="https://nh48.info/catalog">NH48.info catalog</a>; OpenStreetMap node links are on each peak page.
-        This index is intentionally not global in Phase A.
+        NH 48 facts come from the <a href="https://nh48.info/catalog">NH48.info catalog</a>. Colorado facts use
+        NGS 2024 elevations and 14ers.com coordinates. Every peak page links its field-level sources; no list is
+        presented as official.
       </p>
-      <Link to="/lists/nh48" className="text-link">
-        Open the NH 48 list <span aria-hidden="true">→</span>
+      <Link to="/lists" className="text-link">
+        Open the two lists <span aria-hidden="true">→</span>
       </Link>
     </div>
   );

@@ -50,6 +50,10 @@ describe("record progress", () => {
     expect(progress.completed).toBe(1);
     expect(progress.remaining).toBe(47);
     expect(progress.started).toBe(false);
+
+    const colorado = listProgress(trips, [], "co14ers");
+    expect(colorado.total).toBe(58);
+    expect(colorado.completed).toBe(0);
   });
 
   it("preserves date precision in display and input values", () => {

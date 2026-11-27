@@ -1,21 +1,19 @@
 import { lazy, Suspense, useState } from "react";
 import { Link } from "react-router-dom";
 import Discover from "../components/Discover";
-import { NH48_PEAKS } from "../data/nh48";
+import { LISTS, PEAKS } from "../data/lists";
 import { formatElevation } from "../lib/format";
 
 const Globe = lazy(() => import("../components/MapGlobe"));
 
 export default function ExplorePage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const selected = selectedSlug
-    ? NH48_PEAKS.find((peak) => peak.slug === selectedSlug)
-    : undefined;
+  const selected = selectedSlug ? PEAKS.find((peak) => peak.slug === selectedSlug) : undefined;
 
   return (
     <section className="home" aria-label="Terrane globe">
       <Suspense fallback={<div className="globe" aria-hidden="true" />}>
-        <Globe peaks={NH48_PEAKS} onSelect={setSelectedSlug} />
+        <Globe peaks={PEAKS} onSelect={setSelectedSlug} />
       </Suspense>
       <div className="globe-veil" aria-hidden="true" />
       <div className="vignette" aria-hidden="true" />
@@ -33,22 +31,27 @@ export default function ExplorePage() {
           >
             ×
           </button>
-          <p className="eyebrow">NH 48 · #{selected.rank}</p>
+          <p className="eyebrow">
+            {selected.listIds?.includes("nh48") ? "NH 48" : "Colorado 14ers"} · #{selected.rank}
+          </p>
           <h2>{selected.name}</h2>
           <p className="globe-preview__meta">
-            {formatElevation(selected.elevationM, "imperial")} · {selected.range}
+            {formatElevation(selected.elevationM, "imperial", selected.elevationFt)} · {selected.range}
           </p>
           <Link to={`/peaks/${selected.slug}`} className="text-link">
             Open peak <span aria-hidden="true">→</span>
           </Link>
         </aside>
       ) : (
-        <aside className="globe-brief" aria-label="NH 48 list">
-          <p className="eyebrow">The first complete list</p>
-          <h2>New Hampshire 48</h2>
-          <p>Forty-eight sourced summits. One record that can leave with you.</p>
-          <Link to="/lists/nh48" className="text-link">
-            Open the list <span aria-hidden="true">→</span>
+        <aside className="globe-brief" aria-label="Complete lists">
+          <p className="eyebrow">Two complete lists</p>
+          <h2>From New England to the Rockies.</h2>
+          <p>
+            {PEAKS.length} sourced summits, {LISTS.length} publishers, one portable record. More lists arrive only
+            when their membership and rules are complete.
+          </p>
+          <Link to="/lists" className="text-link">
+            Open the lists <span aria-hidden="true">→</span>
           </Link>
         </aside>
       )}

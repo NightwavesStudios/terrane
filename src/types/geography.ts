@@ -15,5 +15,6 @@ export interface Peak {
   rank?: number;
   listIds?: string[];
   sourceUrl?: string;
+  elevationSourceUrl?: string;
   osmUrl?: string;
 }

@@ -1,18 +1,18 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import { NH48_LIST, getNh48Peak } from "../data/nh48";
+import { getListForPeak, getPeak } from "../data/lists";
 import { formatElevation } from "../lib/format";
 import { formatTripDate, getPeakTrips } from "../lib/progress";
 import { PEAK_NAMES, useRecord } from "../state/RecordContext";
 
 export default function PeakDetailPage() {
   const { slug = "" } = useParams();
-  const peak = getNh48Peak(slug);
+  const peak = getPeak(slug);
   const navigate = useNavigate();
   const {
     profile,
-    progress,
+    progressFor,
     trips,
     completedSlugs,
     startedLists,
@@ -39,6 +39,8 @@ export default function PeakDetailPage() {
     );
   }
 
+  const lists = getListForPeak(peak);
+  const primaryList = lists[0];
   const climbed = completedSlugs.has(peak.slug);
   const peakTrips = getPeakTrips(trips, peak.slug);
   const units = profile?.units ?? "imperial";
@@ -46,15 +48,19 @@ export default function PeakDetailPage() {
   const logHref = profile
     ? logTarget
     : `/signin?returnTo=${encodeURIComponent(logTarget)}`;
-  const listStarted = startedLists.includes(NH48_LIST.id);
+  const listStarted = primaryList ? startedLists.includes(primaryList.id) : false;
+  const progress = primaryList ? progressFor(primaryList.id) : null;
 
   function start() {
+    if (!primaryList) return;
     if (!profile) {
-      navigate(`/signin?returnTo=${encodeURIComponent("/lists/nh48?start=1")}`);
+      navigate(
+        `/signin?returnTo=${encodeURIComponent(`/lists/${primaryList.slug}?start=1`)}`,
+      );
       return;
     }
-    startList(NH48_LIST.id);
-    navigate("/lists/nh48");
+    startList(primaryList.id);
+    navigate(`/lists/${primaryList.slug}`);
   }
 
   return (
@@ -67,12 +73,12 @@ export default function PeakDetailPage() {
         <header className="peak-detail__header">
           <div>
             <p className="eyebrow">
-              Peaks / NH 48 / <span>#{peak.rank}</span>
+              Peaks / {primaryList?.title ?? "Catalogue"} / <span>#{peak.rank}</span>
             </p>
             <h1>{peak.name}</h1>
             <p className="peak-detail__lede">
-              A {formatElevation(peak.elevationM, units)} summit in the {peak.range}. Part of the{" "}
-              {NH48_LIST.title}, {NH48_LIST.edition}.
+              A {formatElevation(peak.elevationM, units, peak.elevationFt)} summit in the {peak.range}.{" "}
+              {primaryList ? `Part of ${primaryList.title}, ${primaryList.edition}.` : null}
             </p>
           </div>
           <span className="status-pill">{climbed ? "In your record" : "On your list"}</span>
@@ -88,11 +94,11 @@ export default function PeakDetailPage() {
               <dl className="detail-fields">
                 <div className="detail-field">
                   <dt>Elevation</dt>
-                  <dd>{formatElevation(peak.elevationM, units)}</dd>
+                  <dd>{formatElevation(peak.elevationM, units, peak.elevationFt)}</dd>
                 </div>
                 <div className="detail-field">
                   <dt>Prominence</dt>
-                  <dd>{formatElevation(peak.prominenceM, units)}</dd>
+                  <dd>{formatElevation(peak.prominenceM, units, peak.prominenceFt)}</dd>
                 </div>
                 <div className="detail-field">
                   <dt>Range</dt>
@@ -112,19 +118,23 @@ export default function PeakDetailPage() {
                 <span>02</span>
                 <h2>List membership</h2>
               </div>
-              <p className="detail-copy">
-                Required peak in the <Link to="/lists/nh48">{NH48_LIST.title}</Link>, published by{" "}
-                {NH48_LIST.publisher}. Terrane is not the official record.
-              </p>
-              {!listStarted ? (
-                <button type="button" className="button button--bright" onClick={start}>
-                  <Icon name="list" size={16} /> Start the NH 48
-                </button>
-              ) : (
-                <Link to="/lists/nh48" className="text-link">
-                  {progress.percent}% of the list complete <span aria-hidden="true">→</span>
-                </Link>
-              )}
+              {lists.map((list) => (
+                <p className="detail-copy" key={list.id}>
+                  Required peak in the <Link to={`/lists/${list.slug}`}>{list.title}</Link>, published by{" "}
+                  {list.publisher}. {list.rules}
+                </p>
+              ))}
+              {primaryList ? (
+                !listStarted ? (
+                  <button type="button" className="button button--bright" onClick={start}>
+                    <Icon name="list" size={16} /> Start {primaryList.title}
+                  </button>
+                ) : (
+                  <Link to={`/lists/${primaryList.slug}`} className="text-link">
+                    {progress?.percent ?? 0}% of the list complete <span aria-hidden="true">→</span>
+                  </Link>
+                )
+              ) : null}
             </section>
 
             <section className="detail-section">
@@ -169,16 +179,23 @@ export default function PeakDetailPage() {
                   , checked 27 November 2026.
                 </p>
                 <p>
-                  <strong>Elevation, prominence:</strong> publisher and USGS GNIS facts via the catalog.
+                  <strong>Elevation, prominence:</strong> publisher facts via the catalog.{" "}
+                  {peak.elevationSourceUrl ? (
+                    <a href={peak.elevationSourceUrl} target="_blank" rel="noreferrer">
+                      Elevation source
+                    </a>
+                  ) : null}{" "}
                   Displayed in {units === "imperial" ? "feet" : "metres"}.
                 </p>
-                <p>
-                  <strong>List membership:</strong> {NH48_LIST.publisher}, {NH48_LIST.edition}.{" "}
-                  <a href={NH48_LIST.sourceUrl} target="_blank" rel="noreferrer">
-                    Publisher source
-                  </a>
-                  .
-                </p>
+                {lists.map((list) => (
+                  <p key={list.id}>
+                    <strong>List membership:</strong> {list.publisher}, {list.edition}.{" "}
+                    <a href={list.sourceUrl} target="_blank" rel="noreferrer">
+                      Publisher source
+                    </a>
+                    .
+                  </p>
+                ))}
               </div>
             </section>
           </div>
@@ -203,9 +220,11 @@ export default function PeakDetailPage() {
               <Link to={`/log?mode=backfill&peak=${peak.slug}`} className="button">
                 <Icon name="plus" size={17} /> Add from history
               </Link>
-              <Link to="/lists/nh48" className="button">
-                <Icon name="list" size={17} /> Open the list
-              </Link>
+              {primaryList ? (
+                <Link to={`/lists/${primaryList.slug}`} className="button">
+                  <Icon name="list" size={17} /> Open the list
+                </Link>
+              ) : null}
             </div>
             <p className="muted-note">
               {profile

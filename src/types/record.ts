@@ -30,7 +30,16 @@ export interface Trip {
 export interface RecordState {
   profile: Profile | null;
   startedLists: string[];
+  /** Edition and membership captured when a list was started. */
+  listStarts: Record<string, ListStart>;
   trips: Trip[];
+}
+
+export interface ListStart {
+  version: string;
+  edition: string;
+  peakSlugs: string[];
+  startedAt: string;
 }
 
 export interface NewTripInput {
@@ -41,6 +50,8 @@ export interface NewTripInput {
   notes?: string;
   peakSlugs: string[];
   outcome: PeakOutcome;
+  /** Per-peak outcomes for imports and multi-outcome trips. */
+  peaks?: TripPeak[];
 }
 
 export interface ListProgress {

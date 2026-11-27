@@ -8,6 +8,7 @@ export default function SettingsPage() {
   const {
     profile,
     startedLists,
+    listStarts,
     trips,
     hydrated,
     updateProfile,
@@ -26,7 +27,7 @@ export default function SettingsPage() {
     return <Navigate to={`/signin?returnTo=${encodeURIComponent("/settings")}`} replace />;
   }
 
-  const record = { profile, startedLists, trips };
+  const record = { profile, startedLists, listStarts, trips };
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,6 +104,7 @@ export default function SettingsPage() {
             <h2>Take it with you.</h2>
             <p>Export every trip, including source, precision and peak outcome. No lock-in.</p>
             <div className="form-actions">
+              <Link to="/import" className="button">Import CSV</Link>
               <button type="button" className="button" onClick={() => exportJson(record)}>
                 Export JSON
               </button>
