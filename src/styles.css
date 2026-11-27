@@ -1,6 +1,5 @@
 :root {
   --night: #05070c;
-  --night-soft: #080b10;
   --night-raised: #0d1218;
   --paper: #f4f1e8;
   --paper-dim: #b6b3a8;
@@ -11,7 +10,6 @@
   --mint: #7ce0c0;
   --mint-soft: rgba(124, 224, 192, 0.12);
   --copper: #b0553b;
-  --danger: #e19a89;
   --serif: "Fraunces", Georgia, serif;
   --sans: "Sora", system-ui, sans-serif;
   --body: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -139,13 +137,6 @@ button:not(:disabled) {
   color: var(--copper);
 }
 
-.eyebrow__rule {
-  display: inline-block;
-  width: 26px;
-  height: 1px;
-  background: var(--mint);
-  opacity: 0.7;
-}
 
 .display-italic {
   color: var(--mint);
@@ -154,15 +145,6 @@ button:not(:disabled) {
   font-weight: 400;
 }
 
-.status-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--mint);
-  box-shadow: 0 0 0 3px rgba(124, 224, 192, 0.08);
-}
 
 /* ── application shell ─────────────────────────────────────── */
 
