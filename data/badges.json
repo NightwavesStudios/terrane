@@ -1,0 +1,614 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "id": "firsts",
+      "name": "Firsts",
+      "description": "The first marks: starting, and trusting the record with your history."
+    },
+    {
+      "id": "count",
+      "name": "Count",
+      "description": "A life measured in summits."
+    },
+    {
+      "id": "elevation",
+      "name": "Elevation",
+      "description": "Height above the sea."
+    },
+    {
+      "id": "prominence",
+      "name": "Prominence",
+      "description": "The shape of a mountain, not just its height."
+    },
+    {
+      "id": "lists",
+      "name": "Lists",
+      "description": "Completion and return."
+    },
+    {
+      "id": "seasons",
+      "name": "Seasons",
+      "description": "When you go, not just where."
+    },
+    {
+      "id": "geography",
+      "name": "Geography",
+      "description": "The breadth of the map."
+    },
+    {
+      "id": "craft",
+      "name": "Craft",
+      "description": "Contribution and care."
+    },
+    {
+      "id": "rare",
+      "name": "Rare",
+      "description": "The stories worth telling."
+    }
+  ],
+  "badges": [
+    {
+      "id": "first-light",
+      "name": "First Light",
+      "family": "firsts",
+      "description": "Log your first summit.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.summits", "gte": 1 }]
+      }
+    },
+    {
+      "id": "paper-trail",
+      "name": "Paper Trail",
+      "family": "firsts",
+      "description": "Log a climb from before you joined.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_pre_account_ascent", "eq": true }]
+      }
+    },
+    {
+      "id": "true-north",
+      "name": "True North",
+      "family": "firsts",
+      "description": "Set your home region and units.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "profile.has_home_region_and_units", "eq": true }]
+      }
+    },
+    {
+      "id": "first-frame",
+      "name": "First Frame",
+      "family": "firsts",
+      "description": "Attach a photo to a climb.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "contributions.photos", "gte": 1 }]
+      }
+    },
+    {
+      "id": "cartographer",
+      "name": "Cartographer",
+      "family": "firsts",
+      "description": "Attach a GPS track to a climb.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.gpx_tracks", "gte": 1 }]
+      }
+    },
+    {
+      "id": "ten-up",
+      "name": "Ten Up",
+      "family": "count",
+      "description": "Reach ten unique summits.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.unique_peaks", "target": 10, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.unique_peaks", "gte": 10 }]
+      }
+    },
+    {
+      "id": "fifty-up",
+      "name": "Fifty Up",
+      "family": "count",
+      "description": "Reach fifty unique summits.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.unique_peaks", "target": 50, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.unique_peaks", "gte": 50 }]
+      }
+    },
+    {
+      "id": "century",
+      "name": "Century",
+      "family": "count",
+      "description": "Reach one hundred unique summits.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.unique_peaks", "target": 100, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.unique_peaks", "gte": 100 }]
+      }
+    },
+    {
+      "id": "five-hundred",
+      "name": "Five Hundred",
+      "family": "count",
+      "description": "Reach five hundred unique summits.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.unique_peaks", "target": 500, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.unique_peaks", "gte": 500 }]
+      }
+    },
+    {
+      "id": "thousand",
+      "name": "Thousand",
+      "family": "count",
+      "description": "Reach one thousand unique summits.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "ascents.unique_peaks", "target": 1000, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.unique_peaks", "gte": 1000 }]
+      }
+    },
+    {
+      "id": "four-thousand",
+      "name": "Four Thousand",
+      "family": "elevation",
+      "description": "Stand on a 4,000-metre summit.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_elevation_m", "target": 4000, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_elevation_m", "gte": 4000 }]
+      }
+    },
+    {
+      "id": "fourteener",
+      "name": "Fourteener",
+      "family": "elevation",
+      "description": "Stand on a 14,000-foot summit.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_elevation_m", "target": 4267, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_elevation_m", "gte": 4267 }]
+      }
+    },
+    {
+      "id": "five-thousand",
+      "name": "Five Thousand",
+      "family": "elevation",
+      "description": "Stand on a 5,000-metre summit.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_elevation_m", "target": 5000, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_elevation_m", "gte": 5000 }]
+      }
+    },
+    {
+      "id": "eight-thousand",
+      "name": "Eight Thousand",
+      "family": "elevation",
+      "description": "Stand on an 8,000-metre summit.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "ascents.max_elevation_m", "target": 8000, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_elevation_m", "gte": 8000 }]
+      }
+    },
+    {
+      "id": "continental-crown",
+      "name": "Continental Crown",
+      "family": "elevation",
+      "description": "Summit the highest peak of a continent.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": true,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_continental_highpoint", "eq": true }]
+      }
+    },
+    {
+      "id": "p300",
+      "name": "P300",
+      "family": "prominence",
+      "description": "Summit a peak with at least 300 metres of prominence.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_prominence_m", "target": 300, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_prominence_m", "gte": 300 }]
+      }
+    },
+    {
+      "id": "p1000",
+      "name": "P1000",
+      "family": "prominence",
+      "description": "Summit a peak with at least 1,000 metres of prominence.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_prominence_m", "target": 1000, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_prominence_m", "gte": 1000 }]
+      }
+    },
+    {
+      "id": "ultra",
+      "name": "Ultra",
+      "family": "prominence",
+      "description": "Summit a peak with at least 1,500 metres of prominence.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_prominence_m", "target": 1500, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_prominence_m", "gte": 1500 }]
+      }
+    },
+    {
+      "id": "p2000",
+      "name": "P2000",
+      "family": "prominence",
+      "description": "Summit a peak with at least 2,000 metres of prominence.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "ascents.max_prominence_m", "target": 2000, "unit": "metres" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_prominence_m", "gte": 2000 }]
+      }
+    },
+    {
+      "id": "enrolled",
+      "name": "Enrolled",
+      "family": "lists",
+      "description": "Start any published list.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "lists.started", "gte": 1 }]
+      }
+    },
+    {
+      "id": "halfway",
+      "name": "Halfway",
+      "family": "lists",
+      "description": "Reach halfway on a list of ten or more peaks.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "lists.max_progress_pct", "target": 50, "unit": "percent" },
+      "criteria": {
+        "all": [{ "fact": "lists.max_progress_pct", "gte": 50 }]
+      }
+    },
+    {
+      "id": "finisher",
+      "name": "Finisher",
+      "family": "lists",
+      "description": "Complete any published list.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "lists.completed", "gte": 1 }]
+      }
+    },
+    {
+      "id": "second-round",
+      "name": "Second Round",
+      "family": "lists",
+      "description": "Complete the same list twice.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "lists.max_completed_rounds", "target": 2, "unit": "rounds" },
+      "criteria": {
+        "all": [{ "fact": "lists.max_completed_rounds", "gte": 2 }]
+      }
+    },
+    {
+      "id": "third-round",
+      "name": "Third Round",
+      "family": "lists",
+      "description": "Complete the same list three times.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "lists.max_completed_rounds", "target": 3, "unit": "rounds" },
+      "criteria": {
+        "all": [{ "fact": "lists.max_completed_rounds", "gte": 3 }]
+      }
+    },
+    {
+      "id": "grand-slam",
+      "name": "Grand Slam",
+      "family": "lists",
+      "description": "Complete three distinct published lists.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "lists.distinct_completed", "target": 3, "unit": "lists" },
+      "criteria": {
+        "all": [{ "fact": "lists.distinct_completed", "gte": 3 }]
+      }
+    },
+    {
+      "id": "winter-round",
+      "name": "Winter Round",
+      "family": "seasons",
+      "description": "Summit ten peaks in winter.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.winter_summits", "target": 10, "unit": "summits" },
+      "criteria": {
+        "all": [{ "fact": "ascents.winter_summits", "gte": 10 }]
+      }
+    },
+    {
+      "id": "solstice",
+      "name": "Solstice",
+      "family": "seasons",
+      "description": "Summit on a solstice.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_solstice_summit", "eq": true }]
+      }
+    },
+    {
+      "id": "dawn-patrol",
+      "name": "Dawn Patrol",
+      "family": "seasons",
+      "description": "Start a summit climb before 06:00 local time.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_dawn_start", "eq": true }]
+      }
+    },
+    {
+      "id": "night-shift",
+      "name": "Night Shift",
+      "family": "seasons",
+      "description": "Summit after local sunset.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": true,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_night_summit", "eq": true }]
+      }
+    },
+    {
+      "id": "perfect-year",
+      "name": "Perfect Year",
+      "family": "seasons",
+      "description": "Summit in every month of a calendar year.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "time.months_with_summits_in_year", "target": 12, "unit": "months" },
+      "criteria": {
+        "all": [
+          { "fact": "time.months_with_summits_in_year", "gte": 12 },
+          { "fact": "time.current_year_complete", "eq": true }
+        ]
+      }
+    },
+    {
+      "id": "new-range",
+      "name": "New Range",
+      "family": "geography",
+      "description": "Summit in two distinct ranges.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.ranges", "target": 2, "unit": "ranges" },
+      "criteria": {
+        "all": [{ "fact": "ascents.ranges", "gte": 2 }]
+      }
+    },
+    {
+      "id": "three-countries",
+      "name": "Three Countries",
+      "family": "geography",
+      "description": "Summit in three countries.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.countries", "target": 3, "unit": "countries" },
+      "criteria": {
+        "all": [{ "fact": "ascents.countries", "gte": 3 }]
+      }
+    },
+    {
+      "id": "seven-continents",
+      "name": "Seven Continents",
+      "family": "geography",
+      "description": "Summit on all seven continents.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "ascents.continents", "target": 7, "unit": "continents" },
+      "criteria": {
+        "all": [{ "fact": "ascents.continents", "gte": 7 }]
+      }
+    },
+    {
+      "id": "highpoint",
+      "name": "Highpoint",
+      "family": "geography",
+      "description": "Summit a state or country highpoint.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": false,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_highpoint", "eq": true }]
+      }
+    },
+    {
+      "id": "steward",
+      "name": "Steward",
+      "family": "craft",
+      "description": "Have a data correction accepted.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": true,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "contributions.corrections_accepted", "gte": 1 }]
+      }
+    },
+    {
+      "id": "scout",
+      "name": "Scout",
+      "family": "craft",
+      "description": "Publish five field reports.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "contributions.reports", "target": 5, "unit": "reports" },
+      "criteria": {
+        "all": [{ "fact": "contributions.reports", "gte": 5 }]
+      }
+    },
+    {
+      "id": "archivist",
+      "name": "Archivist",
+      "family": "craft",
+      "description": "Attach fifty photos.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "contributions.photos", "target": 50, "unit": "photos" },
+      "criteria": {
+        "all": [{ "fact": "contributions.photos", "gte": 50 }]
+      }
+    },
+    {
+      "id": "hard-way",
+      "name": "The Hard Way",
+      "family": "rare",
+      "description": "Summit the same peak in all four seasons.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": true,
+      "progress": { "fact": "ascents.seasons_on_single_peak", "target": 4, "unit": "seasons" },
+      "criteria": {
+        "all": [{ "fact": "ascents.seasons_on_single_peak", "gte": 4 }]
+      }
+    },
+    {
+      "id": "lonely-summit",
+      "name": "Lonely Summit",
+      "family": "rare",
+      "description": "Summit a peak that stays under five ascents.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": true,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_lonely_summit", "eq": true }]
+      }
+    },
+    {
+      "id": "grand-traverse",
+      "name": "Grand Traverse",
+      "family": "rare",
+      "description": "Summit three peaks in one trip.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_peaks_in_trip", "target": 3, "unit": "peaks" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_peaks_in_trip", "gte": 3 }]
+      }
+    },
+    {
+      "id": "home-mountain",
+      "name": "Home Mountain",
+      "family": "rare",
+      "description": "Climb the same peak five times.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.max_ascents_on_single_peak", "target": 5, "unit": "ascents" },
+      "criteria": {
+        "all": [{ "fact": "ascents.max_ascents_on_single_peak", "gte": 5 }]
+      }
+    },
+    {
+      "id": "comeback",
+      "name": "Comeback",
+      "family": "rare",
+      "description": "Summit a peak you once turned back on.",
+      "criteriaVersion": 1,
+      "progressive": false,
+      "hidden": true,
+      "progress": null,
+      "criteria": {
+        "all": [{ "fact": "ascents.has_summitted_previous_attempt", "eq": true }]
+      }
+    },
+    {
+      "id": "ones-that-got-away",
+      "name": "The Ones That Got Away",
+      "family": "rare",
+      "description": "Log three attempts.",
+      "criteriaVersion": 1,
+      "progressive": true,
+      "hidden": false,
+      "progress": { "fact": "ascents.attempts", "target": 3, "unit": "attempts" },
+      "criteria": {
+        "all": [{ "fact": "ascents.attempts", "gte": 3 }]
+      }
+    }
+  ]
+}
