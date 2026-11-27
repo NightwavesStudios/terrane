@@ -58,8 +58,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.summits", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.summits",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "paper-trail",
@@ -71,8 +77,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_pre_account_ascent", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_pre_account_ascent",
+            "eq": true
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "true-north",
@@ -84,8 +96,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "profile.has_home_region_and_units", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "profile.has_home_region_and_units",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "first-frame",
@@ -97,8 +115,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "contributions.photos", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "contributions.photos",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "cartographer",
@@ -110,8 +134,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.gpx_tracks", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.gpx_tracks",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "ten-up",
@@ -121,10 +151,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.unique_peaks", "target": 10, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.unique_peaks",
+        "target": 10,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.unique_peaks", "gte": 10 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.unique_peaks",
+            "gte": 10
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "fifty-up",
@@ -134,10 +174,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.unique_peaks", "target": 50, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.unique_peaks",
+        "target": 50,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.unique_peaks", "gte": 50 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.unique_peaks",
+            "gte": 50
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "century",
@@ -147,10 +197,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.unique_peaks", "target": 100, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.unique_peaks",
+        "target": 100,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.unique_peaks", "gte": 100 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.unique_peaks",
+            "gte": 100
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "five-hundred",
@@ -160,10 +220,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.unique_peaks", "target": 500, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.unique_peaks",
+        "target": 500,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.unique_peaks", "gte": 500 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.unique_peaks",
+            "gte": 500
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "thousand",
@@ -173,10 +243,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "ascents.unique_peaks", "target": 1000, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.unique_peaks",
+        "target": 1000,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.unique_peaks", "gte": 1000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.unique_peaks",
+            "gte": 1000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "four-thousand",
@@ -186,10 +266,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_elevation_m", "target": 4000, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_elevation_m",
+        "target": 4000,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_elevation_m", "gte": 4000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_elevation_m",
+            "gte": 4000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "fourteener",
@@ -199,10 +289,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_elevation_m", "target": 4267, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_elevation_m",
+        "target": 4267,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_elevation_m", "gte": 4267 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_elevation_m",
+            "gte": 4267
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "five-thousand",
@@ -212,10 +312,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_elevation_m", "target": 5000, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_elevation_m",
+        "target": 5000,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_elevation_m", "gte": 5000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_elevation_m",
+            "gte": 5000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "eight-thousand",
@@ -225,10 +335,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "ascents.max_elevation_m", "target": 8000, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_elevation_m",
+        "target": 8000,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_elevation_m", "gte": 8000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_elevation_m",
+            "gte": 8000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "continental-crown",
@@ -240,8 +360,14 @@
       "hidden": true,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_continental_highpoint", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_continental_highpoint",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "p300",
@@ -251,10 +377,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_prominence_m", "target": 300, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_prominence_m",
+        "target": 300,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_prominence_m", "gte": 300 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_prominence_m",
+            "gte": 300
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "p1000",
@@ -264,10 +400,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_prominence_m", "target": 1000, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_prominence_m",
+        "target": 1000,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_prominence_m", "gte": 1000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_prominence_m",
+            "gte": 1000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "ultra",
@@ -277,10 +423,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_prominence_m", "target": 1500, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_prominence_m",
+        "target": 1500,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_prominence_m", "gte": 1500 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_prominence_m",
+            "gte": 1500
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "p2000",
@@ -290,10 +446,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "ascents.max_prominence_m", "target": 2000, "unit": "metres" },
+      "progress": {
+        "fact": "ascents.max_prominence_m",
+        "target": 2000,
+        "unit": "metres"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_prominence_m", "gte": 2000 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_prominence_m",
+            "gte": 2000
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "enrolled",
@@ -305,8 +471,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "lists.started", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "lists.started",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "halfway",
@@ -316,10 +488,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "lists.max_progress_pct", "target": 50, "unit": "percent" },
+      "progress": {
+        "fact": "lists.max_progress_pct",
+        "target": 50,
+        "unit": "percent"
+      },
       "criteria": {
-        "all": [{ "fact": "lists.max_progress_pct", "gte": 50 }]
-      }
+        "all": [
+          {
+            "fact": "lists.max_progress_pct",
+            "gte": 50
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "finisher",
@@ -331,8 +513,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "lists.completed", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "lists.completed",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "second-round",
@@ -342,10 +530,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "lists.max_completed_rounds", "target": 2, "unit": "rounds" },
+      "progress": {
+        "fact": "lists.max_completed_rounds",
+        "target": 2,
+        "unit": "rounds"
+      },
       "criteria": {
-        "all": [{ "fact": "lists.max_completed_rounds", "gte": 2 }]
-      }
+        "all": [
+          {
+            "fact": "lists.max_completed_rounds",
+            "gte": 2
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "third-round",
@@ -355,10 +553,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "lists.max_completed_rounds", "target": 3, "unit": "rounds" },
+      "progress": {
+        "fact": "lists.max_completed_rounds",
+        "target": 3,
+        "unit": "rounds"
+      },
       "criteria": {
-        "all": [{ "fact": "lists.max_completed_rounds", "gte": 3 }]
-      }
+        "all": [
+          {
+            "fact": "lists.max_completed_rounds",
+            "gte": 3
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "grand-slam",
@@ -368,10 +576,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "lists.distinct_completed", "target": 3, "unit": "lists" },
+      "progress": {
+        "fact": "lists.distinct_completed",
+        "target": 3,
+        "unit": "lists"
+      },
       "criteria": {
-        "all": [{ "fact": "lists.distinct_completed", "gte": 3 }]
-      }
+        "all": [
+          {
+            "fact": "lists.distinct_completed",
+            "gte": 3
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "winter-round",
@@ -381,10 +599,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.winter_summits", "target": 10, "unit": "summits" },
+      "progress": {
+        "fact": "ascents.winter_summits",
+        "target": 10,
+        "unit": "summits"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.winter_summits", "gte": 10 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.winter_summits",
+            "gte": 10
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "solstice",
@@ -396,8 +624,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_solstice_summit", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_solstice_summit",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "dawn-patrol",
@@ -409,8 +643,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_dawn_start", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_dawn_start",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "night-shift",
@@ -422,8 +662,14 @@
       "hidden": true,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_night_summit", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_night_summit",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "perfect-year",
@@ -433,13 +679,24 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "time.months_with_summits_in_year", "target": 12, "unit": "months" },
+      "progress": {
+        "fact": "time.months_with_summits_in_year",
+        "target": 12,
+        "unit": "months"
+      },
       "criteria": {
         "all": [
-          { "fact": "time.months_with_summits_in_year", "gte": 12 },
-          { "fact": "time.current_year_complete", "eq": true }
+          {
+            "fact": "time.months_with_summits_in_year",
+            "gte": 12
+          },
+          {
+            "fact": "time.current_year_complete",
+            "eq": true
+          }
         ]
-      }
+      },
+      "launch": false
     },
     {
       "id": "new-range",
@@ -449,10 +706,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.ranges", "target": 2, "unit": "ranges" },
+      "progress": {
+        "fact": "ascents.ranges",
+        "target": 2,
+        "unit": "ranges"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.ranges", "gte": 2 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.ranges",
+            "gte": 2
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "three-countries",
@@ -462,10 +729,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.countries", "target": 3, "unit": "countries" },
+      "progress": {
+        "fact": "ascents.countries",
+        "target": 3,
+        "unit": "countries"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.countries", "gte": 3 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.countries",
+            "gte": 3
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "seven-continents",
@@ -475,10 +752,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "ascents.continents", "target": 7, "unit": "continents" },
+      "progress": {
+        "fact": "ascents.continents",
+        "target": 7,
+        "unit": "continents"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.continents", "gte": 7 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.continents",
+            "gte": 7
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "highpoint",
@@ -490,8 +777,14 @@
       "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_highpoint", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_highpoint",
+            "eq": true
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "steward",
@@ -503,8 +796,14 @@
       "hidden": true,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "contributions.corrections_accepted", "gte": 1 }]
-      }
+        "all": [
+          {
+            "fact": "contributions.corrections_accepted",
+            "gte": 1
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "scout",
@@ -514,10 +813,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "contributions.reports", "target": 5, "unit": "reports" },
+      "progress": {
+        "fact": "contributions.reports",
+        "target": 5,
+        "unit": "reports"
+      },
       "criteria": {
-        "all": [{ "fact": "contributions.reports", "gte": 5 }]
-      }
+        "all": [
+          {
+            "fact": "contributions.reports",
+            "gte": 5
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "archivist",
@@ -527,10 +836,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "contributions.photos", "target": 50, "unit": "photos" },
+      "progress": {
+        "fact": "contributions.photos",
+        "target": 50,
+        "unit": "photos"
+      },
       "criteria": {
-        "all": [{ "fact": "contributions.photos", "gte": 50 }]
-      }
+        "all": [
+          {
+            "fact": "contributions.photos",
+            "gte": 50
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "hard-way",
@@ -540,10 +859,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": true,
-      "progress": { "fact": "ascents.seasons_on_single_peak", "target": 4, "unit": "seasons" },
+      "progress": {
+        "fact": "ascents.seasons_on_single_peak",
+        "target": 4,
+        "unit": "seasons"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.seasons_on_single_peak", "gte": 4 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.seasons_on_single_peak",
+            "gte": 4
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "lonely-summit",
@@ -555,8 +884,14 @@
       "hidden": true,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_lonely_summit", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_lonely_summit",
+            "eq": true
+          }
+        ]
+      },
+      "launch": false
     },
     {
       "id": "grand-traverse",
@@ -566,10 +901,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_peaks_in_trip", "target": 3, "unit": "peaks" },
+      "progress": {
+        "fact": "ascents.max_peaks_in_trip",
+        "target": 3,
+        "unit": "peaks"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_peaks_in_trip", "gte": 3 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_peaks_in_trip",
+            "gte": 3
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "home-mountain",
@@ -579,10 +924,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.max_ascents_on_single_peak", "target": 5, "unit": "ascents" },
+      "progress": {
+        "fact": "ascents.max_ascents_on_single_peak",
+        "target": 5,
+        "unit": "ascents"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.max_ascents_on_single_peak", "gte": 5 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.max_ascents_on_single_peak",
+            "gte": 5
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "comeback",
@@ -591,11 +946,17 @@
       "description": "Summit a peak you once turned back on.",
       "criteriaVersion": 1,
       "progressive": false,
-      "hidden": true,
+      "hidden": false,
       "progress": null,
       "criteria": {
-        "all": [{ "fact": "ascents.has_summitted_previous_attempt", "eq": true }]
-      }
+        "all": [
+          {
+            "fact": "ascents.has_summitted_previous_attempt",
+            "eq": true
+          }
+        ]
+      },
+      "launch": true
     },
     {
       "id": "ones-that-got-away",
@@ -605,10 +966,20 @@
       "criteriaVersion": 1,
       "progressive": true,
       "hidden": false,
-      "progress": { "fact": "ascents.attempts", "target": 3, "unit": "attempts" },
+      "progress": {
+        "fact": "ascents.attempts",
+        "target": 3,
+        "unit": "attempts"
+      },
       "criteria": {
-        "all": [{ "fact": "ascents.attempts", "gte": 3 }]
-      }
+        "all": [
+          {
+            "fact": "ascents.attempts",
+            "gte": 3
+          }
+        ]
+      },
+      "launch": false
     }
   ]
 }

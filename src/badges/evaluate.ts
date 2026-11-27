@@ -75,6 +75,7 @@ export interface Badge {
   criteriaVersion: number;
   progressive: boolean;
   hidden: boolean;
+  launch: boolean;
   progress: ProgressDefinition | null;
   criteria: Criteria;
 }
@@ -272,6 +273,7 @@ export function validateCatalog(catalog: BadgeCatalog): string[] {
     }
     if (typeof badge.progressive !== "boolean") errors.push(`${path}: progressive must be boolean`);
     if (typeof badge.hidden !== "boolean") errors.push(`${path}: hidden must be boolean`);
+    if (typeof badge.launch !== "boolean") errors.push(`${path}: launch must be boolean`);
 
     if (badge.progressive) {
       if (!badge.progress) {

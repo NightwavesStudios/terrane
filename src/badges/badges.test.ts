@@ -16,6 +16,19 @@ import {
 
 const catalog = catalogJson as unknown as BadgeCatalog;
 
+const LAUNCH_IDS = [
+  "first-light",
+  "paper-trail",
+  "ten-up",
+  "halfway",
+  "finisher",
+  "grand-traverse",
+  "winter-round",
+  "highpoint",
+  "home-mountain",
+  "comeback",
+];
+
 const RICH_FACTS: Facts = {
   "ascents.summits": 1200,
   "ascents.unique_peaks": 1200,
@@ -102,6 +115,14 @@ describe("badge catalog", () => {
 
   it("has no validation errors and references only real facts", () => {
     expect(validateCatalog(catalog)).toEqual([]);
+  });
+
+  it("marks exactly the ten launch badges and keeps them visible", () => {
+    const launch = catalog.badges.filter((badge) => badge.launch);
+    expect(launch.map((badge) => badge.id).sort()).toEqual([...LAUNCH_IDS].sort());
+    expect(launch).toHaveLength(10);
+    expect(catalog.badges.filter((badge) => !badge.launch)).toHaveLength(33);
+    for (const badge of launch) expect(badge.hidden).toBe(false);
   });
 
   it("contains 28 progressive and 15 one-shot marks", () => {
