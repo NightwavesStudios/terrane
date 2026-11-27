@@ -1,17 +1,26 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { NH48_PEAKS } from "../data/nh48";
+import { formatElevation } from "../lib/format";
+import type { Peak } from "../types/geography";
 
-/**
- * The old globe's one search surface, kept deliberately small.
- *
- * There is no peak index in this build, so Discover never fabricates a result:
- * it opens the same panel, takes the question, and says plainly that the index
- * has not arrived yet.
- */
+function matchingPeaks(term: string): Peak[] {
+  const query = term.trim().toLowerCase();
+  if (!query) return NH48_PEAKS.slice(0, 4);
+  return NH48_PEAKS.filter((peak) =>
+    [peak.name, peak.range, "new hampshire", "nh 48"]
+      .filter(Boolean)
+      .some((value) => value!.toLowerCase().includes(query)),
+  ).slice(0, 8);
+}
+
 export default function Discover() {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [message, setMessage] = useState("");
   const field = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const results = matchingPeaks(term);
 
   useEffect(() => {
     if (open) field.current?.focus();
@@ -36,13 +45,21 @@ export default function Discover() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  function goToPeak(peak: Peak) {
+    navigate(`/peaks/${peak.slug}`);
+    setOpen(false);
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const query = term.trim();
+    if (results[0]) {
+      goToPeak(results[0]);
+      return;
+    }
     setMessage(
-      query
-        ? `“${query}” will be searchable when the peak index arrives.`
-        : "Enter a peak, range or place when the index arrives.",
+      term.trim()
+        ? `No NH 48 peak matches “${term.trim()}”. Try Washington, Lafayette or a range.`
+        : "Search the 48 peaks by name or range.",
     );
   }
 
@@ -64,7 +81,7 @@ export default function Discover() {
         <section className="discover" role="dialog" aria-label="Discover places">
           <div className="discover-head">
             <span className="discover-title mono">Discover</span>
-            <span className="discover-scope mono">Globe</span>
+            <span className="discover-scope mono">NH 48</span>
             <button
               type="button"
               className="discover-close"
@@ -83,22 +100,39 @@ export default function Discover() {
                 setTerm(event.target.value);
                 setMessage("");
               }}
-              placeholder="Search peaks, ranges, places"
-              aria-label="Search peaks, ranges and places"
+              placeholder="Search peaks or ranges"
+              aria-label="Search NH 48 peaks and ranges"
               spellCheck={false}
               autoComplete="off"
             />
           </form>
 
-          <div className="discover-body">
-            <p className="discover-empty mono">
-              {message ||
-                "The peak index is still being charted. The globe is live; search will connect when the index arrives."}
-            </p>
+          <div className="discover-body" aria-live="polite">
+            {message ? <p className="discover-empty mono">{message}</p> : null}
+            {results.length ? (
+              <div className="discover-results">
+                {results.map((peak) => (
+                  <button
+                    type="button"
+                    key={peak.slug}
+                    className="discover-result"
+                    onClick={() => goToPeak(peak)}
+                  >
+                    <span>
+                      <strong>{peak.name}</strong>
+                      <small>
+                        {peak.range} · {formatElevation(peak.elevationM, "imperial")}
+                      </small>
+                    </span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <p className="discover-foot mono">
-            Globe only · no peak data
+            48 peaks indexed · AMC edition
             <span>⌘K open · esc close</span>
           </p>
         </section>

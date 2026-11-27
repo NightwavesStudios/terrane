@@ -1,12 +1,11 @@
-import { useState } from "react";
-import EmptyState from "../components/EmptyState";
-import FilterChips from "../components/FilterChips";
+import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import SearchField from "../components/SearchField";
+import ProgressRing from "../components/ProgressRing";
+import { NH48_LIST } from "../data/nh48";
+import { useRecord } from "../state/RecordContext";
 
 export default function ListsPage() {
-  const [notice, setNotice] = useState("");
-  const [category, setCategory] = useState("All lists");
+  const { progress, profile } = useRecord();
 
   return (
     <div className="content-page">
@@ -18,58 +17,52 @@ export default function ListsPage() {
             Collections with a <span className="display-italic">summit.</span>
           </>
         }
-        description="Peak-bagging lists will turn geography into a pursuit: regional challenges, elevation lists and personal collections."
+        description="One complete, sourced list is worth more than a hundred partial catalogues. The NH 48 is the first."
         aside={
           <div className="status-card">
             <span className="status-card__label">List library</span>
-            <strong>Awaiting lists</strong>
-            <span>No completions recorded</span>
+            <strong>{progress.started ? `${progress.percent}% complete` : "One list ready"}</strong>
+            <span>{NH48_LIST.publisher} · {NH48_LIST.edition}</span>
           </div>
         }
       />
 
-      <section className="catalog-toolbar" aria-label="List discovery controls">
-        <SearchField
-          label="Search lists"
-          placeholder="Search challenges, regions or collections"
-          hint="List search is not connected in Phase 01."
-          onSubmit={(query) =>
-            setNotice(
-              query
-                ? `“${query}” will search the list library when it is connected.`
-                : "List search is a visual placeholder for the coming library.",
-            )
-          }
-        />
-      </section>
+      <Link to="/lists/nh48" className="list-card">
+        <div className="list-card__body">
+          <p className="eyebrow">AMC · New Hampshire</p>
+          <h2>{NH48_LIST.title}</h2>
+          <p>{NH48_LIST.description}</p>
+          <dl className="list-card__facts">
+            <div>
+              <dt>Peaks</dt>
+              <dd>{NH48_LIST.peaks.length}</dd>
+            </div>
+            <div>
+              <dt>Edition</dt>
+              <dd>2026</dd>
+            </div>
+            <div>
+              <dt>Your record</dt>
+              <dd>{profile ? `${progress.completed} climbed` : "Sign in to start"}</dd>
+            </div>
+          </dl>
+          <span className="text-link">
+            {progress.started ? "Continue the list" : "Open the list"} <span aria-hidden="true">→</span>
+          </span>
+        </div>
+        {progress.started ? (
+          <ProgressRing completed={progress.completed} total={progress.total} />
+        ) : (
+          <div className="list-card__start">
+            <span>Not started</span>
+            <small>48 peaks</small>
+          </div>
+        )}
+      </Link>
 
-      <FilterChips
-        label="List categories"
-        items={["All lists", "Regional", "Elevation", "State high points"]}
-        active={category}
-        onSelect={(value) => {
-          setCategory(value);
-          setNotice(`${value} lists are coming with the library.`);
-        }}
-      />
-
-      <p className={`toolbar-notice${notice ? " toolbar-notice--visible" : ""}`} aria-live="polite">
-        {notice}
+      <p className="page-footnote">
+        More lists arrive only when their membership, edition and rules are complete. No partial list is published.
       </p>
-
-      <div className="list-anatomy" aria-label="Structure of a future list card">
-        <span>List name</span>
-        <span>Region</span>
-        <span>Peak count</span>
-        <span>Completion</span>
-      </div>
-
-      <EmptyState
-        icon="list"
-        eyebrow="List library"
-        title="The lists are being drawn."
-        description="No challenge memberships or completion counts are loaded in Phase 01. The page is ready for established lists, custom collections and progress indicators."
-      />
     </div>
   );
 }

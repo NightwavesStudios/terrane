@@ -5,8 +5,10 @@ import {
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
+  type GeoJSONSource,
   type IControl,
 } from "maplibre-gl";
+import type { Peak } from "../types/geography";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { worldZoom } from "../lib/camera";
@@ -76,10 +78,20 @@ class ResetControl implements IControl {
   }
 }
 
-export default function MapGlobe() {
+interface Props {
+  peaks?: Peak[];
+  onSelect?: (slug: string) => void;
+}
+
+export default function MapGlobe({ peaks = [], onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const onSelectRef = useRef(onSelect);
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -93,6 +105,123 @@ export default function MapGlobe() {
     let ready = false;
     let revealTimer: number | undefined;
     let failTimer: number | undefined;
+
+    function addPeakLayers(liveMap: MapLibreMap) {
+      const features = peaks
+        .filter((peak) => typeof peak.lat === "number" && typeof peak.lon === "number")
+        .map((peak) => ({
+          type: "Feature" as const,
+          properties: { slug: peak.slug, name: peak.name },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [peak.lon, peak.lat],
+          },
+        }));
+
+      liveMap.addSource("peaks", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features },
+        cluster: true,
+        clusterMaxZoom: 9,
+        clusterRadius: 34,
+      });
+
+      liveMap.addLayer({
+        id: "peak-clusters",
+        type: "circle",
+        source: "peaks",
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": [
+            "step",
+            ["get", "point_count"],
+            "#d9c9a7",
+            10,
+            "#efdcb8",
+            40,
+            "#f7eeda",
+          ],
+          "circle-radius": [
+            "step",
+            ["get", "point_count"],
+            15,
+            10,
+            19,
+            40,
+            23,
+          ],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "rgba(247, 238, 218, 0.5)",
+          "circle-opacity": 0.94,
+        },
+      });
+
+      liveMap.addLayer({
+        id: "peak-cluster-count",
+        type: "symbol",
+        source: "peaks",
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 10,
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#05070c" },
+      });
+
+      liveMap.addLayer({
+        id: "peak-point-halo",
+        type: "circle",
+        source: "peaks",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": "rgba(141, 214, 191, 0.16)",
+          "circle-radius": 10,
+          "circle-blur": 0.4,
+        },
+      });
+
+      liveMap.addLayer({
+        id: "peak-points",
+        type: "circle",
+        source: "peaks",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": "#f7eeda",
+          "circle-radius": 3.5,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#05070c",
+        },
+      });
+
+      liveMap.on("click", "peak-clusters", (event) => {
+        const feature = event.features?.[0];
+        if (!feature) return;
+        const clusterId = feature.properties?.cluster_id as number | undefined;
+        const coordinates = (feature.geometry as { coordinates: [number, number] }).coordinates;
+        const source = liveMap.getSource("peaks") as GeoJSONSource | undefined;
+        if (clusterId === undefined || !source) return;
+        void source
+          .getClusterExpansionZoom(clusterId)
+          .then((zoom) => liveMap.easeTo({ center: coordinates, zoom, duration: 700 }))
+          .catch(() => undefined);
+      });
+
+      liveMap.on("click", "peak-points", (event) => {
+        const slug = event.features?.[0]?.properties?.slug as string | undefined;
+        if (slug) onSelectRef.current?.(slug);
+      });
+
+      for (const layer of ["peak-clusters", "peak-points"]) {
+        liveMap.on("mouseenter", layer, () => {
+          liveMap.getCanvas().style.cursor = "pointer";
+        });
+        liveMap.on("mouseleave", layer, () => {
+          liveMap.getCanvas().style.cursor = "";
+        });
+      }
+    }
 
     const reveal = () => {
       if (disposed || ready) return;
@@ -174,6 +303,11 @@ export default function MapGlobe() {
           // Sky is optional.
         }
         applyTerrain(liveMap);
+        try {
+          addPeakLayers(liveMap);
+        } catch (error) {
+          console.error("Terrane peak layers", error);
+        }
       });
 
       liveMap.on("zoomend", () => applyTerrain(liveMap));
@@ -202,7 +336,7 @@ export default function MapGlobe() {
         stage?.removeAttribute("data-map");
       };
     }
-  }, [retryKey]);
+  }, [retryKey, peaks]);
 
   return (
     <div className="globe">

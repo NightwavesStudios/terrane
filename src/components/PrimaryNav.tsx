@@ -41,6 +41,15 @@ export default function PrimaryNav() {
           ))}
         </nav>
 
+        <div className="header-actions">
+          <NavLink to="/settings" className="nav-utility">
+            Record
+          </NavLink>
+          <NavLink to="/log" className="nav-cta">
+            <Icon name="plus" size={15} />
+            Log a climb
+          </NavLink>
+        </div>
       </header>
 
       <nav className="mobile-nav" aria-label="Primary mobile">
@@ -56,6 +65,11 @@ export default function PrimaryNav() {
           </NavLink>
         ))}
       </nav>
+
+      <NavLink to="/log" className="mobile-log">
+        <Icon name="plus" size={17} />
+        <span>Log</span>
+      </NavLink>
     </>
   );
 }

@@ -3,30 +3,55 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { AppRoutes } from "./App";
 
+function renderAt(path: string) {
+  return renderToStaticMarkup(
+    <MemoryRouter initialEntries={[path]}>
+      <AppRoutes />
+    </MemoryRouter>,
+  );
+}
+
 describe("App", () => {
-  it("renders the four-section shell and the Peaks empty state", () => {
-    const html = renderToStaticMarkup(
-      <MemoryRouter initialEntries={["/peaks"]}>
-        <AppRoutes />
-      </MemoryRouter>,
-    );
+  it("renders the four-section shell and the real 48-peak index", () => {
+    const html = renderAt("/peaks");
 
     expect(html).toContain("Explore");
     expect(html).toContain("Peaks");
     expect(html).toContain("Lists");
     expect(html).toContain("Progress");
-    expect(html).toContain("The mountains are being charted.");
+    expect(html).toContain("48 peaks indexed");
+    expect(html).toContain("Mount Washington");
+    expect(html).toContain("6,289 ft");
   });
 
   it("renders the Progress empty state without invented statistics", () => {
-    const html = renderToStaticMarkup(
-      <MemoryRouter initialEntries={["/progress"]}>
-        <AppRoutes />
-      </MemoryRouter>,
-    );
+    const html = renderAt("/progress");
 
-    expect(html).toContain("Your first ascent starts here.");
-    expect(html).toContain("Peaks climbed");
+    expect(html).toContain("Your first");
+    expect(html).toContain("ascent");
+    expect(html).toContain("No record yet");
+    expect(html).toContain("Start with one summit.");
     expect(html).not.toContain("1,234");
+  });
+
+  it("renders the NH 48 list and its 48 rows", () => {
+    const html = renderAt("/lists/nh48");
+
+    expect(html).toContain("The");
+    expect(html).toContain("NH 48.");
+    expect(html).toContain("All 48 peaks");
+    expect(html).toContain("Not started");
+    expect(html).toContain("Mount Tecumseh");
+  });
+
+  it("renders the sign-in surface and the data provenance page", () => {
+    const signIn = renderAt("/signin");
+    expect(signIn).toContain("A record that");
+    expect(signIn).toContain("Local-first");
+
+    const data = renderAt("/about/data");
+    expect(data).toContain("Facts with a");
+    expect(data).toContain("NH48.info catalog");
+    expect(data).toContain("OpenStreetMap");
   });
 });

@@ -6,9 +6,10 @@ interface Props {
   placeholder: string;
   hint?: string;
   onSubmit?: (query: string) => void;
+  onChange?: (query: string) => void;
 }
 
-export default function SearchField({ label, placeholder, hint, onSubmit }: Props) {
+export default function SearchField({ label, placeholder, hint, onSubmit, onChange }: Props) {
   const inputId = useId();
   const hintId = useId();
   const [query, setQuery] = useState("");
@@ -29,7 +30,10 @@ export default function SearchField({ label, placeholder, hint, onSubmit }: Prop
           id={inputId}
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            onChange?.(event.target.value);
+          }}
           placeholder={placeholder}
           autoComplete="off"
           aria-describedby={hint ? hintId : undefined}
