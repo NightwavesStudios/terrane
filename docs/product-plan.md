@@ -6,6 +6,7 @@
 **First build:** the NH 48 vertical slice — 48 peaks, one list, one complete loop
 **Stack:** React 19 + Vite SPA · Hono API · Postgres 17 + PostGIS on Neon · field-level provenance
 **North star:** monthly active record keepers, not weekly logged summits
+**Destination:** a global atlas of the world's mountains and peaks, plus the sourced experiences around them
 
 > The atlas is the front door. The list is the reason to return. The record is the product.
 
@@ -14,11 +15,11 @@ This file is the one full plan. The shareable artifact is an executive brief tha
 The fixed decisions from the previous round still hold:
 
 1. **Stack:** Postgres + PostGIS on Neon, field-level provenance. ADR-001 remains accepted. The Python ingest pipeline and snapshot machinery are deferred, not replaced.
-2. **Target inventory:** three regions — US Northeast, Colorado, Scotland — and five lists: NH 48 (48), Adirondack 46 (46), Catskill 3500 (35), Colorado 14ers (58 named), Munros (282). 469 peaks is the target, not the first engineering milestone. Public beta ships the first three complete lists; ADK 46 and Catskill 3500 follow in Phase D.
+2. **Target inventory:** three regions — US Northeast, Colorado, Scotland — and five lists: NH 48 (48), Adirondack 46 (46), Catskill 3500 (35), Colorado 14ers (58 named), Munros (282). 469 peaks is the supported-list catalogue target, not the first engineering milestone and not a global coverage target. Public beta ships the first three complete lists; ADK 46 and Catskill 3500 follow in Phase D.
 3. **The first build is the NH 48 vertical slice.** One list, 48 peaks, a real list page, a quick log, progress and export. No Colorado, no Munros, no badge catalogue, no GPX, no community in the slice.
 4. **Ten badges launch.** The other 33 stay in `data/badges.json` as a documented backlog. They are not deleted and not promised.
 
-The plan is deliberately narrower than v2.0. The product is not a complete mountain platform. It is a trusted record for people pursuing named peak lists, with a global atlas as the way in.
+The plan is deliberately narrower than v2.0. The product is a trusted record for people pursuing named peak lists, with a global atlas as the way in. The destination is broader: every named mountain and peak we can source with integrity, plus other sourced ways to encounter the landscape. The NH 48 slice is the proof that the record deserves that atlas; it is not the ceiling.
 
 ---
 
@@ -27,6 +28,7 @@ The plan is deliberately narrower than v2.0. The product is not a complete mount
 | Question | Answer |
 |---|---|
 | **What is Terrane?** | The trusted record for people pursuing named peak lists — and the atlas that helps them find the next one. |
+| **What is the destination?** | A global atlas of mountains and peaks, plus sourced experiences around them, with the trusted record as the through-line. The NH 48 slice is the first proof, not the ceiling. |
 | **Who is it for first?** | A climber with 30–200 summits, one to three active lists, and a spreadsheet/Yak/Peakery history they do not fully trust. |
 | **What is the wedge?** | A list count they trust, a lifetime history they can finally consolidate, and a record beautiful enough to keep. |
 | **What is the first loop?** | Discover a peak → see its list → start the list → log or backfill a climb → see progress → return for the next one. |
@@ -36,7 +38,7 @@ The plan is deliberately narrower than v2.0. The product is not a complete mount
 | **What is the north star?** | Monthly active record keepers, with D90 retention of users who have at least three ascents as the guardrail. |
 | **What do we refuse?** | Global completeness claims, fabricated fields, operational safety data, public-by-default location data, points, leaderboards and a social feed. |
 
-**The strategy in one sentence:** Yak proves people want lists and patches; Peakery proves people want the whole world of peaks. Neither owns the trusted, portable, lifetime record. Terrane earns that position one complete list at a time.
+**The strategy in one sentence:** Yak proves people want lists and patches; Peakery proves people want the whole world of peaks. Neither owns the trusted, portable, lifetime record. Terrane earns that position one complete list at a time, then extends the same honest atlas to the rest of the world and to experiences beyond the summit.
 
 ---
 
@@ -67,7 +69,7 @@ The old platform surfaces are not rejected forever. They are deferred until the 
 
 ### 1.2 What is explicitly not in v1
 
-- A complete global mountain inventory.
+- A complete global mountain inventory in the first release; the global atlas and experience layer are Phase E.
 - Route, condition, forecast, avalanche or closure data.
 - Public profiles, companions, witness verification or a community feed.
 - Live GPS tracking or automatic ascent recording.
@@ -99,6 +101,7 @@ They currently use a spreadsheet, Yak, Peakery, ListsOfJohn, a regional site or 
 |---|---|---|---|
 | **Curious explorer** | The globe, mountains, discovery | Finding a place worth pursuing | Acquisition. May never sign up; that is acceptable. |
 | **Occasional hiker** | A beautiful record of meaningful trips | Remembering a few good days | Long-term retention. Do not demand weekly activity. |
+| **Experience-first visitor** | Ranges, parks, trails, viewpoints and scenic places | A reason to explore beyond a summit | Later acquisition. Do not dilute Phase A; experiences arrive in Phase E. |
 | **Experienced mountaineer / data skeptic** | Accuracy, provenance, depth | Contribution and correction | Quality advisor, not the first customer. Do not build global completeness for them. |
 
 ### 2.3 Jobs to be done
@@ -165,7 +168,7 @@ If any link is weak, the loop fails. The first build tests all five links with 4
 
 | Terrane is | Terrane is not |
 |---|---|
-| A global discovery atlas with honest coverage | A complete global mountain inventory |
+| A global atlas of mountains and experiences, with honest coverage | A claim of complete global mountain inventory |
 | A trusted tracker for supported, sourced lists | The official record of any publisher |
 | A private lifetime climbing archive | A live GPS tracker or social feed |
 | A quiet passport of meaningful marks | A points economy or leaderboard |
@@ -184,6 +187,32 @@ If any link is weak, the loop fails. The first build tests all five links with 4
 8. **Nothing is fabricated.** No invented peaks, elevations, ascents or “trending” content. Empty states tell the truth.
 9. **Export is free.** The user’s record, photos and list progress are always portable.
 10. **No platform creep.** If a feature belongs to a route app, a social network or a survey, it waits outside the boundary.
+
+### 3.5 The one big flow
+
+Phase A is one path, not a collection of pages. Every screen has a next action, and the path survives sign-in, a refresh, a map failure and a phone screen.
+
+| Step | What a signed-out visitor sees | What a signed-in user sees | The next action |
+|---|---|---|---|
+| **Land** | The globe and Discover | The globe and Discover | Search or open a peak |
+| **Peak** | Identity, known/unknown fields, sources, NH 48 membership | The same, plus their record | Start the list or log the climb |
+| **Auth** | Sign in with `returnTo` | — | Return to the exact peak/list/log intent |
+| **List** | Publisher, edition, rules, public progress shape | Ring, remaining peaks, per-peak status | Add history or log a climb |
+| **Record** | — | Quick log, backfill, edit or delete | Save and return to progress |
+| **Return** | — | Updated ring, recent climbs, remaining peaks | Next peak, export, or leave |
+
+**Flow rules:**
+
+- One primary action per screen; no dead-end success page.
+- Starting a list is an explicit, idempotent action that creates `user_list`. Progress does not exist without it.
+- Logging from a peak or list carries `peak` and `list` query context; saving returns to the list with the ring already updated.
+- Sign-in never loses the intent. If the session expires, the user returns to the same step.
+- The four primary nav items remain Explore, Peaks, Lists and Progress. **Log a climb** is a persistent primary action, not a fifth tab; account, settings and data live in the account menu or footer.
+- No forced onboarding wizard. Units default from locale and can change later; home region is optional.
+- Empty, loading and error states each show a truthful next action. If the globe fails, the list view still completes the flow.
+- The flow must work at 390 px, with keyboard navigation and visible focus, without horizontal scrolling.
+
+The Phase A acceptance test is the whole path: a first-time visitor can search a peak, open its list, sign in, start the list, backfill two climbs, log one, see progress and export without help and without using browser Back to recover.
 
 ---
 
@@ -241,11 +270,14 @@ That is more useful than “Imported”.
 | GeoNames | CC BY 4.0 | Names, alternate names, coarse coordinates | Uneven quality |
 | Wikidata | CC0 | Cross-IDs, cited attributes | Sparse |
 | USGS 3DEP | Public domain | NH elevation and terrain checks | US only |
+| USGS GNIS | Public domain | US names, coordinates, feature IDs | US only; not a global source |
 | Natural Earth | Public domain | Country/region context | Coarse |
 | AMC / publisher | List facts; terms vary | NH 48 membership, edition, rules | Cite; do not copy descriptions or artwork |
 | Copernicus DEM | Free, attribution | Deferred; no global prominence | 30 m; not a summit survey |
 
 ADR-002 remains the licensing posture: an ODbL-compatible derived layer where required, exact attribution, public export of the open layer, no user content mixed into it, and a lawyer’s review before public launch. If the review makes the OSM-derived layer too restrictive, fall back to permissive sources for the launch slice. Do not build a production database around an unresolved licence.
+
+**Phase A source rule.** The slice seed uses permissive sources and publisher list facts, not an unresolved ODbL derived layer. OSM may be used for QA comparison but does not enter the Phase A production database until the review clears it; if cleared, it enters Phase E as a separate derived layer. The 10-user test is a private alpha; public launch waits for the review. This removes the licence decision from the critical path without pretending the issue is solved.
 
 ### 4.5 No fabrication
 
@@ -269,7 +301,7 @@ This is the minimum schema for the slice and the public-beta direction. Exact DD
 
 | Table | Key columns | Rules |
 |---|---|---|
-| `place` | `id` uuid PK, `slug` citext unique, `name` text, `kind` text default `peak`, `geom` geography(Point,4326), `country_code` char(2) null, `status` text (`published`,`hidden`,`merged`), `merged_into` uuid null, timestamps | Identity only. No elevation or prominence required. Slug is permanent; rename creates an alias and a 301. |
+| `place` | `id` uuid PK, `slug` citext unique, `name` text, `kind` text default `peak`, `geom` geography(Point,4326), `country_code` char(2) null, `status` text (`published`,`hidden`,`merged`), `merged_into` uuid null, timestamps | Identity only. No elevation or prominence required. Slug is permanent; rename creates an alias and a 301. Phase A uses `peak`; Phase E adds `range`, `park`, `trail`, `viewpoint` and `scenic_area` without a second inventory. |
 | `peak` | `place_id` uuid PK/FK, `elevation_m` int null, `prominence_m` int null, `isolation_km` numeric null, `is_highpoint` bool null, `is_continental_highpoint` bool null, `character` text[] null | All attributes optional. `prominence_m` only from a source or a documented regional computation; never fabricated. Highpoint flags stay null until sourced. |
 | `place_name` | `place_id`, `name`, `lang`, `kind` (`official`,`alternate`,`local`,`former`), `source_id` | Search across all names. Unique (`place_id`,`name`,`lang`). |
 | `data_source` | `id`, `key`, `name`, `license`, `license_url`, `attribution`, `terms_url`, `retrieved_at` | Every source has a licence row. `/about/data` is generated from this. |
@@ -286,13 +318,14 @@ This is the minimum schema for the slice and the public-beta direction. Exact DD
 | `list` | `id`, `slug`, `title`, `publisher`, `publisher_url`, `category`, `scope`, `description`, `rules_md`, `status` (`draft`,`published`,`retired`) | A published list has a publisher, source and version. Terrane summaries are our words, not the publisher’s. |
 | `list_version` | `id`, `list_id`, `version_label`, `effective_from`, `effective_to`, `peak_count`, `source_url`, `notes`, `published_at` | Immutable except a one-time `effective_to` closure when a successor is published. Unique (`list_id`,`version_label`); partial unique current version. |
 | `list_entry` | `id`, `list_version_id`, `place_id`, `rank`, `role` (`required`,`alternate`), `note` | Unique (`list_version_id`,`place_id`). v1 publishes required entries only. Membership requires confirmed identity + list source, **not** elevation or prominence. |
+| `user_list` | `id`, `user_id`, `list_id`, `started_at`, `status` (`active`,`archived`), timestamps | Unique (`user_id`,`list_id`). Starting is idempotent; progress exists only for a started list. Archiving hides it from the active shelf without deleting history. |
 | `list_completion` | `id`, `user_id`, `list_id`, `list_version_id`, `round`, `started_at`, `completed_at`, `snapshot` jsonb, `evidence_trip_id` | Unique (`user_id`,`list_id`,`round`). Snapshot stores `{place_ids, peak_count, version_label}`. A completion remains valid forever against the version it satisfied. |
 | `custom_list` | `id`, `user_id`, `title`, `visibility` (`private`,`link`) | Outside the published catalogue; never earns a publisher completion or a passport badge. |
 | `custom_list_entry` | `custom_list_id`, `place_id`, `position`, `note` | PK (`custom_list_id`,`place_id`); unique position. |
 
 **Versioning rules.** A list version is the unit of truth. A publisher change creates a new version with a changelog; old completions stay attached to the old version. Current progress uses the current version. The UI can say “Completed 2024 · 2 new peaks since.” No version change silently invalidates a completion.
 
-**Completion rules.** A required peak is complete when the user has a non-deleted `trip_peak` with `outcome='summit'` and the trip date is on or before the completion date. Past climbs count; there is no minimum gain, track or witness. Round 1 counts all history. Rounds are a later UI concern; the schema keeps `round` so the data does not need rewriting.
+**Completion rules.** A required peak is complete when the user has a non-deleted `trip_peak` with `outcome='summit'` and the trip date is on or before the completion date. Past climbs count; there is no minimum gain, track or witness. Round 1 counts all history. Rounds are a later UI concern; the schema keeps `round` so the data does not need rewriting. A list must be started before it can show progress; starting creates `user_list`. Phase A computes progress only; `list_completion` is created in Phase C when the completion mark ships, so a corrected Phase A trip cannot leave a premature snapshot.
 
 **Official language.** The list page always says: “Publisher: AMC. Terrane is not the official record.” Never imply that a Terrane completion grants membership, a certificate or a publisher finisher number.
 
@@ -300,12 +333,14 @@ This is the minimum schema for the slice and the public-beta direction. Exact DD
 
 | Table | Key columns | Rules |
 |---|---|---|
-| `app_user` | `id`, `email`, `handle`, `display_name`, `home_region_id`, `units`, `units_chosen_at`, `locale`, `privacy` default `private`, `role`, `created_at`, `deleted_at` | Private by default. No public profile in v1. |
+| `app_user` | `id` text PK/FK auth user, `handle`, `display_name`, `home_region_id`, `units`, `units_chosen_at`, `locale`, `privacy` default `private`, `role`, `created_at`, `deleted_at` | Private by default. No public profile in v1. The id type matches Better Auth’s user id; email and credentials belong to Better Auth, not this table. |
 | `trip` | `id`, `user_id`, `title`, `start_date`, `end_date`, `date_precision` (`day`,`month`,`year`), `notes`, `visibility` default `private`, `source` (`manual`,`backfill`,`csv`,`gpx`), `verification` (`logged`,`gps`), timestamps, `deleted_at` | One trip can contain many peaks. `start_date` is the anchor: first day of the precision period; never displayed below the precision. No photos/GPX in the first slice. |
 | `trip_peak` | `trip_id`, `place_id`, `outcome` (`summit`,`attempt`,`traverse`), `order`, `summit_time`, `verified` (`logged`,`gps`) | PK (`trip_id`,`place_id`); unique (`trip_id`,`order`). At least one peak per trip. |
 | `correction` | `id`, `place_id`, `user_id`, `field`, `old_value`, `new_value`, `source_url`, `status`, `reviewed_by`, `reviewed_at` | Manual review in Phase A. No public queue UI. |
 
-**Trip rules.** A trip is a day or outing, not a checkmark. A pure attempt is valid. A repeat grows total ascents but not unique peaks. Deleting a trip removes it from stats immediately; badges are not revoked except for fraud, and self-reported past climbs are never downgraded.
+**Trip rules.** A trip is a day or outing, not a checkmark. A pure attempt is valid. A repeat grows total ascents but not unique peaks. Deleting a trip removes it from stats immediately; badges are not revoked except for fraud, and self-reported past climbs are never downgraded. A saved trip can be edited or deleted in Phase A; a mistake must not require starting over.
+
+**Auth tables.** Better Auth owns `user`, `session`, `account` and `verification`. `app_user` is the Terrane profile keyed to the auth user id and is created on first sign-in. Do not build password tables or duplicate credentials.
 
 **No GPX in the slice.** GPX import is a later convenience, never the definition of a valid ascent. When it arrives, it suggests matches and the user confirms; thresholds are calibrated on real tracks, not treated as universal truth.
 
@@ -316,7 +351,7 @@ This is the minimum schema for the slice and the public-beta direction. Exact DD
 | `badge_definition` | `id`, `slug`, `family`, `name`, `description`, `criteria` jsonb, `criteria_version`, `launch` bool, `progressive`, `progress_fact`, `progress_target`, `progress_unit`, `hidden`, `art_key` | Seeded from `data/badges.json`. The 10 launch marks are `launch=true`; the rest are backlog. |
 | `badge_award` | `id`, `user_id`, `badge_id`, `criteria_version`, `earned_at`, `source_trip_id` | Unique (`user_id`,`badge_id`). Awards are permanent; criteria changes do not re-award. |
 
-At 10 launch badges and a single-user write path, evaluate synchronously after a trip create/update/backfill. No outbox, no worker, no materialized facts table. Revisit only when the catalogue or write volume makes it painful.
+At 10 launch badges and a single-user write path, evaluate synchronously after a trip create/update/backfill. No outbox, no worker, no materialized facts table. Phase C also creates the immutable `list_completion` snapshot used by the completion mark and `finisher`; Phase A only computes progress. Revisit only when the catalogue or write volume makes it painful.
 
 ### 5.5 What is deliberately absent
 
@@ -343,7 +378,7 @@ The slice is not a demo. It is the first real product, with real data and real u
 - 48 published peaks with confirmed identity, coordinates and at least a name source.
 - Elevation where a publisher/USGS source exists; unknown fields stay null.
 - NH 48 list record: publisher AMC, 2026 edition, 48 required entries, source URL, rules summary, “not official” note.
-- One `place_region` membership for the White Mountains range, with source; country/US state memberships.
+- One `place_region` membership for the White Mountains range, with source; country/US state memberships; a small region hierarchy so the home-region setting is real, not a free-text field.
 - `is_highpoint=true` for Mount Washington, with a source (NH state highpoint).
 - `/about/data` lists sources, licences, attribution and checked dates.
 
@@ -351,23 +386,26 @@ The slice is not a demo. It is the first real product, with real data and real u
 
 - Existing globe with 48 real peaks, search and a preview card; list view fallback.
 - `/peaks` with real rows, search and simple filters; no prominence filter unless the data supports it.
-- `/peaks/:slug` with identity, known attributes, list membership, your record, nearby peaks and data sources.
-- `/lists` and `/lists/nh-48` with publisher, edition, rules, progress, remaining peaks and export.
-- `/signin` with email magic link and one OAuth provider (Google or Apple); no passwords.
-- `/log` quick log: peak(s), date, outcome, save. Edit/delete.
+- `/peaks/:slug` with identity, known attributes, list membership, your record and data sources. Nearby peaks are a Phase B candidate, not a Phase A blocker or a Phase A–B commitment.
+- `/lists` and `/lists/:slug` with publisher, edition, rules, explicit **Start the list**, progress, remaining peaks and export.
+- `/signin` with email magic link and one OAuth provider (Google or Apple); no passwords. `returnTo` preserves the exact peak, list or log intent. If email delivery is blocked in readiness, OAuth-only is the documented fallback.
+- `/log` quick log: peak(s), date, outcome, save. Edit/delete immediately after save.
 - Manual backfill: year/month/day precision, multi-peak, 20 climbs without a modal per climb.
 - `/progress` with the NH 48 ring, remaining count, recent climbs and basic stats.
 - JSON and CSV export of all trips and list progress. GPX of remaining list peaks is Phase B; no track export yet.
-- `/settings` with units, home region, privacy and delete account.
+- `/settings` with units, optional home region, privacy and delete account.
+- One flow end to end: globe/search → peak → list → sign-in `returnTo` → start list → backfill/log → progress → export. No fifth nav tab; **Log a climb** is a persistent action.
 
 **Out of scope for the slice**
 
 - Colorado, the Munros, ADK 46 or Catskill 3500.
-- Badges (the passport starts in Phase C).
+- Badges and the immutable `list_completion` snapshot (the passport and completion mark start in Phase C).
 - Photos, GPX import, routes, conditions, forecasts, reports.
 - Public profiles, companions, witness or steward verification.
 - Offline mode, PWA install, native apps.
 - Paid tier, patches, yearbook.
+- Global ingestion, global coverage claims and the experience layer (Phase E).
+- Nearby peaks, bulk edit and CSV import (Phase B).
 
 ### 6.3 Acceptance criteria
 
@@ -383,18 +421,26 @@ The slice is done when:
 8. A signed-out user cannot read another user’s trips.
 9. The globe remains interactive on a mid-range phone with all 48 points; the list view works when the globe or terrain fails.
 10. The existing globe, logo, fonts, Discover overlay and content-page styling are visually unchanged.
+11. The one-flow test passes: a signed-out visitor can search a peak, open its list, sign in with `returnTo`, start the list, backfill two climbs, log one, correct one, see the ring update and export without browser Back or a dead end.
+12. Starting the list is idempotent; a second start does not duplicate `user_list`; edit/delete updates progress immediately.
+13. The flow works at 390 px, with keyboard navigation, visible focus and no horizontal scroll; the list fallback completes the loop when the globe fails.
+14. The gate events fire server-side for search, peak open, list start, log, backfill, edit, export and sign-in, without PII or a third-party pixel.
 
 ### 6.4 The slice test
 
-Recruit 10 target users (active list pursuers with history). Ask them to:
+**Before the build:** test a clickable prototype of the one flow with 5 target users. At least 4/5 must complete it without help, and 3/5 must say they would prefer it to their current spreadsheet. If not, fix the flow before writing UI code.
+
+**After the build:** recruit 10 target users (active list pursuers with history). Ask them to:
 
 1. Find five NH 48 peaks they have not climbed.
-2. Start the list.
+2. Open the list and start it.
 3. Backfill 10–20 past climbs.
-4. Log one new climb.
+4. Log one new climb, then correct a date or delete the trip.
 5. Find their remaining peaks and export their record.
 
-Positive signal: at least 6 complete the loop without help; at least 4 return within two weeks and take another record action. If not, fix the loop before adding Colorado or badges.
+Positive signal: at least 6 complete the loop without help; at least 4 return within two weeks and take another record action. If not, fix the loop before adding Colorado or badges. The gate is measured with the events in §11.4, not by memory or a spreadsheet reconstruction.
+
+The 10-user test is a private alpha, not a public launch. Public launch waits for the legal review, the production data page, and a clean restore/backup check.
 
 ---
 
@@ -414,6 +460,8 @@ The target catalogue is five lists, but a list is published only when it is comp
 
 No partial list is published. A list with an unsupported rule (choice groups, winter-only membership, route requirements) is labelled **not supported** and is not shown as a completable list. Do not fake a flat list for a rule the product cannot represent.
 
+The five lists are the Phase A–D catalogue, not the product boundary. Phase E adds experiences and broader coverage; it does not turn every experience into a completion list.
+
 ### 7.2 Rules and versions
 
 - A list version is a publication: publisher, edition, effective date, source URL, count, required membership, rules summary.
@@ -430,7 +478,7 @@ Private by default, shareable by unguessable link, add/remove/reorder, note per 
 
 ### 7.4 List page contract
 
-`GET /api/lists/:slug` returns metadata, current version and entries (peak card fields). `GET /api/lists/:slug/progress` returns the user’s completed place IDs, dates, percentage and version. The public part is cacheable; progress is private. The page must render metadata, rules, map, table and progress without a second round trip for the public part.
+`GET /api/lists/:slug` returns metadata, current version and entries (peak card fields). `POST /api/lists/:slug/start` creates `user_list` idempotently and returns the same shape as progress. `GET /api/lists/:slug/progress` returns `started`, the user’s completed place IDs, dates, percentage and version; when `started` is false it returns public metadata plus a start CTA, not a fake zero. `GET /api/me/lists` returns active and archived lists. The public part is cacheable; progress is private. The page must render metadata, rules, map, table and progress without a second round trip for the public part.
 
 ---
 
@@ -554,7 +602,9 @@ The backlog is not a roadmap. Elevation/prominence/geography marks wait for reli
 | GET | `/api/peaks/:slug` | optional | Peak detail + list memberships |
 | GET | `/api/lists` | none | Published list library |
 | GET | `/api/lists/:slug` | none | List metadata, version, entries |
-| GET | `/api/lists/:slug/progress` | required | User progress + remaining peaks |
+| POST | `/api/lists/:slug/start` | required | Idempotent `user_list` start; returns progress |
+| GET | `/api/lists/:slug/progress` | required | `started`, progress and remaining peaks |
+| GET | `/api/me/lists` | required | Started and archived lists |
 | GET | `/api/me` | required | Profile, units, privacy |
 | PATCH | `/api/me` | required | Units, home region, privacy |
 | GET | `/api/me/trips` | required | Journal |
@@ -563,10 +613,12 @@ The backlog is not a roadmap. Elevation/prominence/geography marks wait for reli
 | DELETE | `/api/trips/:id` | required | Soft delete |
 | GET | `/api/me/stats` | required | Basic stats |
 | GET | `/api/me/export?format=json\|csv` | required | Export trips and progress |
+| DELETE | `/api/me` | required | Delete account and schedule purge |
+| GET | `/api/data-sources` | none | Sources, licences, attribution and checked dates |
 
-Conventions: JSON; cursor pagination (`nextCursor`); ISO dates; metres stored, units rendered; RFC 7807 errors; `ETag` on public reads; `private, no-store` on `/api/me/*` and progress; httpOnly session cookie; same-origin/CSRF on mutations; no secrets or internal IDs in responses.
+Conventions: JSON; cursor pagination (`nextCursor`); ISO dates; metres stored, units rendered; RFC 7807 errors; `ETag` on public reads; `private, no-store` on `/api/me/*` and progress; httpOnly session cookie; same-origin/CSRF on mutations; no secrets or internal IDs in responses. Better Auth owns `/api/auth/*`; do not hand-roll sessions. `POST /api/lists/:slug/start` is idempotent; repeating it returns the existing `user_list` and progress.
 
-No photo, GPX, route, condition, report, public-profile or custom-list endpoint in the slice. Custom lists are Phase B/C.
+No photo, GPX, route, condition, report, nearby-peak, public-profile or custom-list endpoint in the slice. Nearby peaks and custom lists are Phase B/C.
 
 ### 10.2 Screens mapped to existing code
 
@@ -574,17 +626,25 @@ No photo, GPX, route, condition, report, public-profile or custom-list endpoint 
 |---|---|---|
 | **Globe** | `src/pages/ExplorePage.tsx`, `MapGlobe.tsx`, `Discover.tsx` | Real 48 points, preview card, list view fallback; no new hero copy. |
 | **Peaks index** | `src/pages/PeaksPage.tsx`, `SearchField`, `FilterChips`, `EmptyState` | Real rows, search, simple filters, URL state. No prominence filter unless sourced. |
-| **Peak detail** | `src/pages/PeakDetailPage.tsx`, `PeakDetailTemplate.tsx` | Identity, known attributes, NH 48 membership, your record, nearby, sources. No routes/conditions/photos. |
+| **Peak detail** | `src/pages/PeakDetailPage.tsx`, `PeakDetailTemplate.tsx` | Identity, known attributes, NH 48 membership, your record, sources. No routes/conditions/photos/nearby. |
 | **List library** | `src/pages/ListsPage.tsx` | NH 48 card; no fake catalogue. |
-| **List detail** | new `src/pages/ListDetailPage.tsx` | Publisher/edition/rules/progress/remaining/export; map + table. |
-| **Quick log** | new `src/pages/LogPage.tsx`, `LogSheet` | Three fields; multi-peak; approximate dates; save. |
+| **List detail** | new `src/pages/ListDetailPage.tsx` at `/lists/:slug` | Publisher/edition/rules/start/progress/remaining/export; map + table. |
+| **Quick log** | new `src/pages/LogPage.tsx`, `LogSheet` at `/log` | Three fields; multi-peak; approximate dates; save; edit/delete. |
 | **Progress** | `src/pages/ProgressPage.tsx`, `StatCard` | NH 48 ring, remaining, recent climbs, basic stats, export. |
-| **Sign in** | new `src/pages/SignInPage.tsx` | Magic link + one OAuth; return-to. |
-| **Settings** | new `src/pages/SettingsPage.tsx` | Units, home region, privacy, delete. |
-| **Data page** | new `src/pages/DataPage.tsx` | Sources, licences, attribution, checked dates, correction entry. |
+| **Sign in** | new `src/pages/SignInPage.tsx` at `/signin` | Magic link + one OAuth; `returnTo`; OAuth-only fallback. |
+| **Settings** | new `src/pages/SettingsPage.tsx` at `/settings` | Units, optional home region, privacy, delete. |
+| **Data page** | new `src/pages/DataPage.tsx` at `/about/data` | Sources, licences, attribution, checked dates, correction entry. |
 | **Not found** | `src/pages/NotFoundPage.tsx` | Keep; add search. |
 
-No visual regression to the shipped globe, logo, fonts, Discover overlay or content-page styling. New pages reuse the existing shell and tokens.
+**Navigation contract:** keep the four primary nav items (Explore, Peaks, Lists, Progress). **Log a climb** is a persistent header action on desktop and a primary action above the mobile nav; it is not a fifth tab. Sign in, account, settings and data live in the account menu or footer. Do not add an Experience tab until Phase E has evidence.
+
+**Route migration:** the current app uses `/peaks/:peakId` and a `/peaks/preview` template. Phase A makes `/peaks/:slug` the public route, maps the param to the API slug, and removes the preview route from the production build. Do not keep two peak detail routes or a preview card that looks like a real record.
+
+**Replace, do not layer.** The Phase 01 placeholder copy, the “accounts are out of scope” footnote, the Goals panel, the disabled peak actions and the fake list anatomy are replaced by the real flow. A new feature must not sit on top of an empty-state scaffold that tells the user the product is unfinished.
+
+**Every new screen ships with:** signed-out, empty, loading, error and success states; a mobile layout; a keyboard path; and one truthful next action. “Coming soon”, disabled primary actions and fake counts do not count as a state.
+
+No visual regression to the shipped globe, logo, fonts, Discover overlay or content-page styling. New pages reuse the existing shell and tokens. Replace the Discover placeholder in place; do not add a second search surface.
 
 ---
 
@@ -602,7 +662,7 @@ No visual regression to the shipped globe, logo, fonts, Discover overlay or cont
 |---|---|---|
 | Discovery | Search → peak open | ≥ 40% |
 | Discovery | Peaks explored per session | ≥ 3 |
-| Intent | Peaks saved / lists started | ≥ 25% of signed-in sessions |
+| Intent | Peak open → list start | ≥ 25% of signed-in sessions |
 | Activation | First meaningful action within 7 days (log, backfill, start list) | ≥ 50% |
 | Record | First ascent logged | ≥ 40% of signups |
 | Backfill | 10+ historical climbs added | ≥ 25% of target users |
@@ -625,23 +685,55 @@ Do not set a badge-earning target. If badges need a target to look successful, t
 
 If the list test fails, the core thesis is wrong; stop and reshape. If discovery fails, the globe is decoration; simplify it or make search the front door. If backfill fails, the archive value is weaker than assumed; narrow to a list tracker.
 
+### 11.4 Measurement plumbing (Phase A)
+
+The gate cannot be judged from anecdotes. Add server-side events before the 10-user cohort:
+
+| Event | Fires when | Not included |
+|---|---|---|
+| `search_submitted` | A search request is accepted | Query text in analytics; keep it in the request log only |
+| `peak_opened` | A peak page renders for a real place | User identity |
+| `list_started` | `user_list` is created, first time only | Repeat starts |
+| `trip_logged` | A trip with at least one summit is created | Notes, companions or coordinates |
+| `backfill_saved` | A trip with `source='backfill'` is created | Free-text notes |
+| `trip_edited` / `trip_deleted` | A saved trip changes | Before/after notes |
+| `export_downloaded` | A JSON/CSV export succeeds | File contents |
+| `signin_completed` | A session is established | Email or provider token |
+
+Use a first-party event table or structured server logs with a random cohort id; no third-party pixel and no PII. The 10-user cohort gets a code, not a name in analytics. If an event cannot be measured without collecting sensitive data, the gate uses a manual observation and says so. The event list is part of the Phase 0 readiness checklist; without it, the 10-user test is a demo, not evidence.
+
 ---
 
 ## 12. Roadmap
 
 The dates are estimates, not commitments. Each phase has an evidence gate; the next phase does not start because the calendar says so.
 
-### Phase A — NH 48 vertical slice (4–6 weeks)
+### Phase 0 — Phase A readiness (2–4 days; no app build)
 
-**Build:** schema and seed for 48 peaks, NH 48 version, auth, globe/search/peak pages, quick log, manual backfill, list progress, export, data page. No badges, photos, GPX, routes or conditions.
+This phase closes the dependencies that otherwise stop the slice mid-build. It is planning, data and platform setup, not feature code.
 
-**Gate:** the slice test passes (6/10 complete the loop; 4/10 return); 48/48 entries sourced; export round-trips; no fabricated fields.
+| Readiness item | Output | Blocks if missing |
+|---|---|---|
+| Scope and estimate frozen | Phase A critical path accepted; no “small additions” | Every task |
+| NH 48 source pack and licence path | Publisher edition, membership, coordinates, elevations, highpoint and source manifest; permissive fallback named | Seed and public launch |
+| Platform | Neon PostGIS branch, Vercel API project, same-origin `/api` rewrite, preview environment, migrations in CI, seed reset, backup/restore check | Schema and 10-user test |
+| Auth | Email provider deliverability test, one OAuth app, redirect domains, same-origin cookie test; OAuth-only fallback if email is blocked | Sign-in and every private route |
+| Prototype | Clickable one-flow prototype tested with 5 target users | UI build |
+| Measurement | Event list and 10-user cohort plan; consent and PII rules | Gate review |
+
+**Gate:** every row has an owner and no open blocker. If one is open, do not start the UI build; do not “work around” auth or deployment with a fake user or local-only state.
+
+### Phase A — NH 48 vertical slice (6–9 weeks)
+
+**Build:** schema and seed for 48 peaks, region context, NH 48 version, Better Auth and `user_list`, globe/search/peak pages, explicit list start, quick log, manual backfill, edit/delete, list progress, export, settings and data page. No badges, photos, GPX, routes or conditions.
+
+**Gate:** the prototype passed before build; the slice test passes (6/10 complete the loop; 4/10 return); 48/48 entries sourced; export round-trips; no fabricated fields; the flow works on a 390 px screen.
 
 ### Phase B — Archive depth + Colorado 14ers (4–6 weeks)
 
-**Build:** CSV import with a documented template, edit/delete, basic stats, list-version change display, Colorado 14ers as the second complete list. No new surface beyond the existing shell.
+**Build:** CSV import with a documented template, duplicate protection and merge, basic stats, list-version change display, Colorado 14ers as the second complete list. Edit/delete of a single trip already shipped in Phase A; this phase adds bulk import and merge review. No new surface beyond the existing shell.
 
-**Gate:** 20 climbs entered in under 20 minutes; progress matches a hand count; a simulated list version change preserves the old completion; users ask for the next list.
+**Gate:** 20 climbs imported in under 20 minutes; progress matches a hand count; a simulated list version change preserves the old completion; users ask for the next list.
 
 ### Phase C — Passport + Munros (3–4 weeks)
 
@@ -651,50 +743,67 @@ The dates are estimates, not commitments. Each phase has an evidence gate; the n
 
 ### Phase D — Earn expansion (ongoing)
 
-**Build only after the gates:** ADK 46 and Catskill 3500; more sourced lists; search and map quality; data correction workflow; SEO for list pages; optional photos/GPX; offline saved records; paid convenience experiments; public profiles if users ask.
+**Build only after the gates:** ADK 46 and Catskill 3500; more sourced lists; local search and map quality; data correction workflow; SEO for list pages; optional photos/GPX; offline saved records; paid convenience experiments; public profiles if users ask.
 
 **Do not build:** forecasts, avalanche, routes, live GPS, social feed, physical patches, print yearbooks, global prominence until the data and demand justify them.
 
+### Phase E — Global atlas + experiences (after Phase D)
+
+**Build only when §13.6 is satisfied:** global source manifest and licence layer, ingest and identity resolution, region-by-region publication, coverage dashboard, search/map scale, experience taxonomy and sourced pages for ranges, parks, corridors and viewpoints. No routes, conditions, bookings or live data.
+
+**Gate:** coverage is measured, not claimed; search and map p95 stay inside budget; corrections have an owner; the experience pages add a reason to explore without thinning the record. This is a sequence of regional releases, not a global launch day.
+
 ### 12.5 Implementation plan
 
-**Staffing assumption:** one full-stack engineer, half a designer and a part-time data steward. A solo builder runs the same sequence serially; the ranges are estimates, not promises.
+**Staffing assumption:** one full-stack engineer, half a designer and a part-time data steward. A solo builder runs the same sequence serially. Phase A is **6–9 weeks** with those people; 4–6 weeks is only credible if the seed, auth and deployment are already prepared. The ranges are estimates, not promises.
 
 | Workstream | Owner | Phase A output |
 |---|---|---|
-| Data and provenance | Steward + engineer | NH 48 seed, source manifest, field-level checks |
-| Schema and API | Engineer | Migrations, seed loader, minimal REST endpoints |
-| Auth and account | Engineer | Sign-in, settings, private-by-default account, delete |
-| Explore | Designer + engineer | Real peak search, peak pages, globe integration |
-| Lists | Engineer | NH 48 page, progress, remaining peaks |
-| Journal | Engineer | Quick log and manual backfill |
+| Data and provenance | Steward + engineer | NH 48 seed, region context, source manifest, field-level checks |
+| Platform and API | Engineer | Neon, Vercel, migrations, seed reset, REST contract, fixtures |
+| Auth and account | Engineer | Better Auth, `app_user`, `user_list`, return-to, settings, delete |
+| Explore | Designer + engineer | Real search, peak pages, 48-point globe, accessible list fallback |
+| Lists | Engineer | NH 48 start, ring, remaining peaks, per-peak status |
+| Journal | Engineer | Quick log, manual backfill, edit/delete |
 | Trust and export | Engineer | Data page, JSON/CSV export, privacy controls |
-| QA and validation | Whole team | Tests, device pass, 10-user cohort |
+| Measurement and QA | Whole team | Events, prototype test, device pass, 10-user cohort |
 
-The order matters: **data before UI; list before journal; journal before export; export before the gate.** Do not build a screen against a seed that is not validated.
+The order matters: **readiness before build; API contract before screens; data before UI; auth before personalized UI; list start before progress; edit/delete before the gate; events before the cohort.** Do not build a screen against an unvalidated seed or an unspecified endpoint.
+
+#### Phase 0 — readiness checklist
+
+| # | Task | Depends on | Done when |
+|---|---|---|---|
+| 0.1 | Freeze Phase A scope and estimate | This plan approved | Critical path and non-goals signed off; no Phase B work in the branch |
+| 0.2 | Assemble the NH 48 source pack and licence decision | 0.1 | 48 rows, publisher edition, coordinates, elevation/highpoint sources; permissive fallback; legal review scheduled |
+| 0.3 | Provision Neon/PostGIS, Vercel API and preview, same-origin `/api`, CI migrations, seed reset | 0.1 | Empty branch migrates and seeds; preview URL works; restore check passes; no cross-site cookie |
+| 0.4 | Configure auth email and OAuth | 0.3 | Magic link delivers; redirect domains work; OAuth-only fallback documented; session survives refresh |
+| 0.5 | Prototype and test the one flow | 0.1 | 4/5 target users complete the prototype without help; 3/5 prefer it to their spreadsheet |
+| 0.6 | Define events and cohort | 0.1 | Event list, PII rules and 10-user recruitment plan approved |
 
 #### Phase A — ordered tasks
 
 | # | Task | Depends on | Done when |
 |---|---|---|---|
-| 1 | Build the NH 48 seed and source manifest | This plan approved | 48/48 entries matched; every displayed field has an accepted source; list edition and rules captured; unknown fields explicitly null |
+| 1 | Build the NH 48 seed, region context and source manifest | 0.2 | 48/48 entries matched; every displayed field has an accepted source; list edition/rules captured; unknown fields explicitly null |
 | 2 | Write seed and data-contract tests | 1 | Seed fails on a missing entry, duplicate ID, bad count or displayed value without provenance |
-| 3 | Freeze the slice schema and seed loader | 2 | Migrations apply from an empty database; 48 places and one list version load; no platform tables |
-| 4 | Build auth and settings | 3 | Sign up, sign in, sign out, units, home region, private default, delete account |
-| 5 | Build peak search and peak pages | 3 | Signed-out search returns NH 48 peaks; peak page shows identity, known/unknown attributes, list membership, sources, nearby peaks |
-| 6 | Build list page and progress | 4, 5 | Publisher, edition, rules, “not official” note, ring, remaining peaks, per-peak status |
-| 7 | Build quick log and manual backfill | 4, 6 | A climb logs in under 20 seconds; 20 past climbs backfill in under 20 minutes; approximate dates render correctly |
-| 8 | Build export and privacy controls | 7 | JSON/CSV round-trip trips, dates and list progress; signed-out users cannot read another user’s record |
-| 9 | Integrate the existing globe and list fallback | 5 | 48 real points; preview card; list view works when the globe or terrain fails; mid-range phone check |
-| 10 | Run the slice QA and 10-user test | 1–9 | All acceptance criteria pass; 6/10 complete the loop without help; 4/10 return within two weeks |
+| 3 | Freeze schema, Better Auth tables, `user_list`, migrations and seed loader | 2, 0.3 | Migrations apply from empty; 48 places, regions and one list version load; no platform tables |
+| 4 | Freeze API contract, typed fixtures and permission matrix | 3 | Every Phase A screen has a contract; 401/403/empty/error cases are specified; no UI invents a field |
+| 5 | Build auth, settings and return-to | 3, 4, 0.4 | Sign up, sign in, sign out, units, optional home region, private default, delete; deep-link return works |
+| 6 | Build search, peak pages and globe integration | 4, 5 | Signed-out search returns NH 48 peaks; peak page shows identity, known/unknown, list membership and sources; 48 points and list fallback work |
+| 7 | Build list start and progress | 4, 5, 6 | `user_list` start is idempotent; publisher, edition, rules, “not official”, ring, remaining peaks and per-peak status; no completion snapshot until Phase C |
+| 8 | Build quick log, manual backfill and edit/delete | 5, 7 | Log under 20 seconds; 20 past climbs under 20 minutes; approximate dates; a saved trip can be corrected or deleted immediately |
+| 9 | Build export, privacy and data page | 8 | JSON/CSV round-trip trips, dates and progress; delete-account path; sources/licences/checked dates visible |
+| 10 | Run the slice QA, one-flow test and 10-user cohort | 1–9 | Acceptance criteria pass; all events fire; 6/10 complete the loop; 4/10 return; 390 px and keyboard pass |
 
-**Phase A definition of done:** all ten tasks complete; `npm test`, typecheck and build green; 48/48 sourced; no fabricated fields; export round-trips; no UI regression to the shipped globe, logo, fonts or Discover overlay; data page and runbook written. Phase A is **not** done if badges, Colorado, Munros, photos, GPX, routes, conditions, public profiles or a paid tier have been added.
+**Phase A definition of done:** Phase 0 blockers closed; all ten tasks complete; `npm test`, typecheck and build green; 48/48 sourced; no fabricated fields; `user_list` exists and list start is explicit; edit/delete works; export round-trips; events prove the gate; no UI regression to the shipped globe, logo, fonts or Discover overlay; data page and runbook written. Phase A is **not** done if badges, Colorado, Munros, photos, GPX, routes, conditions, public profiles, global ingestion or a paid tier have been added.
 
 #### Phase B — ordered tasks
 
 | # | Task | Depends on | Done when |
 |---|---|---|---|
 | 1 | CSV template, parser and review screen | Phase A gate | A documented template imports, reports unmatched rows and never silently drops a climb |
-| 2 | Edit, delete and duplicate protection | 1 | A trip is editable/deletable; same peak/date offers merge or keep separate; stats recompute |
+| 2 | Duplicate protection and merge review | 1 | Same peak/date offers merge or keep separate; bulk rows can be corrected before commit |
 | 3 | Basic stats | 2 | Summits, unique peaks, attempts, days out and list progress match fixtures |
 | 4 | List-version change display | Phase A list model | A simulated publisher change preserves the old completion and shows the new remaining peaks |
 | 5 | Colorado 14ers seed and validation | 1–4 | 58 named entries matched; source/edition captured; no partial list published |
@@ -706,7 +815,7 @@ The order matters: **data before UI; list before journal; journal before export;
 |---|---|---|---|
 | 1 | Badge facts and ten-mark evaluator | Phase B gate | Ten launch badges evaluate correctly; no badge fires on empty facts; awards are idempotent |
 | 2 | Badge case and quiet award reveal | 1 | Earned marks show date and source trip; no points, leaderboard, hidden criteria or confetti |
-| 3 | List-completion mark | 1, 2 | Completion against a specific version is visible and permanent |
+| 3 | List-completion mark | 1, 2 | Completion against a specific version is visible and permanent; the immutable `list_completion` snapshot is created here |
 | 4 | Simple annual recap | 2, 3 | A year with 0, 3 and 50 trips renders without fabricating content |
 | 5 | Munros seed and validation | Phase B list model | 282 entries matched and sourced; unsupported rules labelled, not faked |
 | 6 | Phase C QA and gate review | 1–5 | Awards accurate; list complete; users value the artifact enough to keep/share it |
@@ -727,11 +836,27 @@ Do these as separate, gated items, never as one bundle:
 
 Stop conditions: if D90 retention is below the gate, do not expand the catalogue; fix the loop. If badges distract from the record, cut them back. If a list cannot be represented accurately, do not publish it. If a new surface has no metric or gate, it waits.
 
+#### Phase E — ordered tasks
+
+| # | Task | Depends on | Done when |
+|---|---|---|---|
+| 1 | Experience taxonomy and user test | Phase D gate | 10 sourced example experiences tested; users find a reason to explore without a route/conditions expectation |
+| 2 | Global source manifest and ODbL/permissive decision | 1 | Every source has a licence row; the derived-layer boundary is signed off |
+| 3 | Ingest, identity resolution and merge log | 1, 2 | Duplicates are measurable; no source row is destroyed; names and points resolve |
+| 4 | Publication thresholds and coverage dashboard | 3 | Published places meet the identity/name/point/source rule; coverage is reported by region |
+| 5 | Search and map scale | 3, 4 | p95 budgets hold at regional volume; the browser never downloads the world |
+| 6 | Experience model, pages and collections | 1, 5 | Ranges, parks, corridors and viewpoints connect to places; no thin pages or copied publisher text |
+| 7 | Corrections and stewardship | 4, 6 | Suggestion, review, changelog and source-removal paths work |
+| 8 | Regional release and gate | 1–7 | One region is live and supportable before the next begins |
+
 #### Implementation rules
 
+- **Readiness before build.** No Phase A feature code until the Phase 0 blockers are closed.
+- **One flow.** Every screen has one next action; no fifth nav tab, no dead-end success page.
 - **One list at a time.** No second list ships while the first has unmatched entries.
 - **No partial list.** A list publishes only when membership, source, edition and rules are complete.
 - **No fabricated fallback.** Unknown stays unknown; a missing value never becomes zero or an estimate to make a screen look full.
+- **No global ingest in Phase A.** The atlas grows in Phase E, after the record loop is proven.
 - **No new surface without a gate.** Every addition must answer which phase gate it serves.
 - **Every phase ends clean.** Tests, typecheck, build, docs, runbook, no dead code, no duplicate plan.
 - **The app build has not started.** Phase A begins only after explicit approval of this plan.
@@ -742,9 +867,88 @@ Routes, conditions, forecasts, avalanche, trip reports, live GPS, photo storage,
 
 ---
 
-## 13. Acquisition, monetization and risk
+## 13. The global atlas and experiences
 
-### 13.1 Acquisition
+The NH 48 slice is the first proof, not the product's ceiling. The destination is a global atlas of the world's mountains and peaks, plus the sourced experiences that make those places worth seeking out. The record remains the through-line: a list climber can use the atlas without losing the thing that brought them.
+
+### 13.1 What “every mountain and peak” means
+
+“Every” is a coverage goal, not a completeness claim. A place is published when it has:
+
+- a stable identity and slug;
+- a name and point with a source;
+- a kind (`peak` in Phase A; later `range`, `park`, `trail`, `viewpoint`, `scenic_area`);
+- zero or more sourced attributes;
+- a visible provenance panel and a correction path.
+
+We do not invent a peak to fill a country, assume an elevation, or call a page “verified” because it exists. Coverage is reported as a number and a date, never as “all”.
+
+### 13.2 Other experiences, not a second product
+
+An experience is a curated, sourced way to encounter one or more places. It is editorial context, not a route, conditions report, booking or live guide.
+
+| Experience kind | What it is | What it is not |
+|---|---|---|
+| Range / massif | A named group with a boundary and member peaks | A route or conditions page |
+| Park / protected area | A sourced administrative or conservation area | A permit or booking service |
+| Trail / scenic corridor | A named approach or drive with a source and access note | Turn-by-turn navigation or closure data |
+| Viewpoint / dark-sky place | A place worth seeing for its view or sky | A live weather or safety service |
+| Editorial collection | A Terrane-curated set, e.g. Blue Hour 50 | A publisher list or completion |
+
+Experiences share the `place` identity and `place_provenance` layers. `experience` is a future editorial object (`id`, `slug`, `kind`, `title`, `summary`, `geom` or bbox, `source_id`, `status`) with `experience_place` joining it to places. It is not a new inventory and it does not create a second completion system. Public experiences appear in Explore and on place pages; a dedicated nav item waits until Phase E has evidence.
+
+**One flow still applies.** An experience page does not create a second funnel. Its primary action opens a member place, where the existing peak → list → record loop takes over. A park or scenic corridor can explain why a place matters and point to its peaks; it cannot become a separate social feed, route planner or completion system. That is the test that experiences are a lens, not a product fork.
+
+### 13.3 Data path (Phase E, gated)
+
+1. **Source manifest and licence layer.** Start with permissive sources; add OSM as a separate ODbL layer only after legal review. One accepted value per field.
+2. **Ingest and identity resolution.** Normalise names, aliases, coordinates and feature kinds; merge duplicates with a merge log; never delete a source row.
+3. **Publication threshold.** Publish identity + name + point + source; optional attributes remain null. Internal QA tiers only; no public coverage grade.
+4. **Search and map scale.** Postgres FTS/trigram until p95 misses; vector tiles or clustering for the globe; server-side bbox; never download the world to the browser.
+5. **Experience curation.** An editor or steward adds ranges, parks, corridors and viewpoints with a source; no thin pages and no copied publisher text.
+6. **Corrections and coverage.** Public suggestion path, steward queue, changelog, coverage dashboard and source-removal process.
+7. **Regional release.** Add coverage by region only when search, data quality and support can carry it; no global “launch” day.
+
+### 13.4 Coverage and quality metrics
+
+Track, do not promise:
+
+- published places, by kind and region;
+- percentage with name + point + source;
+- percentage with elevation, prominence and highpoint flags;
+- duplicate and merge rate;
+- search zero-result and first-result click rate;
+- correction backlog and resolution time;
+- map/search p95;
+- percentage of public pages with at least one sourced experience.
+
+### 13.5 Why customers will care
+
+- **Explorers** get a real place and a reason to go, not an infinite list of pins.
+- **List climbers** get a portable record that is not trapped in one region.
+- **Experience seekers** get ranges, parks, viewpoints and drives without a route/conditions app.
+- **The business** gets acquisition from place and experience pages and retention from the record.
+
+The tension is real: breadth can make the product feel like a thin directory. That is why Phase E follows the record loop, not the other way round. If the slice cannot retain list climbers, global coverage is a cost without a customer.
+
+### 13.6 Phase E gates
+
+Do not start global ingestion until:
+
+- five lists are stable and sourced;
+- D90 retention and MARR clear the Phase C/D gates;
+- the ODbL/permissive licence decision is signed off;
+- search p95 and map performance have headroom;
+- a data steward can own corrections and coverage;
+- 10 experience pages tested with users add a reason to explore, not clutter.
+
+Phase E ships region by region. A global count is a dashboard, not a launch.
+
+---
+
+## 14. Acquisition, monetization and risk
+
+### 14.1 Acquisition
 
 The first 1,000 users come from list communities, not generic SEO:
 
@@ -756,7 +960,9 @@ The first 1,000 users come from list communities, not generic SEO:
 
 SEO follows the list pages: “NH 48 tracker”, “NH 48 remaining peaks”, “NH 48 list changes”. A page with three database fields will not outrank established sources. The Blue Hour 50 remains an editorial project after the core loop; label it “Terrane collection”, not an official list.
 
-### 13.2 Monetization
+Experience pages are not an acquisition strategy until Phase E. When they arrive, ranges, parks, scenic corridors and viewpoints can bring non-baggers in; measure assisted signups, not page views. Do not publish thousands of thin place pages to chase search traffic. A small number of genuinely useful pages beats a generated catalogue.
+
+### 14.2 Monetization
 
 No paid tier at launch. The record, list progress and export are free. Test willingness to pay only after retention:
 
@@ -767,7 +973,7 @@ No paid tier at launch. The record, list progress and export are free. Test will
 
 Do not build patches or print until users have completed lists and asked. Do not promise “every future feature free forever”; promise that the user’s own record is always accessible and exportable.
 
-### 13.3 Risks
+### 14.3 Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -780,8 +986,15 @@ Do not build patches or print until users have completed lists and asked. Do not
 | Privacy/location | Private by default; no public profiles; no photos/GPX in slice; deletion/export |
 | Solo-team bus factor | One canonical plan, ADRs, seed files, runbooks, tests |
 | Badge gamification | Ten meaningful marks; no points/leaderboards/hidden; cut if they distract |
+| Auth email deliverability | Phase 0 sends a real magic link; OAuth-only fallback if the provider or domain fails |
+| Deployment/migration failure | Neon branch, migration smoke, seed reset and restore check before the cohort |
+| Scope overload in Phase A | 6–9 week estimate; explicit non-goals; nearby/CSV/global experiences deferred |
+| Global coverage becomes a thin directory | Phase E gates; region-by-region release; no thin pages; coverage measured |
+| Experiences dilute the record | No experience nav or surface until Phase E; test 10 experiences before building more |
+| UI flow loses people | One-flow prototype before build; one primary action; no fifth tab; 390 px and keyboard pass |
+| Gate judged by anecdotes | Server-side events before the 10-user cohort; no PII; manual fallback documented |
 
-### 13.4 Open decisions
+### 14.4 Open decisions
 
 | Decision | Recommendation | When |
 |---|---|---|
@@ -791,25 +1004,30 @@ Do not build patches or print until users have completed lists and asked. Do not
 | Public profiles | Not before retention and explicit demand | Phase D |
 | Paid tier | Do not design until retention; test offline/print | Phase D |
 | ADK/Catskills | Only after the first three lists are stable | Phase D |
+| Auth if email is blocked | OAuth-only for the slice; add magic link later | Phase 0 |
+| First experience kinds | Ranges, parks, scenic corridors and viewpoints; no routes or conditions | Phase E |
+| Global source order | Permissive base first; OSM as a separate ODbL layer only after review | Phase E |
+| Coverage target | Report coverage by region; never promise “all” | Phase E |
+| Nearby peaks | Defer; it adds a query and a surface without proving the loop | Phase B candidate |
 
-The primary user, NH 48 slice, field-level provenance, ten launch badges and this roadmap are **not** open. They are the v3.0 contract.
+The primary user, NH 48 slice, field-level provenance, ten launch badges, the global destination and this phase order are **not** open. They are the v3.0 contract.
 
 ---
 
-## 14. Next ten tasks
+## 15. Next ten tasks
 
-Steps 1–2 of the previous list are complete: this file is canonical and the ten launch badges are flagged and tested. These next tasks are the implementation path; the app build has not started, so tasks 1–3 are data/contract work and tasks 4–9 begin only after Phase A approval.
+Steps 1–2 of the earlier list are complete: this file is canonical and the ten launch badges are flagged and tested. The app build has not started. These ten tasks close the Phase 0 blockers; Phase A code begins only after they pass.
 
-1. **Build the NH 48 seed.** Reviewed JSON/CSV with 48 names, coordinates, elevation sources, highpoint flag, list membership and publisher edition. *Output:* 48/48 matched; every displayed field sourced; unknown allowed.
-2. **Write the data-contract tests.** Seed validation, unique IDs, list count, no missing entries, no fabricated fields, provenance required for displayed values. *Output:* the seed fails loudly before it can publish.
-3. **Freeze the slice schema and seed loader.** `place`, `peak`, `place_name`, `place_provenance`, `region`, `place_region`, `list`, `list_version`, `list_entry`, `app_user`, `trip`, `trip_peak`. *Output:* migrations apply from empty; no platform tables.
-4. **Build auth and settings.** Magic link plus one OAuth provider, private-by-default account, units, home region, delete. *Output:* sign-up to first record works; signed-out users cannot read another record.
-5. **Build peak search, peak pages and globe integration.** Real 48 points, preview card, known/unknown attributes, sources, list membership, nearby peaks, list-view fallback. *Output:* signed-out discovery works on a mid-range phone.
-6. **Build the NH 48 page and progress.** Publisher, edition, rules, “not official” note, ring, remaining peaks, per-peak status. *Output:* progress matches a hand count.
-7. **Build quick log and manual backfill.** Peak(s), date precision, outcome, save; 20 past climbs without a modal per climb. *Output:* log under 20 seconds; backfill under 20 minutes.
-8. **Build export and privacy controls.** JSON/CSV round-trip of trips, dates, list progress and unknown attributes; delete account path. *Output:* a user can leave with their record.
-9. **Run the slice QA and 10-user test.** All acceptance criteria, device pass, 6/10 complete the loop, 4/10 return. *Output:* evidence for the Phase A gate.
-10. **Run the Phase A gate review.** If the gate passes, start Phase B (CSV import, edit/delete, stats, Colorado 14ers). If it fails, fix the loop; do not add Colorado, badges or a paid tier.
+1. **Approve the Phase A scope and estimate.** 6–9 weeks, explicit non-goals, no Phase B work in the branch. *Output:* a signed critical path and a named owner.
+2. **Assemble the NH 48 source pack.** 48 names, coordinates, elevation/highpoint sources, list membership, publisher edition and rules. *Output:* every field has a source; unknown fields are null.
+3. **Choose the licence path.** Permissive/publisher facts for the slice, with OSM held out until review; schedule the legal review. *Output:* no unresolved ODbL data in the Phase A production database.
+4. **Test the one-flow prototype with 5 target users.** Include `returnTo`, list start, backfill, edit/delete and export. *Output:* 4/5 complete without help; 3/5 prefer it to their spreadsheet.
+5. **Provision the platform.** Neon PostGIS branch, Vercel API, preview environment, CI migrations, seed reset and restore check. *Output:* an empty branch migrates, seeds and serves a preview.
+6. **Configure auth.** Better Auth email magic link, one OAuth app, redirect domains; test deliverability. *Output:* sign-in and sign-out work; OAuth-only fallback is ready.
+7. **Write the data contract and tests.** Seed validation, unique IDs, count, no missing entries, no fabricated fields, provenance required. *Output:* the seed fails loudly before publish.
+8. **Freeze schema and API contracts.** Include `user_list`, Better Auth tables, `place`, `peak`, `list`, `list_entry`, `trip`, `trip_peak`; type the endpoints and fixtures. *Output:* no screen invents a field; 401/403/empty states specified.
+9. **Build the NH 48 seed and region context.** Run the data contract against the real list. *Output:* 48/48 matched; one list version; sources and checked dates.
+10. **Run the Phase 0 gate review.** If any readiness item is open, do not start UI code. *Output:* Phase A kickoff decision, with the one-flow and measurement plans attached.
 
 When these ten are done, Terrane has one verified list, one honest data contract and a testable loop. That is the right foundation for the app build — not a 469-peak platform built on assumptions.
 
@@ -824,6 +1042,7 @@ When these ten are done, Terrane has one verified list, one honest data contract
 - GeoNames: https://www.geonames.org/
 - Wikidata: https://www.wikidata.org/
 - USGS 3DEP: https://www.usgs.gov/3d-elevation-program
+- USGS GNIS: https://www.usgs.gov/domestic-geographic-names
 - Natural Earth: https://www.naturalearthdata.com/
 - Neon PostGIS: https://neon.com/docs/extensions/postgis
 - Better Auth: https://www.better-auth.com/docs
@@ -838,6 +1057,9 @@ When these ten are done, Terrane has one verified list, one honest data contract
 | **Field provenance** | The source, method, confidence and checked date for one attribute of a peak. |
 | **List version** | An immutable publication of a list’s membership and rules at a point in time. |
 | **MARR** | Monthly active record keepers: users taking a record action in a month. |
+| **User list** | A user’s explicit start of a published list; progress exists only after it. |
+| **Experience** | A sourced editorial way to encounter one or more places; not a route or conditions service. |
+| **Global atlas** | The Phase E destination: sourced mountains, peaks and experiences, released region by region. |
 | **Record keeper** | A user who logs, edits, backfills or meaningfully reviews their climbing record. |
 | **Slice** | The NH 48 end-to-end product used to prove the loop before expanding. |
 | **Supported list** | A list whose membership and rules Terrane can represent accurately and source. |
