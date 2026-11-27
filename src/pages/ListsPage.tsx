@@ -18,12 +18,12 @@ export default function ListsPage() {
             Collections with a <span className="display-italic">summit.</span>
           </>
         }
-        description="Two complete, sourced lists. Start both or take them one mountain at a time; each publisher's rules stay visible."
+        description={`${LISTS.length} complete, sourced lists. Start one or take them a mountain at a time; each publisher's rules stay visible.`}
         aside={
           <div className="status-card">
             <span className="status-card__label">List library</span>
             <strong>{startedCount} of {LISTS.length} started</strong>
-            <span>2026 editions · not official</span>
+            <span>Current editions · not official</span>
           </div>
         }
       />
@@ -72,7 +72,7 @@ export default function ListsPage() {
       <p className="page-footnote">
         More lists arrive only when their membership, edition and rules are complete. No partial list is published.
         The CMC recognises 54 Colorado 14ers for completion; this list shows 58 named summits and states that
-        difference on the list page.
+        difference on the list page. Munro heights, drops and coordinates are from DoBIH v18 (CC BY 4.0).
       </p>
     </div>
   );

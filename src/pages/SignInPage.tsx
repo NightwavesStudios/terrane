@@ -134,7 +134,7 @@ export default function SignInPage() {
           <p className="eyebrow">What is real in Phase A</p>
           <h2>One list. One flow.</h2>
           <ol className="auth-list">
-            <li>Start the NH 48.</li>
+            <li>Start a list, or all three.</li>
             <li>Log a climb, or backfill a history.</li>
             <li>See the list progress and export the record.</li>
           </ol>

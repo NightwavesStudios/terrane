@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BadgeCase from "../components/BadgeCase";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import ProgressRing from "../components/ProgressRing";
@@ -6,12 +7,24 @@ import StatCard from "../components/StatCard";
 import { LISTS } from "../data/lists";
 import { exportCsv, exportJson } from "../lib/export";
 import { formatTripDate, tripPeakNames } from "../lib/progress";
+import { recapForYear, recapYears } from "../lib/recap";
 import { PEAK_NAMES, useRecord } from "../state/RecordContext";
 
 export default function ProgressPage() {
-  const { profile, trips, startedLists, listStarts, stats, progressFor } = useRecord();
+  const {
+    profile,
+    trips,
+    startedLists,
+    listStarts,
+    badges,
+    listCompletions,
+    badgeFacts,
+    stats,
+    progressFor,
+  } = useRecord();
   const units = profile?.units ?? "imperial";
-  const record = { profile, startedLists, listStarts, trips };
+  const record = { profile, startedLists, listStarts, badges, listCompletions, trips };
+  const years = recapYears(trips).slice(0, 3);
   const startedCount = LISTS.filter((list) => progressFor(list.id).started).length;
 
   if (!profile) {
@@ -95,13 +108,14 @@ export default function ProgressPage() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">The lists</p>
-            <h2 id="lists-progress-title">Two complete records.</h2>
+            <h2 id="lists-progress-title">Three complete records.</h2>
           </div>
           <span className="panel-heading__meta">Publisher editions · not official</span>
         </div>
         <div className="list-progress-grid">
           {LISTS.map((list) => {
             const progress = progressFor(list.id);
+            const completion = listCompletions.find((item) => item.listId === list.id);
             return (
               <article className="list-progress-card" key={list.id}>
                 <div>
@@ -118,10 +132,53 @@ export default function ProgressPage() {
                   </div>
                 )}
                 <div className="list-progress-card__foot">
-                  <span>{progress.started ? `${progress.completed}/${progress.total} · ${progress.percent}%` : `${list.peaks.length} peaks`}</span>
+                  <span>
+                    {completion
+                      ? `Completed ${new Date(completion.completedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}`
+                      : progress.started
+                        ? `${progress.completed}/${progress.total} · ${progress.percent}%`
+                        : `${list.peaks.length} peaks`}
+                  </span>
                   <Link to={`/lists/${list.slug}`} className="text-link">
-                    {progress.started ? "Continue" : "Start"} <span aria-hidden="true">→</span>
+                    {completion ? "View record" : progress.started ? "Continue" : "Start"}{" "}
+                    <span aria-hidden="true">→</span>
                   </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <BadgeCase facts={badgeFacts} awards={badges} trips={trips} />
+
+      <section className="recap" aria-labelledby="recap-title">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">The years</p>
+            <h2 id="recap-title">Annual record.</h2>
+          </div>
+          <span className="panel-heading__meta">No projections</span>
+        </div>
+        <div className="recap-grid">
+          {years.map((year) => {
+            const recap = recapForYear(trips, year);
+            return (
+              <article className="recap-card" key={year}>
+                <p className="eyebrow">{year}</p>
+                <h3>{recap.trips ? `${recap.summits} ${recap.summits === 1 ? "summit" : "summits"}` : "No trips yet"}</h3>
+                <p>
+                  {recap.trips
+                    ? `${recap.trips} ${recap.trips === 1 ? "trip" : "trips"} · ${recap.uniquePeaks} unique ${recap.uniquePeaks === 1 ? "peak" : "peaks"}${recap.attempts ? ` · ${recap.attempts} ${recap.attempts === 1 ? "attempt" : "attempts"}` : ""}`
+                    : "The year is open. Nothing is filled in for you."}
+                </p>
+                <div className="recap-months" aria-label={`${year} months with summits`}>
+                  {recap.months.map((count, index) => (
+                    <span key={index} title={`${count} summit ${count === 1 ? "trip" : "trips"}`}>
+                      <i style={{ height: `${Math.min(100, count * 18 + (count ? 14 : 0))}%` }} />
+                      <small>{new Date(2000, index, 1).toLocaleDateString(undefined, { month: "narrow" })}</small>
+                    </span>
+                  ))}
                 </div>
               </article>
             );

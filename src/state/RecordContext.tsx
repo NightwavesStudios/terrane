@@ -7,10 +7,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { buildFacts } from "../badges/facts";
+import { missingLaunchAwards, sourceTripForBadge } from "../badges/awards";
 import { getList, PEAKS } from "../data/lists";
 import { NH48_LIST } from "../data/nh48";
+import { missingCompletions } from "../lib/completions";
 import { listProgress, statsFor, summitSlugs } from "../lib/progress";
 import type {
+  BadgeAward,
+  ListCompletion,
   ListStart,
   NewTripInput,
   Profile,
@@ -25,6 +30,8 @@ const EMPTY: RecordState = {
   profile: null,
   startedLists: [],
   listStarts: {},
+  badges: [],
+  listCompletions: [],
   trips: [],
 };
 
@@ -32,6 +39,9 @@ interface RecordContextValue {
   profile: Profile | null;
   startedLists: string[];
   listStarts: Record<string, ListStart>;
+  badges: BadgeAward[];
+  listCompletions: ListCompletion[];
+  badgeFacts: ReturnType<typeof buildFacts>;
   trips: Trip[];
   hydrated: boolean;
   completedSlugs: Set<string>;
@@ -71,6 +81,8 @@ function readStored(): RecordState {
       startedLists: Array.isArray(parsed.startedLists) ? parsed.startedLists : [],
       listStarts:
         parsed.listStarts && typeof parsed.listStarts === "object" ? parsed.listStarts : {},
+      badges: Array.isArray(parsed.badges) ? parsed.badges : [],
+      listCompletions: Array.isArray(parsed.listCompletions) ? parsed.listCompletions : [],
       trips: Array.isArray(parsed.trips) ? parsed.trips : [],
     };
   } catch {
@@ -221,6 +233,56 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     setState(EMPTY);
   }, []);
 
+  const badges = state.badges ?? [];
+  const listCompletions = state.listCompletions ?? [];
+  const badgeFacts = useMemo(
+    () =>
+      buildFacts({
+        trips: state.trips,
+        profile: state.profile,
+        startedLists: state.startedLists,
+        listStarts: state.listStarts,
+        completions: listCompletions,
+      }),
+    [state.trips, state.profile, state.startedLists, state.listStarts, listCompletions],
+  );
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const missing = missingCompletions(
+      state.trips,
+      state.startedLists,
+      state.listStarts,
+      listCompletions,
+    );
+    if (missing.length) {
+      setState((current) => ({
+        ...current,
+        listCompletions: [...(current.listCompletions ?? []), ...missing],
+      }));
+    }
+  }, [hydrated, state.trips, state.startedLists, state.listStarts, listCompletions]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const missing = missingLaunchAwards(badgeFacts, badges).map((award) => ({
+      ...award,
+      sourceTripId: sourceTripForBadge(award.badgeId, {
+        trips: state.trips,
+        profile: state.profile,
+        startedLists: state.startedLists,
+        listStarts: state.listStarts,
+        completions: listCompletions,
+      }),
+    }));
+    if (missing.length) {
+      setState((current) => ({
+        ...current,
+        badges: [...(current.badges ?? []), ...missing],
+      }));
+    }
+  }, [hydrated, badgeFacts, badges, state.trips]);
+
   const completedSlugs = useMemo(() => summitSlugs(state.trips), [state.trips]);
   const progress = useMemo(
     () => listProgress(state.trips, state.startedLists),
@@ -237,6 +299,9 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       profile: state.profile,
       startedLists: state.startedLists,
       listStarts: state.listStarts,
+      badges,
+      listCompletions,
+      badgeFacts,
       trips: state.trips,
       hydrated,
       completedSlugs,
@@ -259,6 +324,9 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       state.profile,
       state.startedLists,
       state.listStarts,
+      badges,
+      listCompletions,
+      badgeFacts,
       state.trips,
       hydrated,
       completedSlugs,

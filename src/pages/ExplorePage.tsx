@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { Link } from "react-router-dom";
 import Discover from "../components/Discover";
-import { LISTS, PEAKS } from "../data/lists";
+import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { formatElevation } from "../lib/format";
 
 const Globe = lazy(() => import("../components/MapGlobe"));
@@ -32,7 +32,7 @@ export default function ExplorePage() {
             ×
           </button>
           <p className="eyebrow">
-            {selected.listIds?.includes("nh48") ? "NH 48" : "Colorado 14ers"} · #{selected.rank}
+            {peakListLabel(selected)} · #{selected.rank}
           </p>
           <h2>{selected.name}</h2>
           <p className="globe-preview__meta">
@@ -44,8 +44,8 @@ export default function ExplorePage() {
         </aside>
       ) : (
         <aside className="globe-brief" aria-label="Complete lists">
-          <p className="eyebrow">Two complete lists</p>
-          <h2>From New England to the Rockies.</h2>
+          <p className="eyebrow">{LISTS.length} complete lists</p>
+          <h2>From New England to the Highlands.</h2>
           <p>
             {PEAKS.length} sourced summits, {LISTS.length} publishers, one portable record. More lists arrive only
             when their membership and rules are complete.

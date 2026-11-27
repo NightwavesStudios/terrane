@@ -19,6 +19,8 @@ export default function ListDetailPage() {
     trips,
     startedLists,
     listStarts,
+    listCompletions,
+    badges,
     startList,
     progressFor,
     completedSlugs,
@@ -60,8 +62,9 @@ export default function ListDetailPage() {
     : `/signin?returnTo=${encodeURIComponent(`/log?mode=backfill&list=${list.id}`)}`;
   const displayCompleted = started ? progress?.completed ?? 0 : 0;
   const displayRemaining = started ? progress?.remaining ?? list.peaks.length : list.peaks.length;
-  const recordState = { profile, startedLists, listStarts, trips };
+  const recordState = { profile, startedLists, listStarts, badges, listCompletions, trips };
   const versionChange = listVersionChange(list, listStarts[list.id]);
+  const completion = listCompletions.find((item) => item.listId === list.id);
   const peakNames = new Map(PEAKS.map((peak) => [peak.slug, peak.name]));
 
   function start() {
@@ -90,7 +93,13 @@ export default function ListDetailPage() {
         aside={
           <div className="status-card">
             <span className="status-card__label">List status</span>
-            <strong>{started ? `${progress?.percent ?? 0}% complete` : "Not started"}</strong>
+            <strong>
+              {completion
+                ? `Completed ${new Date(completion.completedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}`
+                : started
+                  ? `${progress?.percent ?? 0}% complete`
+                  : "Not started"}
+            </strong>
             <span>{list.publisher} · {list.edition}</span>
           </div>
         }
@@ -150,6 +159,25 @@ export default function ListDetailPage() {
           </p>
         </div>
       </section>
+
+      {completion ? (
+        <section className="completion-mark" aria-label="List completion">
+          <span className="completion-mark__seal" aria-hidden="true">✓</span>
+          <div>
+            <p className="eyebrow">Complete · {completion.edition}</p>
+            <h2>{list.title} finished.</h2>
+            <p>
+              Recorded {new Date(completion.completedAt).toLocaleDateString(undefined, {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}{" "}
+              against version {completion.listVersion}. The snapshot is kept even if the publisher changes the
+              list. Terrane is not the official record.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {started && versionChange.changed ? (
         <section className="version-notice" aria-label="List version change">

@@ -32,7 +32,28 @@ export interface RecordState {
   startedLists: string[];
   /** Edition and membership captured when a list was started. */
   listStarts: Record<string, ListStart>;
+  /** Awards are permanent; deletion of a trip does not revoke one. */
+  badges?: BadgeAward[];
+  /** Immutable completion snapshots, one per list edition. */
+  listCompletions?: ListCompletion[];
   trips: Trip[];
+}
+
+export interface BadgeAward {
+  badgeId: string;
+  criteriaVersion: number;
+  earnedAt: string;
+  sourceTripId?: string;
+}
+
+export interface ListCompletion {
+  id: string;
+  listId: string;
+  listVersion: string;
+  edition: string;
+  completedAt: string;
+  peakSlugs: string[];
+  evidenceTripId?: string;
 }
 
 export interface ListStart {

@@ -1,5 +1,6 @@
 import type { Peak } from "../types/geography";
 import { CO14ERS_LIST, CO14ERS_PEAKS } from "./co14ers";
+import { MUNROS_LIST, MUNROS_PEAKS } from "./munros";
 import { NH48_LIST, NH48_PEAKS } from "./nh48";
 
 export interface MountainList {
@@ -12,6 +13,7 @@ export interface MountainList {
   version: string;
   sourceUrl: string;
   elevationSourceUrl?: string;
+  license?: string;
   description: string;
   rules: string;
   peaks: Peak[];
@@ -26,6 +28,11 @@ export const LISTS: MountainList[] = [
   {
     ...CO14ERS_LIST,
     peaks: CO14ERS_PEAKS,
+  },
+  {
+    ...MUNROS_LIST,
+    peaks: MUNROS_PEAKS,
+    license: "DoBIH data CC BY 4.0",
   },
 ];
 
@@ -50,7 +57,13 @@ export function getListForPeak(peak: Peak): MountainList[] {
 }
 
 export function listShortName(list: MountainList): string {
-  return list.id === "nh48" ? "NH 48" : list.id === "co14ers" ? "CO 14ers" : list.title;
+  return list.id === "nh48"
+    ? "NH 48"
+    : list.id === "co14ers"
+      ? "CO 14ers"
+      : list.id === "munros"
+        ? "Munros"
+        : list.title;
 }
 
 export function peakListLabel(peak: Peak): string {

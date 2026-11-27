@@ -9,6 +9,8 @@ export default function SettingsPage() {
     profile,
     startedLists,
     listStarts,
+    badges,
+    listCompletions,
     trips,
     hydrated,
     updateProfile,
@@ -27,7 +29,7 @@ export default function SettingsPage() {
     return <Navigate to={`/signin?returnTo=${encodeURIComponent("/settings")}`} replace />;
   }
 
-  const record = { profile, startedLists, listStarts, trips };
+  const record = { profile, startedLists, listStarts, badges, listCompletions, trips };
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -19,7 +19,7 @@ export default function DataPage() {
       <div className="data-layout">
         <section className="data-card">
           <p className="eyebrow">The complete lists</p>
-          <h2>Two publishers, two rule sets.</h2>
+          <h2>Three publishers, three rule sets.</h2>
           <table className="source-table">
             <thead>
               <tr>
@@ -42,6 +42,12 @@ export default function DataPage() {
                     </a>
                     <br />
                     {list.edition}
+                    {list.license ? (
+                      <>
+                        <br />
+                        <small>{list.license}</small>
+                      </>
+                    ) : null}
                   </td>
                   <td>{list.rules}</td>
                 </tr>
@@ -51,7 +57,8 @@ export default function DataPage() {
           <p>
             The Colorado 14ers list is inclusive: 58 named summits. 53 clear 300 feet of prominence and the
             Colorado Mountain Club recognises 54 for completion. Terrane does not collapse that difference into a
-            single “official” count.
+            single “official” count. The Munros are the SMC's 282-peak list; DoBIH v18 supplies heights, drops,
+            coordinates and regions under CC BY 4.0.
           </p>
         </section>
 
@@ -64,6 +71,7 @@ export default function DataPage() {
                 <th scope="col">Field</th>
                 <th scope="col">NH 48</th>
                 <th scope="col">Colorado 14ers</th>
+                <th scope="col">Munros</th>
               </tr>
             </thead>
             <tbody>
@@ -71,26 +79,31 @@ export default function DataPage() {
                 <th scope="row">Name</th>
                 <td>NH48.info catalog</td>
                 <td>14ers.com; NGS 2024 name changes reflected</td>
+                <td>DoBIH v18</td>
               </tr>
               <tr>
                 <th scope="row">Coordinates</th>
                 <td>OpenStreetMap via NH48.info</td>
                 <td>14ers.com peak pages</td>
+                <td>DoBIH v18 latitude/longitude</td>
               </tr>
               <tr>
                 <th scope="row">Elevation</th>
                 <td>USGS GNIS via NH48.info</td>
                 <td>NGS 2024 / 5280 table</td>
+                <td>DoBIH v18 height</td>
               </tr>
               <tr>
                 <th scope="row">Prominence</th>
                 <td>USGS GNIS via NH48.info</td>
                 <td>14ers.com peak pages</td>
+                <td>DoBIH v18 drop</td>
               </tr>
               <tr>
                 <th scope="row">Membership</th>
                 <td>AMC, 2026 edition</td>
                 <td>14ers.com named list; CMC 54 noted</td>
+                <td>SMC 282 list</td>
               </tr>
             </tbody>
           </table>
@@ -104,9 +117,9 @@ export default function DataPage() {
           <p className="eyebrow">Current boundary</p>
           <h2>What is not here yet.</h2>
           <p>
-            This build contains two complete lists: the NH 48 and the 58 named Colorado 14ers. It does not contain
-            the Munros, ADK 46, Catskill 3500, a global peak catalogue or sourced experiences. Those need complete
-            membership, edition, licensing and provenance before they are published.
+            This build contains three complete lists: the NH 48, the 58 named Colorado 14ers and the 282 Munros.
+            It does not contain the ADK 46, Catskill 3500, a global peak catalogue or sourced experiences. Those
+            need complete membership, edition, licensing and provenance before they are published.
           </p>
           <p>
             The record is stored in this browser with <code>localStorage</code>. There is no production account,

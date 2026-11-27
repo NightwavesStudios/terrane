@@ -28,10 +28,19 @@ The catalogue is deliberately small and complete. A list publishes only when eve
 
 Terrane shows the named list and says so. It does not call the list “official” or grant finisher status. The Colorado slug for Mount Lincoln is `mount-lincoln-co` because New Hampshire also has a Mount Lincoln; names stay unchanged on screen.
 
+## Munros
+
+| Field | Source |
+|---|---|
+| Membership and rules | [Scottish Mountaineering Club](https://www.smc.org.uk/hills), 282 Munros |
+| Name, height, drop, coordinates, region | [Database of British and Irish Hills v18](https://www.hill-bagging.co.uk/dobih/downloads) |
+
+All 282 entries are present. Heights are metres and feet from DoBIH; drops are metres. Coordinates are WGS84 latitude/longitude. The DoBIH is licensed CC BY 4.0 and is attributed in the app and on every peak page. The SMC list is membership; DoBIH is the fact source. Names are kept as published, including bracketed alternative names. Duplicate names use section-qualified slugs so every identity is unique.
+
 ## Checked dates and limits
 
 - Seed retrieval: November 2026.
-- No global peak inventory, Munros, ADK 46 or Catskill 3500 data is included in this build.
+- No global peak inventory, ADK 46 or Catskill 3500 data is included in this build.
 - No elevation is invented for an unknown field. No peak is added to complete a count.
 - Terrane summaries are its own words; publisher names, editions and links are attributed.
 

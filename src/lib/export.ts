@@ -24,6 +24,8 @@ export function buildExport(state: RecordState) {
     exportedAt: new Date().toISOString(),
     profile: state.profile,
     listStarts: state.listStarts,
+    badges: state.badges ?? [],
+    completions: state.listCompletions ?? [],
     lists: LISTS.map((list) => {
       const listState = listProgress(state.trips, state.startedLists, list.id);
       return {

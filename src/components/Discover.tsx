@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { PEAKS, peakListLabel } from "../data/lists";
+import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { formatElevation } from "../lib/format";
 import type { Peak } from "../types/geography";
 
@@ -8,7 +8,7 @@ function matchingPeaks(term: string): Peak[] {
   const query = term.trim().toLowerCase();
   if (!query) return PEAKS.slice(0, 4);
   return PEAKS.filter((peak) =>
-    [peak.name, peak.range, peakListLabel(peak), "new hampshire", "colorado"]
+    [peak.name, peak.range, peakListLabel(peak), "new hampshire", "colorado", "scotland", "munros"]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(query)),
   ).slice(0, 8);
@@ -133,7 +133,7 @@ export default function Discover() {
           </div>
 
           <p className="discover-foot mono">
-            {PEAKS.length} peaks indexed · 2 complete lists
+            {PEAKS.length} peaks indexed · {LISTS.length} complete lists
             <span>⌘K open · esc close</span>
           </p>
         </section>

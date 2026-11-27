@@ -8,9 +8,9 @@ import SearchField from "../components/SearchField";
 import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { useRecord } from "../state/RecordContext";
 
-type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Climbed" | "Remaining";
+type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Munros" | "Climbed" | "Remaining";
 
-const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Climbed", "Remaining"];
+const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Munros", "Climbed", "Remaining"];
 
 export default function PeaksPage() {
   const { completedSlugs, profile } = useRecord();
@@ -29,6 +29,7 @@ export default function PeaksPage() {
       if (!matches) return false;
       if (filter === "NH 48") return peak.listIds?.includes("nh48");
       if (filter === "Colorado 14ers") return peak.listIds?.includes("co14ers");
+      if (filter === "Munros") return peak.listIds?.includes("munros");
       if (filter === "Climbed") return completedSlugs.has(peak.slug);
       if (filter === "Remaining") return !completedSlugs.has(peak.slug);
       return true;
@@ -50,7 +51,7 @@ export default function PeaksPage() {
             The <span className="display-italic">high</span> places.
           </>
         }
-        description="Two complete lists, 106 sourced summits. Identity, elevation, range and list membership are explicit; unsupported fields stay unknown."
+        description={`${LISTS.length} complete lists, ${PEAKS.length} sourced summits. Identity, elevation, range and list membership are explicit; unsupported fields stay unknown.`}
         aside={
           <div className="status-card">
             <span className="status-card__label">Peak index</span>
@@ -64,7 +65,7 @@ export default function PeaksPage() {
         <SearchField
           label="Search peaks"
           placeholder="Search by peak, range or list"
-          hint="Two complete lists are indexed. The global atlas is a later phase."
+          hint={`${LISTS.length} complete lists are indexed. The global atlas is a later phase.`}
           onChange={setQuery}
           onSubmit={setQuery}
         />
@@ -117,11 +118,11 @@ export default function PeaksPage() {
 
       <p className="page-footnote">
         NH 48 facts come from the <a href="https://nh48.info/catalog">NH48.info catalog</a>. Colorado facts use
-        NGS 2024 elevations and 14ers.com coordinates. Every peak page links its field-level sources; no list is
-        presented as official.
+        NGS 2024 elevations and 14ers.com coordinates. Munro facts use the Database of British and Irish Hills v18
+        (CC BY 4.0). Every peak page links its field-level sources; no list is presented as official.
       </p>
       <Link to="/lists" className="text-link">
-        Open the two lists <span aria-hidden="true">→</span>
+        Open the lists <span aria-hidden="true">→</span>
       </Link>
     </div>
   );
