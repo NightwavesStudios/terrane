@@ -5,17 +5,23 @@ interface Props {
   label: string;
   placeholder: string;
   hint?: string;
-  onSubmit?: (query: string) => void;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-export default function SearchField({ label, placeholder, hint, onSubmit }: Props) {
+export default function SearchField({ label, placeholder, hint, value, onChange }: Props) {
   const inputId = useId();
   const hintId = useId();
-  const [query, setQuery] = useState("");
+  const [internal, setInternal] = useState("");
+  const query = value ?? internal;
+
+  function update(next: string) {
+    setInternal(next);
+    onChange?.(next);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSubmit?.(query.trim());
   }
 
   return (
@@ -29,7 +35,7 @@ export default function SearchField({ label, placeholder, hint, onSubmit }: Prop
           id={inputId}
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => update(event.target.value)}
           placeholder={placeholder}
           autoComplete="off"
           aria-describedby={hint ? hintId : undefined}
@@ -38,15 +44,12 @@ export default function SearchField({ label, placeholder, hint, onSubmit }: Prop
           <button
             className="search-field__clear"
             type="button"
-            onClick={() => setQuery("")}
+            onClick={() => update("")}
             aria-label="Clear search"
           >
             ×
           </button>
         ) : null}
-        <button className="search-field__submit" type="submit" aria-label="Search">
-          <Icon name="arrow" size={17} />
-        </button>
       </form>
       {hint ? (
         <p className="search-field__hint" id={hintId}>

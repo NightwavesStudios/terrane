@@ -1,12 +1,17 @@
-import { useState } from "react";
-import EmptyState from "../components/EmptyState";
-import FilterChips from "../components/FilterChips";
+import { Link } from "react-router-dom";
+import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import SearchField from "../components/SearchField";
+import { KIND_META } from "../data/atlas";
+import { LISTS } from "../data/lists";
+import { formatElevation } from "../lib/format";
+import { useJournal } from "../lib/journal";
+import { listProgress } from "../lib/progress";
 
 export default function ListsPage() {
-  const [notice, setNotice] = useState("");
-  const [category, setCategory] = useState("All lists");
+  const { entries } = useJournal();
+  const progress = LISTS.map((list) => listProgress(list, entries));
+  const completed = progress.filter((item) => item.complete).length;
+  const canonical = LISTS.filter((list) => list.kind === "canonical").length;
 
   return (
     <div className="content-page">
@@ -15,61 +20,118 @@ export default function ListsPage() {
         eyebrow="Lists"
         title={
           <>
-            Collections with a <span className="display-italic">summit.</span>
+            A list is a way of <span className="display-italic">looking.</span>
           </>
         }
-        description="Peak-bagging lists will turn geography into a pursuit: regional challenges, elevation lists and personal collections."
+        description="Canonical challenges and Terrane collections. A list never invents progress: it reads the summits in your journal and leaves the rest open."
         aside={
           <div className="status-card">
             <span className="status-card__label">List library</span>
-            <strong>Awaiting lists</strong>
-            <span>No completions recorded</span>
+            <strong>
+              {completed} of {LISTS.length} complete
+            </strong>
+            <span>{canonical} canonical · {LISTS.length - canonical} collections</span>
           </div>
         }
       />
 
-      <section className="catalog-toolbar" aria-label="List discovery controls">
-        <SearchField
-          label="Search lists"
-          placeholder="Search challenges, regions or collections"
-          hint="List search is not connected in Phase 01."
-          onSubmit={(query) =>
-            setNotice(
-              query
-                ? `“${query}” will search the list library when it is connected.`
-                : "List search is a visual placeholder for the coming library.",
-            )
-          }
-        />
-      </section>
-
-      <FilterChips
-        label="List categories"
-        items={["All lists", "Regional", "Elevation", "State high points"]}
-        active={category}
-        onSelect={(value) => {
-          setCategory(value);
-          setNotice(`${value} lists are coming with the library.`);
-        }}
-      />
-
-      <p className={`toolbar-notice${notice ? " toolbar-notice--visible" : ""}`} aria-live="polite">
-        {notice}
-      </p>
-
-      <div className="list-anatomy" aria-label="Structure of a future list card">
-        <span>List name</span>
-        <span>Region</span>
-        <span>Peak count</span>
-        <span>Completion</span>
+      <div className="list-overview" aria-label="List library summary">
+        <div>
+          <span className="mono">Canonical</span>
+          <strong>{canonical}</strong>
+          <em>Lists the world already agrees on</em>
+        </div>
+        <div>
+          <span className="mono">Collections</span>
+          <strong>{LISTS.length - canonical}</strong>
+          <em>Curated by Terrane, not by committee</em>
+        </div>
+        <div>
+          <span className="mono">Progress</span>
+          <strong>
+            {progress.reduce((total, item) => total + item.done.length, 0)}
+          </strong>
+          <em>Summits across every list</em>
+        </div>
       </div>
 
-      <EmptyState
-        icon="list"
-        eyebrow="List library"
-        title="The lists are being drawn."
-        description="No challenge memberships or completion counts are loaded in Phase 01. The page is ready for established lists, custom collections and progress indicators."
-      />
+      <div className="list-library">
+        {progress.map((item, index) => {
+          const { list, members, done, ratio, complete } = item;
+          return (
+            <details className="list-card" key={list.id} open={index === 0}>
+              <summary className="list-card__summary">
+                <span className="list-card__tag mono">
+                  {list.kind === "canonical" ? "Canonical" : "Collection"}
+                </span>
+                <span className="list-card__title">
+                  <strong>{list.name}</strong>
+                  <span>{list.scope}</span>
+                </span>
+                <span className="list-card__progress">
+                  <span className="meter" aria-hidden="true">
+                    <span style={{ width: `${Math.round(ratio * 100)}%` }} />
+                  </span>
+                  <em className={complete ? "is-complete" : ""}>
+                    {done.length}/{members.length}
+                    {complete ? " · complete" : ""}
+                  </em>
+                </span>
+                <span className="list-card__toggle" aria-hidden="true">
+                  <Icon name="plus" size={16} />
+                </span>
+              </summary>
+
+              <div className="list-card__body">
+                <p className="list-card__desc">{list.description}</p>
+                <ul className="list-members">
+                  {members.map((adventure, memberIndex) => {
+                    const bagged = done.some((itemDone) => itemDone.id === adventure.id);
+                    return (
+                      <li key={adventure.id}>
+                        <Link to={`/atlas/${adventure.id}`} className="list-member">
+                          <span className="list-member__index mono">
+                            {String(memberIndex + 1).padStart(2, "0")}
+                          </span>
+                          <span
+                            className="list-member__icon"
+                            style={{ color: KIND_META[adventure.kind].color }}
+                          >
+                            <Icon name={KIND_META[adventure.kind].icon} size={16} />
+                          </span>
+                          <span className="list-member__name">
+                            <strong>{adventure.name}</strong>
+                            <span>
+                              {adventure.region} · {adventure.country}
+                            </span>
+                          </span>
+                          <span className="list-member__elev mono">
+                            {formatElevation(adventure.elevationM)}
+                          </span>
+                          <span className={`list-member__state${bagged ? " is-bagged" : ""}`}>
+                            {bagged ? (
+                              <>
+                                <Icon name="check" size={13} /> Summitted
+                              </>
+                            ) : (
+                              "Open"
+                            )}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+
+      <p className="page-footnote">
+        A summit counts for a list when your journal records one for that place — on any
+        date. Attempts and visits are kept in the record but do not close a list.
+      </p>
     </div>
   );
 }
