@@ -21,11 +21,13 @@ Node 20+ is required. Vite serves the SPA; MapLibre loads the blue-hour OpenFree
 
 ## Data changes
 
-1. Update the seed in `src/data/nh48.ts` or `src/data/co14ers.ts`.
+1. Update the seed in `src/data/nh48.ts`, `src/data/co14ers.ts`, `src/data/munros.ts`, `src/data/adk46.ts` or `src/data/catskills.ts`, then register it in `src/data/lists.ts`.
 2. Keep the publisher, edition, version, rules and source URL explicit.
 3. Update `docs/data-sources.md`.
 4. Add or update a contract test. A list fail must fail on count, duplicate slug or missing provenance.
 5. Run tests, typecheck and build before shipping.
+
+The Catskill list is the current 33-peak roster after the 2021 revision. Do not restore Graham or Doubletop; the four winter repeats are a membership rule, not extra entries.
 
 Colorado and New Hampshire share a peak name (Mount Lincoln), so slugs are globally unique: `mount-lincoln` is New Hampshire and `mount-lincoln-co` is Colorado.
 
@@ -42,4 +44,4 @@ Settings → Import CSV. Use the in-app template or the format in `docs/data-sou
 
 ## Recovery
 
-The JSON export contains the profile, both list progresses, list starts and every trip with display dates and peak names. Keep it before clearing browser storage. CSV export is one row per trip peak and can be imported back through the documented template.
+The JSON export contains the profile, all five list progresses, list starts and every trip with display dates and peak names. Keep it before clearing browser storage. CSV export is one row per trip peak and can be imported back through the documented template.
