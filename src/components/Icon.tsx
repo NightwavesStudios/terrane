@@ -10,7 +10,8 @@ export type IconName =
   | "pin"
   | "plus"
   | "progress"
-  | "search";
+  | "search"
+  | "user";
 
 const paths: Record<IconName, ReactNode> = {
   arrow: (
@@ -62,6 +63,12 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <circle cx="10.8" cy="10.8" r="6.4" />
       <path d="m16 16 4.5 4.5" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8.2" r="3.4" />
+      <path d="M5.5 20c.4-3.4 3-5.3 6.5-5.3s6.1 1.9 6.5 5.3" />
     </>
   ),
 };

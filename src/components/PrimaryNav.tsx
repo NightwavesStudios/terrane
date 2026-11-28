@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
+import { useRecord } from "../state/RecordContext";
 
 interface NavItem {
   to: string;
@@ -19,7 +20,16 @@ function linkClass({ isActive }: { isActive: boolean }) {
   return `nav-link${isActive ? " nav-link--active" : ""}`;
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return `${parts[0][0] ?? ""}${parts.length > 1 ? parts[parts.length - 1][0] : ""}`.toUpperCase();
+}
+
 export default function PrimaryNav() {
+  const { profile } = useRecord();
+  const accountHref = profile ? "/settings" : "/signin";
+
   return (
     <>
       <header className="primary-header">
@@ -42,8 +52,15 @@ export default function PrimaryNav() {
         </nav>
 
         <div className="header-actions">
-          <NavLink to="/settings" className="nav-utility">
-            Record
+          <NavLink
+            to={accountHref}
+            className="account-chip"
+            aria-label={profile ? `Open ${profile.displayName}'s record settings` : "Sign in or create a record"}
+          >
+            <span className={`account-chip__avatar${profile ? "" : " account-chip__avatar--guest"}`}>
+              {profile ? initials(profile.displayName) : <Icon name="user" size={16} />}
+            </span>
+            <span className="account-chip__name">{profile?.displayName ?? "Sign in"}</span>
           </NavLink>
           <NavLink to="/log" className="nav-cta">
             <Icon name="plus" size={15} />
@@ -53,23 +70,32 @@ export default function PrimaryNav() {
       </header>
 
       <nav className="mobile-nav" aria-label="Primary mobile">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
-            className={linkClass}
-          >
-            <Icon name={item.icon} size={19} />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        <NavLink to="/" end className={linkClass}>
+          <Icon name="compass" size={20} />
+          <span>Explore</span>
+        </NavLink>
+        <NavLink to="/peaks" className={linkClass}>
+          <Icon name="peak" size={20} />
+          <span>Peaks</span>
+        </NavLink>
+        <NavLink
+          to="/log"
+          className={({ isActive }) => `${linkClass({ isActive })} nav-link--log`}
+        >
+          <span className="mobile-log-mark">
+            <Icon name="plus" size={18} />
+          </span>
+          <span>Log</span>
+        </NavLink>
+        <NavLink to="/lists" className={linkClass}>
+          <Icon name="list" size={20} />
+          <span>Lists</span>
+        </NavLink>
+        <NavLink to="/progress" className={linkClass}>
+          <Icon name="progress" size={20} />
+          <span>Progress</span>
+        </NavLink>
       </nav>
-
-      <NavLink to="/log" className="mobile-log">
-        <Icon name="plus" size={17} />
-        <span>Log</span>
-      </NavLink>
     </>
   );
 }

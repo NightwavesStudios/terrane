@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
+import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import ProgressRing from "../components/ProgressRing";
 import { LISTS } from "../data/lists";
 import { useRecord } from "../state/RecordContext";
 
@@ -11,70 +11,67 @@ export default function ListsPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="03"
         eyebrow="Lists"
         title={
           <>
-            Collections with a <span className="display-italic">summit.</span>
+            The <span className="display-italic">lists.</span>
           </>
         }
-        description={`${LISTS.length} complete, sourced lists. Start one or take them a mountain at a time; each publisher's rules stay visible.`}
+        description={`${LISTS.length} complete publisher lists. Start anywhere, take your time.`}
         aside={
           <div className="status-card">
-            <span className="status-card__label">List library</span>
-            <strong>{startedCount} of {LISTS.length} started</strong>
+            <span className="status-card__label">Your record</span>
+            <strong>
+              {startedCount} of {LISTS.length} started
+            </strong>
             <span>Current editions · not official</span>
           </div>
         }
       />
 
-      <div className="lists-grid">
+      <div className="list-index">
         {LISTS.map((list) => {
           const progress = progressFor(list.id);
           return (
-            <Link to={`/lists/${list.slug}`} className="list-card" key={list.id}>
-              <div className="list-card__body">
-                <p className="eyebrow">{list.publisher} · {list.edition}</p>
+            <Link to={`/lists/${list.slug}`} className="list-index__row" key={list.id}>
+              <div className="list-index__main">
+                <p className="eyebrow">
+                  {list.publisher} · {list.edition}
+                </p>
                 <h2>{list.title}</h2>
                 <p>{list.description}</p>
-                <dl className="list-card__facts">
-                  <div>
-                    <dt>Peaks</dt>
-                    <dd>{list.peaks.length}</dd>
-                  </div>
-                  <div>
-                    <dt>Publisher</dt>
-                    <dd>{list.publisher}</dd>
-                  </div>
-                  <div>
-                    <dt>Your record</dt>
-                    <dd>{profile ? `${progress.completed} climbed` : "Sign in to start"}</dd>
-                  </div>
-                </dl>
-                <span className="text-link">
-                  {progress.started ? "Continue the list" : "Open the list"}{" "}
-                  <span aria-hidden="true">→</span>
+                <span className="list-index__meta">
+                  {list.peaks.length} peaks ·{" "}
+                  {progress.started
+                    ? `${progress.completed} climbed`
+                    : profile
+                      ? "Not started"
+                      : "Open to browse"}
                 </span>
               </div>
-              {progress.started ? (
-                <ProgressRing completed={progress.completed} total={progress.total} />
-              ) : (
-                <div className="list-card__start">
-                  <span>Not started</span>
-                  <small>{list.peaks.length} peaks</small>
-                </div>
-              )}
+
+              <div className="list-index__progress">
+                <span className="list-index__value">
+                  {progress.started ? `${progress.percent}%` : "—"}
+                </span>
+                <span className="list-index__meter" aria-hidden="true">
+                  <i style={{ width: `${progress.started ? progress.percent : 0}%` }} />
+                </span>
+                <small>
+                  {progress.started
+                    ? `${progress.completed} of ${progress.total}`
+                    : `${list.peaks.length} peaks`}
+                </small>
+              </div>
+
+              <Icon name="arrow" size={18} />
             </Link>
           );
         })}
       </div>
 
       <p className="page-footnote">
-        More lists arrive only when their membership, edition and rules are complete. No partial list is published.
-        The CMC recognises 54 Colorado 14ers for completion; this list shows 58 named summits and states that
-        difference on the list page. Munro heights, drops and coordinates are from DoBIH v18 (CC BY 4.0).
-        The Catskills use the current 33-peak list: Graham and Doubletop are closed, and the four winter repeats
-        are a 3500 Club membership rule rather than extra entries.
+        Each list keeps its publisher&apos;s edition and rules. <Link to="/about/data">Data and sources</Link>.
       </p>
     </div>
   );

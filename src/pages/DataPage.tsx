@@ -6,14 +6,13 @@ export default function DataPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="07"
         eyebrow="About / Data"
         title={
           <>
-            Facts with a <span className="display-italic">paper trail.</span>
+            Data &amp; <span className="display-italic">sources.</span>
           </>
         }
-        description="A mountain catalogue is only useful if you can see where every field came from. This page is the short, honest version."
+        description="Where every list, height and coordinate came from."
       />
 
       <div className="data-layout">
@@ -35,8 +34,8 @@ export default function DataPage() {
                   <th scope="row">
                     <Link to={`/lists/${list.slug}`}>{list.title}</Link>
                   </th>
-                  <td>{list.peaks.length}</td>
-                  <td>
+                  <td data-label="Peaks">{list.peaks.length}</td>
+                  <td data-label="Publisher">
                     <a href={list.sourceUrl} target="_blank" rel="noreferrer">
                       {list.publisher}
                     </a>
@@ -49,7 +48,7 @@ export default function DataPage() {
                       </>
                     ) : null}
                   </td>
-                  <td>{list.rules}</td>
+                  <td data-label="Rule note">{list.rules}</td>
                 </tr>
               ))}
             </tbody>
@@ -80,43 +79,43 @@ export default function DataPage() {
             <tbody>
               <tr>
                 <th scope="row">Name</th>
-                <td>NH48.info catalog</td>
-                <td>14ers.com; NGS 2024 name changes reflected</td>
-                <td>DoBIH v18</td>
-                <td>Wikipedia / Adirondack 46ers</td>
-                <td>Catskill Hiker / 3500 Club</td>
+                <td data-label="NH 48">NH48.info catalog</td>
+                <td data-label="Colorado 14ers">14ers.com; NGS 2024 name changes reflected</td>
+                <td data-label="Munros">DoBIH v18</td>
+                <td data-label="ADK 46">Wikipedia / Adirondack 46ers</td>
+                <td data-label="Catskills">Catskill Hiker / 3500 Club</td>
               </tr>
               <tr>
                 <th scope="row">Coordinates</th>
-                <td>OpenStreetMap via NH48.info</td>
-                <td>14ers.com peak pages</td>
-                <td>DoBIH v18 latitude/longitude</td>
-                <td>Wikipedia coordinates</td>
-                <td>Catskill Hiker coordinates</td>
+                <td data-label="NH 48">OpenStreetMap via NH48.info</td>
+                <td data-label="Colorado 14ers">14ers.com peak pages</td>
+                <td data-label="Munros">DoBIH v18 latitude/longitude</td>
+                <td data-label="ADK 46">Wikipedia coordinates</td>
+                <td data-label="Catskills">Catskill Hiker coordinates</td>
               </tr>
               <tr>
                 <th scope="row">Elevation</th>
-                <td>USGS GNIS via NH48.info</td>
-                <td>NGS 2024 / 5280 table</td>
-                <td>DoBIH v18 height</td>
-                <td>Club/Wikipedia height</td>
-                <td>Catskill Hiker height</td>
+                <td data-label="NH 48">USGS GNIS via NH48.info</td>
+                <td data-label="Colorado 14ers">NGS 2024 / 5280 table</td>
+                <td data-label="Munros">DoBIH v18 height</td>
+                <td data-label="ADK 46">Club/Wikipedia height</td>
+                <td data-label="Catskills">Catskill Hiker height</td>
               </tr>
               <tr>
                 <th scope="row">Prominence</th>
-                <td>USGS GNIS via NH48.info</td>
-                <td>14ers.com peak pages</td>
-                <td>DoBIH v18 drop</td>
-                <td>Wikipedia prominence</td>
-                <td>Not supplied</td>
+                <td data-label="NH 48">USGS GNIS via NH48.info</td>
+                <td data-label="Colorado 14ers">14ers.com peak pages</td>
+                <td data-label="Munros">DoBIH v18 drop</td>
+                <td data-label="ADK 46">Wikipedia prominence</td>
+                <td data-label="Catskills">Not supplied</td>
               </tr>
               <tr>
                 <th scope="row">Membership</th>
-                <td>AMC, 2026 edition</td>
-                <td>14ers.com named list; CMC 54 noted</td>
-                <td>SMC 282 list</td>
-                <td>Adirondack 46ers</td>
-                <td>3500 Club 33 current</td>
+                <td data-label="NH 48">AMC, 2026 edition</td>
+                <td data-label="Colorado 14ers">14ers.com named list; CMC 54 noted</td>
+                <td data-label="Munros">SMC 282 list</td>
+                <td data-label="ADK 46">Adirondack 46ers</td>
+                <td data-label="Catskills">3500 Club 33 current</td>
               </tr>
             </tbody>
           </table>

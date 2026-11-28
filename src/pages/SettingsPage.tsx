@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { exportCsv, exportJson } from "../lib/export";
@@ -23,6 +23,13 @@ export default function SettingsPage() {
   const [email, setEmail] = useState(profile?.email ?? "");
   const [units, setLocalUnits] = useState(profile?.units ?? "imperial");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!profile) return;
+    setName(profile.displayName);
+    setEmail(profile.email);
+    setLocalUnits(profile.units);
+  }, [profile]);
 
   if (!hydrated) return <div className="content-page" aria-busy="true" />;
   if (!profile) {
@@ -52,14 +59,13 @@ export default function SettingsPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="06"
         eyebrow="Settings"
         title={
           <>
-            The record, <span className="display-italic">yours.</span>
+            Record <span className="display-italic">settings.</span>
           </>
         }
-        description="Edit the profile, choose units, export the record or remove the local copy. Settings do not change the publisher's list."
+        description="Profile, units, export and the local copy."
         aside={
           <div className="status-card">
             <span className="status-card__label">Storage</span>
@@ -83,7 +89,7 @@ export default function SettingsPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Optional in this preview"
+              placeholder="Optional"
             />
           </label>
           <label className="form-field">
@@ -119,7 +125,7 @@ export default function SettingsPage() {
           <section className="settings-block settings-block--danger">
             <p className="eyebrow">Leaving / erasing</p>
             <h2>No hidden retention.</h2>
-            <p>Signing out clears the local record in this preview. Delete removes the local copy immediately.</p>
+            <p>Signing out clears the local record. Delete removes it immediately.</p>
             <div className="form-actions">
               <button type="button" className="button" onClick={leave}>
                 Sign out

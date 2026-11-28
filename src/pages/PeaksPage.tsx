@@ -46,28 +46,20 @@ export default function PeaksPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="02"
-        eyebrow="Peaks"
+        eyebrow="Peak index"
         title={
           <>
-            The <span className="display-italic">high</span> places.
+            Every <span className="display-italic">summit.</span>
           </>
         }
-        description={`${LISTS.length} complete lists, ${PEAKS.length} sourced summits. Identity, elevation, range and list membership are explicit; unsupported fields stay unknown.`}
-        aside={
-          <div className="status-card">
-            <span className="status-card__label">Peak index</span>
-            <strong>{PEAKS.length} peaks indexed</strong>
-            <span>{LISTS.length} complete lists · 2026 editions</span>
-          </div>
-        }
+        description={`${PEAKS.length} peaks across ${LISTS.length} complete lists. Search by name, range or list.`}
       />
 
       <section className="catalog-toolbar" aria-label="Peak discovery controls">
         <SearchField
           label="Search peaks"
-          placeholder="Search by peak, range or list"
-          hint={`${LISTS.length} complete lists are indexed. The global atlas is a later phase.`}
+          placeholder="Search a peak, range or list"
+          hint="Try “Munros” or “Presidential.”"
           onChange={setQuery}
           onSubmit={setQuery}
         />
@@ -89,7 +81,9 @@ export default function PeaksPage() {
       />
 
       <div className="results-meta">
-        <span>{peaks.length} peaks</span>
+        <span>
+          {peaks.length} {peaks.length === 1 ? "peak" : "peaks"}
+        </span>
         <span>{profile ? "Your record is private" : "Sign in to keep a record"}</span>
       </div>
 
@@ -103,7 +97,7 @@ export default function PeaksPage() {
         <EmptyState
           eyebrow="No matching peaks"
           title="No summit matches that filter."
-          description="Try a different name, clear the search, or show the full catalogue."
+          description="Try another name, clear the search, or show the full catalogue."
         >
           <button
             type="button"
@@ -119,14 +113,8 @@ export default function PeaksPage() {
       )}
 
       <p className="page-footnote">
-        NH 48 facts come from the <a href="https://nh48.info/catalog">NH48.info catalog</a>. Colorado facts use
-        NGS 2024 elevations and 14ers.com coordinates. Munro facts use the Database of British and Irish Hills v18
-        (CC BY 4.0); Adirondack and Catskill facts are attributed on the list pages. Every peak page links its
-        field-level sources; no list is presented as official.
+        Sources are linked from every peak page. <Link to="/about/data">Data and sources</Link>.
       </p>
-      <Link to="/lists" className="text-link">
-        Open the lists <span aria-hidden="true">→</span>
-      </Link>
     </div>
   );
 }

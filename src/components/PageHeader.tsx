@@ -1,22 +1,21 @@
 import type { ReactNode } from "react";
 
 interface Props {
-  index: string;
   eyebrow: string;
   title: ReactNode;
-  description: string;
+  description?: string;
   aside?: ReactNode;
+  actions?: ReactNode;
 }
 
-export default function PageHeader({ index, eyebrow, title, description, aside }: Props) {
+export default function PageHeader({ eyebrow, title, description, aside, actions }: Props) {
   return (
     <header className="page-header">
       <div className="page-header__main">
-        <p className="eyebrow">
-          <span>{index}</span> / {eyebrow}
-        </p>
+        <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
-        <p className="page-header__lede">{description}</p>
+        {description ? <p className="page-header__lede">{description}</p> : null}
+        {actions ? <div className="page-header__actions">{actions}</div> : null}
       </div>
       {aside ? <div className="page-header__aside">{aside}</div> : null}
     </header>

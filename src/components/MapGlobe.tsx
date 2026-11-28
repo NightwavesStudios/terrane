@@ -3,7 +3,6 @@ import {
   AttributionControl,
   Map as MapLibreMap,
   NavigationControl,
-  ScaleControl,
   setWorkerUrl,
   type GeoJSONSource,
   type IControl,
@@ -61,7 +60,7 @@ class ResetControl implements IControl {
   onAdd(map: MapLibreMap) {
     this.map = map;
     const group = document.createElement("div");
-    group.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    group.className = "maplibregl-ctrl maplibregl-ctrl-group map-reset-group";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "map-reset";
@@ -276,7 +275,6 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
         "bottom-left",
       );
       liveMap.addControl(new ResetControl(), "bottom-left");
-      liveMap.addControl(new ScaleControl({ maxWidth: 90, unit: "metric" }), "bottom-left");
       liveMap.addControl(new AttributionControl({ compact: true }), "bottom-right");
 
       const canvas = liveMap.getCanvas();
@@ -313,7 +311,7 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
       liveMap.on("zoomend", () => applyTerrain(liveMap));
       liveMap.once("idle", reveal);
 
-      revealTimer = window.setTimeout(reveal, 6000);
+      revealTimer = window.setTimeout(reveal, 2500);
       failTimer = window.setTimeout(() => {
         if (!disposed && !ready) setFailed(true);
       }, 18000);

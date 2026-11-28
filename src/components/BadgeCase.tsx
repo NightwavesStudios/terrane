@@ -33,17 +33,13 @@ export default function BadgeCase({ facts, awards, trips }: Props) {
     <section className="passport" aria-labelledby="passport-title">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">The pass</p>
-          <h2 id="passport-title">Ten quiet marks.</h2>
+          <p className="eyebrow">Passport</p>
+          <h2 id="passport-title">Marks from the record</h2>
         </div>
         <span className="panel-heading__meta">
           {earned} of {items.length} earned · no points
         </span>
       </div>
-      <p className="passport__intro">
-        Each mark is a fact about the record, not a target. It stays after it is earned; there are no streaks,
-        leaderboards or hidden criteria.
-      </p>
       <div className="badge-grid">
         {items.map(({ badge, earned: isEarned, progress }) => {
           const award = awardFor(badge, awards);

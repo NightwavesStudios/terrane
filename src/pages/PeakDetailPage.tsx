@@ -40,7 +40,6 @@ export default function PeakDetailPage() {
     return (
       <div className="content-page">
         <PageHeader
-          index="02"
           eyebrow="Peaks / Not found"
           title={
             <>
@@ -201,14 +200,15 @@ export default function PeakDetailPage() {
                   , checked 27 November 2026.
                 </p>
                 <p>
-                  <strong>Elevation:</strong> {peak.elevationSourceUrl ? (
+                  <strong>Elevation:</strong>{" "}
+                  {peak.elevationSourceUrl ? (
                     <a href={peak.elevationSourceUrl} target="_blank" rel="noreferrer">
                       source record
                     </a>
                   ) : (
                     "publisher record"
-                  )}{" "}
-                  <strong>Prominence:</strong>{" "}
+                  )}
+                  . <strong>Prominence:</strong>{" "}
                   {peak.prominenceM === undefined ? "not supplied" : "source record"}. Displayed in{" "}
                   {units === "imperial" ? "feet" : "metres"}.
                 </p>
@@ -242,9 +242,6 @@ export default function PeakDetailPage() {
               <Link to={logHref} className="button button--bright">
                 <Icon name="check" size={17} /> Log this climb
               </Link>
-              <Link to={`/log?mode=backfill&peak=${peak.slug}`} className="button">
-                <Icon name="plus" size={17} /> Add from history
-              </Link>
               {primaryList ? (
                 <Link to={`/lists/${primaryList.slug}`} className="button">
                   <Icon name="list" size={17} /> Open the list
@@ -253,8 +250,8 @@ export default function PeakDetailPage() {
             </div>
             <p className="muted-note">
               {profile
-                ? "Your record is private and stored in this browser for the Phase A preview."
-                : "Sign in to keep a private record. No email is sent in this local preview."}
+                ? "Saved on this device. Your record is private."
+                : "Sign in to keep a private record on this device."}
             </p>
           </aside>
         </div>

@@ -20,16 +20,21 @@ function safeReturnTo(value: string | null): string {
   return "/progress";
 }
 
+const outcomes: { value: PeakOutcome; label: string }[] = [
+  { value: "summit", label: "Summit" },
+  { value: "attempt", label: "Attempt" },
+  { value: "traverse", label: "Traverse" },
+];
+
 interface FormProps {
   editing?: Trip;
   initialPeak?: string;
   mode: TripSource;
   listPeaks: Peak[];
-  listTitle: string;
   returnTo: string;
 }
 
-function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }: FormProps) {
+function LogForm({ editing, initialPeak, mode, listPeaks, returnTo }: FormProps) {
   const navigate = useNavigate();
   const { addTrip, updateTrip, deleteTrip } = useRecord();
   const [selected, setSelected] = useState<string[]>(() => {
@@ -46,8 +51,9 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
   );
   const [title, setTitle] = useState(editing?.title ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [detailsOpen, setDetailsOpen] = useState(Boolean(editing?.title || editing?.notes));
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const source: TripSource = editing?.source ?? mode;
 
   function addPeak(slug: string) {
@@ -85,26 +91,18 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
     return true;
   }
 
-  function save(andAnother = false) {
+  function save() {
     if (!validate()) return;
     if (editing) {
       updateTrip(editing.id, buildInput());
-      navigate(returnTo, { replace: true });
-      return;
-    }
-    addTrip(buildInput());
-    if (andAnother) {
-      setSelected([]);
-      setNotes("");
-      setSaved("Saved. Add another climb from your history.");
-      return;
+    } else {
+      addTrip(buildInput());
     }
     navigate(returnTo, { replace: true });
   }
 
   function remove() {
     if (!editing) return;
-    if (!window.confirm("Delete this trip from the record?")) return;
     deleteTrip(editing.id);
     navigate(returnTo, { replace: true });
   }
@@ -112,17 +110,17 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
   const available = listPeaks.filter((peak) => !selected.includes(peak.slug));
 
   return (
-    <div className="log-layout">
+    <div className="log-page">
       <form
         className="log-form"
         onSubmit={(event) => {
           event.preventDefault();
-          save(false);
+          save();
         }}
       >
         <section className="form-section">
           <div className="form-section__head">
-            <span className="eyebrow">01 / Peaks</span>
+            <h2>Peak</h2>
             <span className="form-hint">{selected.length} selected</span>
           </div>
           {selected.length ? (
@@ -165,8 +163,8 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
 
         <section className="form-section">
           <div className="form-section__head">
-            <span className="eyebrow">02 / When</span>
-            <span className="form-hint">Precision is preserved</span>
+            <h2>When</h2>
+            <span className="form-hint">Date precision is kept</span>
           </div>
           <div className="form-grid">
             <label className="form-field">
@@ -208,21 +206,34 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
               )}
             </label>
           </div>
-          <label className="form-field">
+
+          <div className="outcome-field">
             <span>Outcome</span>
-            <select value={outcome} onChange={(event) => setOutcome(event.target.value as PeakOutcome)}>
-              <option value="summit">Summit</option>
-              <option value="attempt">Attempt</option>
-              <option value="traverse">Traverse</option>
-            </select>
-          </label>
+            <div className="segmented" role="group" aria-label="Outcome">
+              {outcomes.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={outcome === item.value ? "is-active" : ""}
+                  aria-pressed={outcome === item.value}
+                  onClick={() => setOutcome(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <section className="form-section">
-          <div className="form-section__head">
-            <span className="eyebrow">03 / The record</span>
-            <span className="form-hint">Optional</span>
-          </div>
+        <details
+          className="form-extra"
+          open={detailsOpen}
+          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+        >
+          <summary>
+            <span>Add a title or notes</span>
+            <small>Optional</small>
+          </summary>
           <label className="form-field">
             <span>Trip title</span>
             <input
@@ -246,55 +257,48 @@ function LogForm({ editing, initialPeak, mode, listPeaks, listTitle, returnTo }:
               placeholder="Conditions, companions, the thing you want to remember."
             />
           </label>
-        </section>
+        </details>
 
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-        {saved ? <p className="form-success" role="status">{saved}</p> : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-        <div className="form-actions">
+        <div className="form-actions form-actions--log">
           <button type="submit" className="button button--bright">
-            <Icon name="check" size={16} /> {editing ? "Save changes" : source === "backfill" ? "Add to history" : "Save climb"}
+            <Icon name="check" size={16} /> {editing ? "Save changes" : "Save climb"}
           </button>
-          {!editing ? (
-            <button type="button" className="button" onClick={() => save(true)}>
-              Save &amp; add another
-            </button>
-          ) : (
-            <button type="button" className="button button--danger" onClick={remove}>
-              Delete trip
-            </button>
-          )}
-          <Link to={returnTo} className="button">
+          <Link to={returnTo} className="button button--quiet">
             Cancel
           </Link>
+          {editing ? (
+            confirmingDelete ? (
+              <span className="delete-confirm" role="group" aria-label="Confirm deletion">
+                <span>Remove this trip?</span>
+                <button type="button" className="text-button text-button--danger" onClick={remove}>
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setConfirmingDelete(false)}
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="text-button text-button--danger"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete trip
+              </button>
+            )
+          ) : null}
         </div>
       </form>
-
-      <aside className="log-aside">
-        <p className="eyebrow">The principle</p>
-        <h2>Fast enough for the trailhead.</h2>
-        <p>
-          A climb is a trip, not a checkmark. One date, one outcome and the peaks are enough; notes can wait.
-          Past climbs are equal to new ones.
-        </p>
-        <dl className="log-facts">
-          <div>
-            <dt>List</dt>
-            <dd>{listTitle}</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>{source === "backfill" ? "History backfill" : "Manual log"}</dd>
-          </div>
-          <div>
-            <dt>Privacy</dt>
-            <dd>Private in this browser</dd>
-          </div>
-        </dl>
-        <p className="muted-note">
-          The Phase A preview stores the record locally. Export before clearing the browser or deleting the record.
-        </p>
-      </aside>
     </div>
   );
 }
@@ -309,7 +313,6 @@ export default function LogPage() {
   const listId = params.get("list") ?? undefined;
   const list = listId ? getList(listId) : undefined;
   const listPeaks = list?.peaks ?? PEAKS;
-  const listTitle = list?.title ?? "Your record";
   const initialPeak = params.get("peak") ?? undefined;
   const returnTo = safeReturnTo(
     params.get("returnTo") ??
@@ -325,32 +328,28 @@ export default function LogPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index={editing ? "04 / Edit" : mode === "backfill" ? "04 / History" : "04 / Log"}
-        eyebrow={mode === "backfill" ? "Add history" : "Quick log"}
+        eyebrow={editing ? "Edit climb" : mode === "backfill" ? "Past climb" : "Quick log"}
         title={
           <>
-            {mode === "backfill" && !editing ? (
+            {editing ? (
               <>
-                Put the <span className="display-italic">past</span> back.
+                Edit <span className="display-italic">climb.</span>
+              </>
+            ) : mode === "backfill" ? (
+              <>
+                Add a <span className="display-italic">past climb.</span>
               </>
             ) : (
               <>
-                Mark the <span className="display-italic">summit.</span>
+                Log a <span className="display-italic">climb.</span>
               </>
             )}
           </>
         }
         description={
-          mode === "backfill"
-            ? "Add a climb you already did. Use the precision you actually know; an approximate year is a valid record."
-            : "The fast path: peak, date, outcome, save. Add notes only if they matter."
-        }
-        aside={
-          <div className="status-card">
-            <span className="status-card__label">Record</span>
-            <strong>{profile.displayName}</strong>
-            <span>{trips.length} trips saved</span>
-          </div>
+          list
+            ? `Inside ${list.title}. Choose one or more peaks, then save.`
+            : "Choose the peak, the date and the outcome. Notes can wait."
         }
       />
 
@@ -360,7 +359,6 @@ export default function LogPage() {
         initialPeak={initialPeak}
         mode={mode}
         listPeaks={listPeaks}
-        listTitle={listTitle}
         returnTo={returnTo}
       />
     </div>

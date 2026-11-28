@@ -42,7 +42,10 @@ export default function SearchField({ label, placeholder, hint, onSubmit, onChan
           <button
             className="search-field__clear"
             type="button"
-            onClick={() => setQuery("")}
+            onClick={() => {
+              setQuery("");
+              onChange?.("");
+            }}
             aria-label="Clear search"
           >
             ×

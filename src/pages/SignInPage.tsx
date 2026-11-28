@@ -1,11 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import PageHeader from "../components/PageHeader";
+import Icon from "../components/Icon";
 import { useRecord } from "../state/RecordContext";
 
 function safeTarget(value: string | null): string {
   if (value && value.startsWith("/") && !value.startsWith("//")) return value;
   return "/progress";
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return `${parts[0][0] ?? ""}${parts.length > 1 ? parts[parts.length - 1][0] : ""}`.toUpperCase();
 }
 
 export default function SignInPage() {
@@ -30,21 +36,26 @@ export default function SignInPage() {
   if (profile) {
     return (
       <div className="content-page auth-page">
-        <PageHeader
-          index="05"
-          eyebrow="Record"
-          title={
-            <>
-              You are <span className="display-italic">signed in.</span>
-            </>
-          }
-          description={`The record belongs to ${profile.displayName}. This local preview keeps it in this browser.`}
-        />
-        <div className="auth-card">
-          <p className="eyebrow">Local record</p>
-          <h2>{profile.displayName}</h2>
-          <p>{profile.email || "No email on this local profile"}</p>
-          <dl className="auth-facts">
+        <Link to="/" className="back-link">
+          <Icon name="arrow" size={15} /> Back to explore
+        </Link>
+        <div className="auth-signed-head">
+          <p className="eyebrow">Your record</p>
+          <h1>
+            You&apos;re <span className="display-italic">in.</span>
+          </h1>
+          <p>The climbs, lists and dates in this record are saved on this device.</p>
+        </div>
+
+        <div className="record-card">
+          <div className="record-identity">
+            <span className="record-identity__avatar">{initials(profile.displayName)}</span>
+            <div>
+              <strong>{profile.displayName}</strong>
+              <span>{profile.email || "No email added"}</span>
+            </div>
+          </div>
+          <dl className="record-facts">
             <div>
               <dt>Units</dt>
               <dd>{profile.units === "imperial" ? "Feet / miles" : "Metres / kilometres"}</dd>
@@ -55,15 +66,15 @@ export default function SignInPage() {
             </div>
           </dl>
           <div className="form-actions">
-            <button type="button" className="button button--bright" onClick={() => navigate(target)}>
-              Continue
-            </button>
+            <Link to={target} className="button button--bright">
+              Open my record
+            </Link>
             <Link to="/settings" className="button">
               Settings
             </Link>
             <button
               type="button"
-              className="button"
+              className="button button--quiet"
               onClick={() => {
                 signOut();
                 navigate("/");
@@ -79,40 +90,53 @@ export default function SignInPage() {
 
   return (
     <div className="content-page auth-page">
-      <PageHeader
-        index="05"
-        eyebrow="Record"
-        title={
-          <>
-            A record that <span className="display-italic">leaves.</span>
-          </>
-        }
-        description="Sign in to start a list, log climbs and keep a private record. Phase A runs locally; no email is sent and no server account is created."
-        aside={
-          <div className="status-card">
-            <span className="status-card__label">Phase A preview</span>
-            <strong>Local-first</strong>
-            <span>Export works today</span>
-          </div>
-        }
-      />
+      <Link to="/" className="back-link">
+        <Icon name="arrow" size={15} /> Back to explore
+      </Link>
 
-      <div className="auth-layout">
+      <div className="auth-layout auth-layout--clean">
+        <section className="auth-intro">
+          <p className="eyebrow">A private record</p>
+          <h1>
+            Keep your <span className="display-italic">climbs.</span>
+          </h1>
+          <p>
+            Start a record for the peaks you have climbed and the lists you are working through. No
+            password, no verification email, no server account.
+          </p>
+          <ul className="auth-benefits">
+            <li>
+              <Icon name="check" size={15} /> Track all five lists in one place
+            </li>
+            <li>
+              <Icon name="check" size={15} /> Add past climbs with the detail you know
+            </li>
+            <li>
+              <Icon name="check" size={15} /> Export or delete it whenever you want
+            </li>
+          </ul>
+        </section>
+
         <form className="auth-card" onSubmit={submit}>
-          <p className="eyebrow">Start your record</p>
-          <h2>Make the mountains yours.</h2>
+          <p className="eyebrow">Start here</p>
+          <h2>Make the record yours.</h2>
           <label className="form-field">
             <span>Name</span>
             <input
               value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="How the record should address you"
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+                setError("");
+              }}
+              placeholder="Your name"
               autoComplete="name"
               required
             />
           </label>
           <label className="form-field">
-            <span>Email <em>optional in this preview</em></span>
+            <span>
+              Email <em>optional</em>
+            </span>
             <input
               type="email"
               value={email}
@@ -121,31 +145,21 @@ export default function SignInPage() {
               autoComplete="email"
             />
           </label>
-          {error ? <p className="form-error" role="alert">{error}</p> : null}
-          <button type="submit" className="button button--bright">
-            Continue to the record
+          {error ? (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" className="button button--bright button--full">
+            Create my record
           </button>
+          <Link to="/" className="button button--quiet button--full">
+            Browse without a record
+          </Link>
           <p className="muted-note">
-            No password, no verification email and no server request. To test export, open Settings after signing in.
+            Saved only in this browser. Export or remove it from Settings.
           </p>
         </form>
-
-        <aside className="auth-aside">
-          <p className="eyebrow">What is real in Phase A</p>
-          <h2>Five lists. One flow.</h2>
-          <ol className="auth-list">
-            <li>Start a list, or all five.</li>
-            <li>Log a climb, or backfill a history.</li>
-            <li>See the list progress and export the record.</li>
-          </ol>
-          <p className="muted-note">
-            Production auth, Postgres, Vercel and email are not connected in this workspace. The product plan keeps
-            those as dependencies; the local preview does not pretend they exist.
-          </p>
-          <Link to="/about/data" className="text-link">
-            Read about the data <span aria-hidden="true">→</span>
-          </Link>
-        </aside>
       </div>
     </div>
   );

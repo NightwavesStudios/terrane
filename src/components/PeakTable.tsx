@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { peakListLabel } from "../data/lists";
 import { formatElevation, type Units } from "../lib/format";
 import type { Peak } from "../types/geography";
+import Icon from "./Icon";
 
 interface Props {
   peaks: Peak[];
@@ -45,8 +46,21 @@ export default function PeakTable({ peaks, completed, units, limit, label = "Pea
             <span className="peak-row__elevation" role="cell">
               {formatElevation(peak.elevationM, units, peak.elevationFt)}
             </span>
-            <span className="peak-row__status" role="cell">
-              {climbed ? "Climbed" : "Remaining"}
+            <span
+              className={`peak-row__status${climbed ? " is-climbed" : ""}`}
+              role="cell"
+              aria-label={climbed ? "Climbed" : "Not climbed"}
+            >
+              {climbed ? (
+                <>
+                  <Icon name="check" size={14} />
+                  <span>Climbed</span>
+                </>
+              ) : (
+                <span className="peak-row__empty" aria-hidden="true">
+                  —
+                </span>
+              )}
             </span>
           </Link>
         );

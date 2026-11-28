@@ -105,14 +105,13 @@ export default function ImportPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="08"
         eyebrow="Record / Import"
         title={
           <>
-            Bring the <span className="display-italic">archive.</span>
+            Import <span className="display-italic">climbs.</span>
           </>
         }
-        description="Import a CSV of past climbs, review every match and decide what happens to duplicates before anything is committed."
+        description="Bring past climbs in from CSV. Review every match before anything is added."
         aside={
           <div className="status-card">
             <span className="status-card__label">Stored locally</span>

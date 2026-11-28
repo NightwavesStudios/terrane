@@ -1,14 +1,21 @@
 import { lazy, Suspense, useState } from "react";
 import { Link } from "react-router-dom";
 import Discover from "../components/Discover";
+import Icon from "../components/Icon";
 import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { formatElevation } from "../lib/format";
+import { useRecord } from "../state/RecordContext";
 
 const Globe = lazy(() => import("../components/MapGlobe"));
 
 export default function ExplorePage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const { profile } = useRecord();
   const selected = selectedSlug ? PEAKS.find((peak) => peak.slug === selectedSlug) : undefined;
+  const logTarget = selected ? `/log?peak=${selected.slug}` : "/log";
+  const logHref = profile
+    ? logTarget
+    : `/signin?returnTo=${encodeURIComponent(logTarget)}`;
 
   return (
     <section className="home" aria-label="Terrane globe">
@@ -19,6 +26,16 @@ export default function ExplorePage() {
       <div className="vignette" aria-hidden="true" />
       <div className="map-tools">
         <Discover />
+      </div>
+
+      <div className="explore-meta" aria-label={`${LISTS.length} complete lists and ${PEAKS.length} peaks`}>
+        <Link to="/lists">
+          <strong>{LISTS.length}</strong> lists
+        </Link>
+        <span aria-hidden="true">/</span>
+        <span>
+          <strong>{PEAKS.length}</strong> peaks
+        </span>
       </div>
 
       {selected ? (
@@ -36,25 +53,19 @@ export default function ExplorePage() {
           </p>
           <h2>{selected.name}</h2>
           <p className="globe-preview__meta">
-            {formatElevation(selected.elevationM, "imperial", selected.elevationFt)} · {selected.range}
+            {formatElevation(selected.elevationM, "imperial", selected.elevationFt)} ·{" "}
+            {selected.range}
           </p>
-          <Link to={`/peaks/${selected.slug}`} className="text-link">
-            Open peak <span aria-hidden="true">→</span>
-          </Link>
+          <div className="globe-preview__actions">
+            <Link to={`/peaks/${selected.slug}`} className="button">
+              View peak
+            </Link>
+            <Link to={logHref} className="button button--bright">
+              <Icon name="plus" size={15} /> Log climb
+            </Link>
+          </div>
         </aside>
-      ) : (
-        <aside className="globe-brief" aria-label="Complete lists">
-          <p className="eyebrow">{LISTS.length} complete lists</p>
-          <h2>From New England to the Highlands.</h2>
-          <p>
-            {PEAKS.length} sourced summits, {LISTS.length} publishers, one portable record. More lists arrive only
-            when their membership and rules are complete.
-          </p>
-          <Link to="/lists" className="text-link">
-            Open the lists <span aria-hidden="true">→</span>
-          </Link>
-        </aside>
-      )}
+      ) : null}
     </section>
   );
 }

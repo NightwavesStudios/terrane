@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import BadgeCase from "../components/BadgeCase";
 import EmptyState from "../components/EmptyState";
+import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import ProgressRing from "../components/ProgressRing";
-import StatCard from "../components/StatCard";
 import { LISTS } from "../data/lists";
 import { exportCsv, exportJson } from "../lib/export";
 import { formatTripDate, tripPeakNames } from "../lib/progress";
@@ -22,28 +21,30 @@ export default function ProgressPage() {
     stats,
     progressFor,
   } = useRecord();
-  const units = profile?.units ?? "imperial";
   const record = { profile, startedLists, listStarts, badges, listCompletions, trips };
-  const years = recapYears(trips).slice(0, 3);
   const startedCount = LISTS.filter((list) => progressFor(list.id).started).length;
+  const recapYear = recapYears(trips)[0];
+  const recap = recapForYear(trips, recapYear);
+  const listRows = [...LISTS].sort(
+    (a, b) => Number(progressFor(b.id).started) - Number(progressFor(a.id).started),
+  );
 
   if (!profile) {
     return (
       <div className="content-page">
         <PageHeader
-          index="04"
           eyebrow="Progress"
           title={
             <>
               Your first <span className="display-italic">ascent</span> starts here.
             </>
           }
-          description="A private record of the mountains you have stood on, with the dates and precision you actually know."
+          description="One summit is enough to begin a record. The table fills in as you climb."
         />
         <EmptyState
           eyebrow="No record yet"
           title="Start with one summit."
-          description="Sign in to make a list yours. The first climb is the only prerequisite."
+          description="Start a list or log a climb. Your record stays private in this browser."
         >
           <Link
             to={`/signin?returnTo=${encodeURIComponent("/lists/nh48?start=1")}`}
@@ -51,7 +52,9 @@ export default function ProgressPage() {
           >
             Start the NH 48
           </Link>
-          <Link to="/peaks" className="button">Browse the catalogue</Link>
+          <Link to="/peaks" className="button">
+            Browse the catalogue
+          </Link>
         </EmptyState>
       </div>
     );
@@ -60,186 +63,151 @@ export default function ProgressPage() {
   return (
     <div className="content-page">
       <PageHeader
-        index="04"
         eyebrow="Progress"
         title={
           <>
-            The shape of <span className="display-italic">a record.</span>
+            Your <span className="display-italic">record.</span>
           </>
         }
-        description={`${profile.displayName}'s climbs, attempts and started lists. This preview keeps the record in this browser; export before clearing it.`}
-        aside={
-          <div className="status-card">
-            <span className="status-card__label">Lists</span>
-            <strong>{startedCount} of {LISTS.length} started</strong>
-            <span>{stats.uniquePeaks} unique summits in the record</span>
-          </div>
-        }
+        description={`${profile.displayName} · ${stats.trips} ${
+          stats.trips === 1 ? "trip" : "trips"
+        } · ${startedCount} of ${LISTS.length} lists started`}
       />
 
-      <div className="stat-grid">
-        <StatCard
-          label="Unique summits"
-          value={String(stats.uniquePeaks)}
-          unit="peaks"
-          note="Summits, not attempts"
-        />
-        <StatCard
-          label="Days out"
-          value={String(stats.daysOut)}
-          unit={stats.daysOut === 1 ? "day" : "days"}
-          note={`${stats.trips} ${stats.trips === 1 ? "trip" : "trips"} on record`}
-        />
-        <StatCard
-          label="Attempts"
-          value={String(stats.attempts)}
-          unit="on record"
-          note="Attempts count as history"
-        />
-        <StatCard
-          label="Winter trips"
-          value={String(stats.winterTrips)}
-          unit="Dec–Mar"
-          note="Date precision respected"
-        />
-      </div>
+      <section className="record-stats" aria-label="Record summary">
+        <div>
+          <strong>{stats.uniquePeaks}</strong>
+          <span>Unique summits</span>
+        </div>
+        <div>
+          <strong>{stats.daysOut}</strong>
+          <span>{stats.daysOut === 1 ? "Day out" : "Days out"}</span>
+        </div>
+        <div>
+          <strong>{stats.attempts}</strong>
+          <span>{stats.attempts === 1 ? "Attempt" : "Attempts"}</span>
+        </div>
+        <div>
+          <strong>
+            {startedCount}
+            <small>/{LISTS.length}</small>
+          </strong>
+          <span>Lists started</span>
+        </div>
+      </section>
 
-      <section className="progress-panel" aria-labelledby="lists-progress-title">
+      <section className="record-panel" aria-labelledby="lists-progress-title">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">The lists</p>
-            <h2 id="lists-progress-title">{LISTS.length} complete records.</h2>
+            <p className="eyebrow">Lists</p>
+            <h2 id="lists-progress-title">Progress by list</h2>
           </div>
-          <span className="panel-heading__meta">Publisher editions · not official</span>
+          <span className="panel-heading__meta">{trips.length} trips on record</span>
         </div>
-        <div className="list-progress-grid">
-          {LISTS.map((list) => {
+
+        <div className="progress-table">
+          {listRows.map((list) => {
             const progress = progressFor(list.id);
             const completion = listCompletions.find((item) => item.listId === list.id);
+            const count = completion
+              ? "Complete"
+              : progress.started
+                ? `${progress.completed}/${progress.total}`
+                : "Start";
             return (
-              <article className="list-progress-card" key={list.id}>
-                <div>
-                  <p className="eyebrow">{list.publisher}</p>
-                  <h3>{list.title}</h3>
-                  <p>{list.edition}</p>
-                </div>
-                {progress.started ? (
-                  <ProgressRing completed={progress.completed} total={progress.total} />
-                ) : (
-                  <div className="start-mark start-mark--small" aria-label="List not started">
-                    <span>Not started</span>
-                    <small>{list.peaks.length} peaks</small>
-                  </div>
-                )}
-                <div className="list-progress-card__foot">
-                  <span>
-                    {completion
-                      ? `Completed ${new Date(completion.completedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}`
-                      : progress.started
-                        ? `${progress.completed}/${progress.total} · ${progress.percent}%`
-                        : `${list.peaks.length} peaks`}
-                  </span>
-                  <Link to={`/lists/${list.slug}`} className="text-link">
-                    {completion ? "View record" : progress.started ? "Continue" : "Start"}{" "}
-                    <span aria-hidden="true">→</span>
-                  </Link>
-                </div>
-              </article>
+              <Link to={`/lists/${list.slug}`} className="progress-row" key={list.id}>
+                <span className="progress-row__name">
+                  <strong>{list.title}</strong>
+                  <small>
+                    {list.publisher} · {list.peaks.length} peaks
+                  </small>
+                </span>
+                <span className="progress-row__meter" aria-hidden="true">
+                  <i style={{ width: `${progress.started ? progress.percent : 0}%` }} />
+                </span>
+                <span className={`progress-row__count${completion ? " is-complete" : ""}`}>
+                  {count}
+                </span>
+                <Icon name="arrow" size={16} />
+              </Link>
             );
           })}
         </div>
       </section>
 
-      <BadgeCase facts={badgeFacts} awards={badges} trips={trips} />
-
-      <section className="recap" aria-labelledby="recap-title">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">The years</p>
-            <h2 id="recap-title">Annual record.</h2>
-          </div>
-          <span className="panel-heading__meta">No projections</span>
-        </div>
-        <div className="recap-grid">
-          {years.map((year) => {
-            const recap = recapForYear(trips, year);
-            return (
-              <article className="recap-card" key={year}>
-                <p className="eyebrow">{year}</p>
-                <h3>{recap.trips ? `${recap.summits} ${recap.summits === 1 ? "summit" : "summits"}` : "No trips yet"}</h3>
-                <p>
-                  {recap.trips
-                    ? `${recap.trips} ${recap.trips === 1 ? "trip" : "trips"} · ${recap.uniquePeaks} unique ${recap.uniquePeaks === 1 ? "peak" : "peaks"}${recap.attempts ? ` · ${recap.attempts} ${recap.attempts === 1 ? "attempt" : "attempts"}` : ""}`
-                    : "The year is open. Nothing is filled in for you."}
-                </p>
-                <div className="recap-months" aria-label={`${year} months with summits`}>
-                  {recap.months.map((count, index) => (
-                    <span key={index} title={`${count} summit ${count === 1 ? "trip" : "trips"}`}>
-                      <i style={{ height: `${Math.min(100, count * 18 + (count ? 14 : 0))}%` }} />
-                      <small>{new Date(2000, index, 1).toLocaleDateString(undefined, { month: "narrow" })}</small>
-                    </span>
-                  ))}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="progress-layout">
-        <section className="panel" aria-labelledby="recent-trips-title">
+      <div className="record-columns">
+        <section className="record-panel record-recent" aria-labelledby="recent-trips-title">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">The record</p>
+              <p className="eyebrow">Climbs</p>
               <h2 id="recent-trips-title">Recent trips</h2>
             </div>
             <span className="panel-heading__meta">{trips.length} total</span>
           </div>
           {trips.length ? (
-            <div className="trip-list">
-              {trips.slice(0, 8).map((trip) => (
-                <Link to={`/log?trip=${trip.id}`} className="trip-row" key={trip.id}>
-                  <span>
+            <div className="trip-table">
+              {trips.slice(0, 6).map((trip) => (
+                <Link to={`/log?trip=${trip.id}`} className="trip-table__row" key={trip.id}>
+                  <span className="trip-table__date">{formatTripDate(trip)}</span>
+                  <span className="trip-table__main">
                     <strong>{trip.title}</strong>
-                    <small>{tripPeakNames(trip, PEAK_NAMES)} · {formatTripDate(trip)}</small>
+                    <small>{tripPeakNames(trip, PEAK_NAMES)}</small>
                   </span>
-                  <span className="trip-row__outcome">
-                    {trip.peaks.length} {trip.peaks.length === 1 ? "peak" : "peaks"} · edit
+                  <span className="trip-table__count">
+                    {trip.peaks.length} {trip.peaks.length === 1 ? "peak" : "peaks"}
                   </span>
+                  <Icon name="arrow" size={15} />
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="detail-copy">
-              No trips in the record yet. <Link to="/log">Log the first climb</Link> or{" "}
-              <Link to="/log?mode=backfill">add a climb from your history</Link>.
-            </p>
+            <div className="panel-empty">
+              <p>No trips yet. Log one, or add a climb from your history.</p>
+            </div>
           )}
         </section>
 
-        <aside className="progress-side">
-          <p className="eyebrow">Portable</p>
-          <h2>Export the record.</h2>
-          <p>JSON keeps every field and every list progress. CSV is readable in a spreadsheet.</p>
-          <div className="form-actions">
-            <button type="button" className="button" onClick={() => exportJson(record)}>
-              JSON
-            </button>
-            <button type="button" className="button" onClick={() => exportCsv(record)}>
-              CSV
-            </button>
-          </div>
-          <Link to="/settings" className="text-link">
-            Settings and units <span aria-hidden="true">→</span>
-          </Link>
+        <aside className="record-side">
+          <section className="side-card">
+            <p className="eyebrow">Portable</p>
+            <h2>Take it with you.</h2>
+            <p>JSON keeps every field. CSV opens in a spreadsheet.</p>
+            <div className="side-actions">
+              <button type="button" className="button" onClick={() => exportJson(record)}>
+                JSON
+              </button>
+              <button type="button" className="button" onClick={() => exportCsv(record)}>
+                CSV
+              </button>
+            </div>
+            <Link to="/settings" className="text-link">
+              Settings <Icon name="arrow" size={14} />
+            </Link>
+          </section>
+
+          <section className="side-card side-card--year">
+            <p className="eyebrow">{recapYear}</p>
+            <h2>{recap.trips ? `${recap.summits} summits` : "The year is open"}</h2>
+            <p>
+              {recap.trips
+                ? `${recap.trips} ${recap.trips === 1 ? "trip" : "trips"} · ${recap.uniquePeaks} unique`
+                : "Nothing is filled in for you."}
+            </p>
+            <div className="recap-months" aria-label={`${recapYear} months with summits`}>
+              {recap.months.map((count, index) => (
+                <span key={index} title={`${count} ${count === 1 ? "trip" : "trips"}`}>
+                  <i style={{ height: `${Math.min(100, count * 18 + (count ? 14 : 0))}%` }} />
+                  <small>{new Date(2000, index, 1).toLocaleDateString(undefined, { month: "narrow" })}</small>
+                </span>
+              ))}
+            </div>
+          </section>
         </aside>
       </div>
 
-      <p className="page-footnote">
-        Units: {units === "imperial" ? "feet and miles" : "metres and kilometres"}. Date precision is preserved:
-        a year-only climb is never displayed as an exact day. Started lists only show progress; an unstarted list
-        is never presented as 0% complete.
-      </p>
+      <BadgeCase facts={badgeFacts} awards={badges} trips={trips} />
+
+      <p className="page-footnote">Stored on this device. Export anytime from Settings.</p>
     </div>
   );
 }

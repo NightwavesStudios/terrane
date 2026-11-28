@@ -12,14 +12,14 @@ function renderAt(path: string) {
 }
 
 describe("App", () => {
-  it("renders the four-section shell and the 467-peak index", () => {
+  it("renders the five-destination shell and the 467-peak index", () => {
     const html = renderAt("/peaks");
 
     expect(html).toContain("Explore");
     expect(html).toContain("Peaks");
     expect(html).toContain("Lists");
     expect(html).toContain("Progress");
-    expect(html).toContain("467 peaks indexed");
+    expect(html).toContain("467 peaks across 5 complete lists");
     expect(html).toContain("Mount Elbert");
     expect(html).toContain("14,438 ft");
     expect(html).toContain("Mount Washington");
@@ -47,13 +47,13 @@ describe("App", () => {
     expect(html).toContain("Mount Tecumseh");
   });
 
-  it("renders the sign-in surface and all list sources", () => {
+  it("renders the local-record surface and all list sources", () => {
     const signIn = renderAt("/signin");
-    expect(signIn).toContain("A record that");
-    expect(signIn).toContain("Local-first");
+    expect(signIn).toContain("Keep your");
+    expect(signIn).toContain("No password");
 
     const data = renderAt("/about/data");
-    expect(data).toContain("Facts with a");
+    expect(data).toContain("Data &amp;");
     expect(data).toContain("NH48.info catalog");
     expect(data).toContain("OpenStreetMap");
     expect(data).toContain("58 named summits");

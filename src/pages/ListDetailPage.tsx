@@ -5,7 +5,6 @@ import PageHeader from "../components/PageHeader";
 import PeakTable from "../components/PeakTable";
 import ProgressRing from "../components/ProgressRing";
 import { getList, PEAKS } from "../data/lists";
-import { exportCsv, exportJson } from "../lib/export";
 import { listVersionChange } from "../lib/listVersion";
 import { useRecord } from "../state/RecordContext";
 
@@ -16,11 +15,9 @@ export default function ListDetailPage() {
   const list = slug ? getList(slug) : undefined;
   const {
     profile,
-    trips,
     startedLists,
     listStarts,
     listCompletions,
-    badges,
     startList,
     progressFor,
     completedSlugs,
@@ -39,7 +36,6 @@ export default function ListDetailPage() {
     return (
       <div className="content-page">
         <PageHeader
-          index="03"
           eyebrow="Lists / Not found"
           title={
             <>
@@ -57,12 +53,8 @@ export default function ListDetailPage() {
 
   const returnTo = `/lists/${list.slug}?start=1`;
   const signIn = `/signin?returnTo=${encodeURIComponent(returnTo)}`;
-  const backfillHref = profile
-    ? `/log?mode=backfill&list=${list.id}`
-    : `/signin?returnTo=${encodeURIComponent(`/log?mode=backfill&list=${list.id}`)}`;
   const displayCompleted = started ? progress?.completed ?? 0 : 0;
   const displayRemaining = started ? progress?.remaining ?? list.peaks.length : list.peaks.length;
-  const recordState = { profile, startedLists, listStarts, badges, listCompletions, trips };
   const versionChange = listVersionChange(list, listStarts[list.id]);
   const completion = listCompletions.find((item) => item.listId === list.id);
   const peakNames = new Map(PEAKS.map((peak) => [peak.slug, peak.name]));
@@ -82,98 +74,78 @@ export default function ListDetailPage() {
       </Link>
 
       <PageHeader
-        index="03"
         eyebrow={`Lists / ${list.publisher}`}
-        title={
-          <>
-            The <span className="display-italic">{list.title}.</span>
-          </>
-        }
+        title={<>{list.title}.</>}
         description={list.description}
-        aside={
-          <div className="status-card">
-            <span className="status-card__label">List status</span>
-            <strong>
-              {completion
-                ? `Completed ${new Date(completion.completedAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}`
-                : started
-                  ? `${progress?.percent ?? 0}% complete`
-                  : "Not started"}
-            </strong>
-            <span>{list.publisher} · {list.edition}</span>
-          </div>
-        }
       />
 
-      <section className="list-hero">
-        {started ? (
-          <ProgressRing
-            completed={displayCompleted}
-            total={list.peaks.length}
-            label="peaks"
-          />
-        ) : (
-          <div className="start-mark" aria-label="List not started">
-            <span>Not started</span>
-            <small>{list.peaks.length} peaks</small>
-          </div>
-        )}
-        <div className="list-hero__copy">
-          <p className="eyebrow">Publisher · {list.publisher}</p>
-          <h2>{started ? "Your remaining peaks" : `A finite record of ${list.peaks.length} summits`}</h2>
+      <section className="list-summary">
+        <div className="list-summary__progress">
+          {started ? (
+            <ProgressRing
+              completed={displayCompleted}
+              total={list.peaks.length}
+              label="peaks"
+            />
+          ) : (
+            <div className="start-mark start-mark--small" aria-label="List not started">
+              <span>Not started</span>
+              <small>{list.peaks.length} peaks</small>
+            </div>
+          )}
+        </div>
+        <div className="list-summary__copy">
+          <p className="eyebrow">{started ? "In progress" : "Your list"}</p>
+          <h2>
+            {completion
+              ? "Complete."
+              : started
+                ? `${displayRemaining} ${displayRemaining === 1 ? "peak" : "peaks"} to go.`
+                : `${list.peaks.length} peaks, one list.`}
+          </h2>
           <p>
             {started
-              ? `${displayRemaining} peaks remain. Your history counts, including the climbs that happened before Terrane.`
-              : `Start the list to make it yours. Backfill what you have already climbed; the count follows the ${list.publisher} list and edition shown here.`}
+              ? `${displayCompleted} climbed, ${displayRemaining} remaining. Your history counts.`
+              : "Start the list, then add the climbs you already have."}
           </p>
-          <div className="list-hero__actions">
+          <div className="list-summary__actions">
             {started ? (
-              <>
-                <Link to={`/log?list=${list.id}`} className="button button--bright">
-                  <Icon name="plus" size={16} /> Log a climb
-                </Link>
-                <Link to={backfillHref} className="button">
-                  <Icon name="list" size={16} /> Add history
-                </Link>
-              </>
+              <Link to={`/log?list=${list.id}`} className="button button--bright">
+                <Icon name="plus" size={16} /> Log a climb
+              </Link>
             ) : (
               <button type="button" className="button button--bright" onClick={start}>
                 <Icon name="check" size={16} /> Start {list.title}
               </button>
             )}
-            {profile ? (
-              <>
-                <button type="button" className="button" onClick={() => exportJson(recordState)}>
-                  Export JSON
-                </button>
-                <button type="button" className="button" onClick={() => exportCsv(recordState)}>
-                  Export CSV
-                </button>
-              </>
+            {started && profile ? (
+              <Link to="/import" className="button button--quiet">
+                Import history
+              </Link>
             ) : null}
           </div>
-          <p className="muted-note">
-            {profile
-              ? `Signed in as ${profile.displayName}. This local preview stores the record in this browser.`
-              : "Sign in to start the list. This preview does not send email or store data on a server."}
-          </p>
         </div>
       </section>
 
       {completion ? (
         <section className="completion-mark" aria-label="List completion">
-          <span className="completion-mark__seal" aria-hidden="true">✓</span>
+          <span className="completion-mark__seal" aria-hidden="true">
+            ✓
+          </span>
           <div>
-            <p className="eyebrow">Complete · {completion.edition}</p>
+            <p className="eyebrow">
+              Complete · {completion.edition}
+            </p>
             <h2>{list.title} finished.</h2>
             <p>
-              Recorded {new Date(completion.completedAt).toLocaleDateString(undefined, {
+              Recorded{" "}
+              {new Date(completion.completedAt).toLocaleDateString(undefined, {
                 month: "long",
                 day: "numeric",
                 year: "numeric",
               })}{" "}
-              against version {completion.listVersion}. The snapshot is kept even if the publisher changes the
-              list. Terrane is not the official record.
+              against version {completion.listVersion}. The snapshot is kept if the publisher changes
+              the list.
             </p>
           </div>
         </section>
@@ -199,23 +171,29 @@ export default function ListDetailPage() {
         </section>
       ) : null}
 
-      <section className="list-rules">
-        <div>
-          <p className="eyebrow">Rules</p>
-          <p>{list.rules}</p>
+      <details className="list-notes">
+        <summary>
+          <span>Rules &amp; source</span>
+          <small>{list.publisher}</small>
+        </summary>
+        <div className="list-notes__body">
+          <div>
+            <p className="eyebrow">Rules</p>
+            <p>{list.rules}</p>
+          </div>
+          <div>
+            <p className="eyebrow">Source</p>
+            <p>
+              <a href={list.sourceUrl} target="_blank" rel="noreferrer">
+                {list.publisher} · {list.edition}
+              </a>
+              . Terrane is not the official record.
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="eyebrow">Source</p>
-          <p>
-            <a href={list.sourceUrl} target="_blank" rel="noreferrer">
-              {list.publisher} · {list.edition}
-            </a>
-            . Terrane is not the official record.
-          </p>
-        </div>
-      </section>
+      </details>
 
-      <section className="progress-panel" aria-labelledby="list-peaks-title">
+      <section className="record-panel" aria-labelledby="list-peaks-title">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">The list</p>
@@ -235,13 +213,12 @@ export default function ListDetailPage() {
       </section>
 
       <p className="page-footnote">
-        “{list.title}” is summarized from {list.publisher}; Terrane does not grant membership, a certificate or a
-        finisher number.
+        Terrane does not grant membership or a finisher number.
         {!profile ? (
           <>
             {" "}
             <Link to={signIn} className="text-link">
-              Sign in to start
+              Start this list
             </Link>
           </>
         ) : null}
