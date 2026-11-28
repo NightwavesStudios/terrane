@@ -16,14 +16,22 @@ The local Vite server has no D1 binding. Guest browsing, the catalogue and the r
 
 ## Deployment
 
+### Freebuff Sites
+
 `npm run build` typechecks, builds the SPA and bundles the Sites Worker to `dist-worker/index.js`. `freebuff.deploy.json` is the deploy manifest; `dist-worker` and `dist` are generated, not committed.
 
 - Site: **Terrane Record** (`69992688-02bb-4bdc-925a-a27ade5ad275`).
-- Preview: `https://terrane-record-qvlmth-preview.freebuff.site` — published from this workspace.
+- Preview: `https://terrane-record-qvlmth-preview.freebuff.site` — published from this workspace and the canonical account environment.
 - Production: `https://terrane-record-qvlmth.freebuff.site` — **not published**; starts with an empty D1 database.
 - Both environments have a D1 `DB` binding. Passkeys are bound to the origin, so preview and production accounts are separate.
 
 Publishing production is an owner decision. After an authorized publish, check `/api/health` (expect `{"ok":true,"storage":"d1","accounts":"passkey"}`), create a passkey account, save a climb, reload, sign in with the passkey, sign out, and sign in with the recovery key in a separate browser context.
+
+### Vercel static mirror
+
+`https://terrane-r2d2.vercel.app` builds the SPA from `main`. It has no Worker, D1 binding or `/api/*` backend, so accounts do not work there. `vercel.json` rewrites every non-API path to `index.html`; this is what makes nested routes survive a reload. The rewrite deliberately excludes `/api/*` so missing API routes return a real 404 instead of the HTML shell.
+
+Do not test account flows on the Vercel URL. Verify `/`, `/progress`, `/lists/nh48`, `/peaks/mount-washington`, `/settings` and `/about/data` return HTML, and `/api/me` remains a non-HTML 404.
 
 ## What is stored
 
@@ -70,11 +78,17 @@ Last checked 28 November 2026:
 - Deployed preview browser pass — fresh passkey account at 320 px, empty record, saved NH 48 climb, reload persistence, sign-out, passkey sign-in with the same credential, recovery-key sign-in in a separate context, and account deletion. Layout checks at 320, 390 and 1440 px showed no horizontal overflow; `Discover` and the compact account header remained intact.
 - The WebAuthn browser pass used a software authenticator producing valid attestations and assertions; the server verified them with `@simplewebauthn/server`. This is not a real Face ID/Touch ID hardware test.
 
+Vercel static mirror checked on the same date:
+
+- `/`, `/progress`, `/lists/nh48`, `/peaks/mount-washington`, `/settings` and `/about/data` returned `200 text/html`; browser reloads rendered the app rather than Vercel's 404.
+- `/api/me` remained `404 text/plain`, confirming the API exclusion.
+
 Not present or not run:
 
 - Production publication and a production D1 restore/export check.
-- The legal/licensing review in ADR-002.
-- The server-side gate events in product-plan §11.4 and the 10-user cohort.
+- The legal and licensing review.
+- The 10-user cohort and retention measurement.
+- A real Face ID/Touch ID/hardware-key pass; the browser pass used a software authenticator.
 - Automated browser tests in the repository; the browser pass was manual/scripted in the Cloud browser.
 
 ## Recovery

@@ -7,7 +7,7 @@ import type { Peak } from "../types/geography";
  * list. Coordinates, elevations and prominence are facts from the NH48.info
  * catalog; the catalog cites USGS GNIS and OpenStreetMap for each peak.
  * Elevations are stored in metres and rendered in the user's units. This is
- * seed data for the local Phase A slice, not a global inventory.
+ * seed data for the local NH 48 catalogue, not a global inventory.
  */
 export const NH48_LIST = {
   id: "nh48",

@@ -42,7 +42,7 @@ export function buildExport(state: RecordState) {
         started: listState.started,
       };
     }),
-    // Kept for Phase A clients that read the single NH 48 shape.
+    // Kept for clients that read the single NH 48 shape.
     list: {
       slug: NH48_LIST.slug,
       title: NH48_LIST.title,

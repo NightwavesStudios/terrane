@@ -1,8 +1,9 @@
 # Terrane
 
 A quiet record of mountains: a blue-hour globe, five complete peak lists, a
-private climbing journal, a quiet passport and a portable archive. The home page remains the
-camera, terrain and a small Discover panel; the record is the through-line.
+private climbing journal, a passport of marks and a portable archive. The home
+page remains the camera, terrain and a small Discover panel; the record is the
+through-line.
 
 ## Sections
 
@@ -16,24 +17,29 @@ camera, terrain and a small Discover panel; the record is the through-line.
 
 ## Accounts and storage
 
-The app now has real accounts, not a local-only profile. Sign-in is a WebAuthn
-passkey (Face ID, Touch ID, Windows Hello or a security key) plus a one-time
-recovery key shown at account creation. There is no password, magic link or
-OAuth dependency. Account profiles, records, sessions, passkeys and recovery
-hashes live in a Cloudflare D1 database through the Freebuff Sites deployment;
-the browser keeps only the session cookie (`HttpOnly`, `Secure`, `SameSite=Lax`)
-and the pre-account guest record in `localStorage` under `terrane.record.v1`.
+Sign-in is a WebAuthn passkey (Face ID, Touch ID, Windows Hello or a security
+key) plus a one-time recovery key shown at account creation. There is no
+password, magic link or OAuth dependency. Profiles, records, sessions, passkeys
+and recovery hashes live in a Cloudflare D1 database through the Freebuff Sites
+deployment; the browser keeps only the session cookie (`HttpOnly`, `Secure`,
+`SameSite=Lax`) and the pre-account guest record in `localStorage` under
+`terrane.record.v1`.
 
 A guest record can be merged into an account from Progress or Settings; it is
 never uploaded implicitly. Export always remains available and account deletion
-removes the profile, record, passkeys, sessions and recovery key. The preview
-deployment is intentionally separate from production: passkeys are bound to the
-origin, so a preview passkey does not authenticate on the production host.
+removes the profile, record, passkeys, sessions and recovery key.
 
-This is a working Phase A account layer on the Sites preview. It is not a claim
-that production is published, that the 10-user validation cohort has run, or
-that the Phase E global atlas store exists. See
-[docs/adr/ADR-003-phase-a-accounts.md](docs/adr/ADR-003-phase-a-accounts.md).
+The Sites preview is the canonical account environment. Production is not
+published. The Vercel build is a static mirror: catalogue and guest browsing
+work, but it has no `/api/*` backend, so account creation and sign-in do not work
+there. Passkeys are bound to their origin, so preview and production accounts
+are separate even after production is published.
+
+## Deployment
+
+- **Preview (canonical):** `https://terrane-record-qvlmth-preview.freebuff.site` — Sites Worker, D1 and passkey API.
+- **Production:** `https://terrane-record-qvlmth.freebuff.site` — not published; starts with an empty D1 database.
+- **Vercel mirror:** `https://terrane-r2d2.vercel.app` — static SPA only. `vercel.json` rewrites non-API routes to `index.html` so reloads work; `/api/*` is deliberately excluded.
 
 ## Data
 
@@ -42,8 +48,8 @@ list via NH48.info; Colorado is 58 named fourteeners from 14ers.com with NGS
 2024 elevations; the Munros are the SMC 282 list with DoBIH v18 facts (CC BY
 4.0); the Adirondack 46 follows the 46ers list; the Catskills use the current
 33-peak club list, not the old 35. The Colorado 58/53/54 prominence distinction
-and the Catskill 2021 revision are stated rather than hidden. See [docs/data-sources.md](docs/data-sources.md) and the in-app
-`/about/data` page.
+and the Catskill 2021 revision are stated rather than hidden. See
+[docs/data-sources.md](docs/data-sources.md) and the in-app `/about/data` page.
 
 ## Commands
 
@@ -64,3 +70,9 @@ Node 20+ is required. The globe uses MapLibre, the blue-hour OpenFreeMap style
 and public Mapzen terrarium terrain; allow a few seconds for the first render.
 MapLibre is a separate lazy-loaded chunk, so the production build warns about
 its chunk size.
+
+## Documentation
+
+- [Product plan](docs/product-plan.md) — current goals, shipped scope, open gates and next decisions.
+- [Runbook](docs/runbook.md) — deployment, storage, account recovery, data changes and verification.
+- [Data sources](docs/data-sources.md) — list provenance, licences and CSV format.
