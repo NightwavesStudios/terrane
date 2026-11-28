@@ -13,7 +13,7 @@ type Filter = "All peaks" | "NH 48" | "Colorado 14ers" | "Munros" | "ADK 46" | "
 const filters: Filter[] = ["All peaks", "NH 48", "Colorado 14ers", "Munros", "ADK 46", "Catskills", "Climbed", "Remaining"];
 
 export default function PeaksPage() {
-  const { completedSlugs, profile } = useRecord();
+  const { completedSlugs, profile, units } = useRecord();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("All peaks");
   const [sort, setSort] = useState("elevation");
@@ -91,7 +91,7 @@ export default function PeaksPage() {
         <PeakTable
           peaks={peaks}
           completed={completedSlugs}
-          units={profile?.units ?? "imperial"}
+          units={units}
         />
       ) : (
         <EmptyState

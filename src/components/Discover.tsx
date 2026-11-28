@@ -8,6 +8,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { LISTS, PEAKS, peakListLabel } from "../data/lists";
 import { formatElevation } from "../lib/format";
+import { useRecord } from "../state/RecordContext";
 import type { Peak } from "../types/geography";
 import Icon from "./Icon";
 
@@ -41,6 +42,7 @@ export default function Discover() {
   const dialogRef = useRef<HTMLElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { units } = useRecord();
   const results = matchingPeaks(term);
 
   useEffect(() => {
@@ -241,7 +243,7 @@ export default function Discover() {
                         <strong>{peak.name}</strong>
                         <small>
                           {peakListLabel(peak)} · {peak.range} ·{" "}
-                          {formatElevation(peak.elevationM, "imperial", peak.elevationFt)}
+                          {formatElevation(peak.elevationM, units, peak.elevationFt)}
                         </small>
                       </span>
                       <Icon name="arrow" size={16} />
@@ -261,7 +263,7 @@ export default function Discover() {
                         <strong>{peak.name}</strong>
                         <small>
                           {peakListLabel(peak)} ·{" "}
-                          {formatElevation(peak.elevationM, "imperial", peak.elevationFt)}
+                          {formatElevation(peak.elevationM, units, peak.elevationFt)}
                         </small>
                       </span>
                       <Icon name="arrow" size={16} />

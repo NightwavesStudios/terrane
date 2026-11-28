@@ -10,7 +10,7 @@ const Globe = lazy(() => import("../components/MapGlobe"));
 
 export default function ExplorePage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const { profile } = useRecord();
+  const { profile, units } = useRecord();
   const selected = selectedSlug ? PEAKS.find((peak) => peak.slug === selectedSlug) : undefined;
   const logTarget = selected ? `/log?peak=${selected.slug}` : "/log";
   const logHref = profile
@@ -53,7 +53,7 @@ export default function ExplorePage() {
           </p>
           <h2>{selected.name}</h2>
           <p className="globe-preview__meta">
-            {formatElevation(selected.elevationM, "imperial", selected.elevationFt)} ·{" "}
+            {formatElevation(selected.elevationM, units, selected.elevationFt)} ·{" "}
             {selected.range}
           </p>
           <div className="globe-preview__actions">

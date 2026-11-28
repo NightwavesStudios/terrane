@@ -15,6 +15,7 @@ export default function ListDetailPage() {
   const list = slug ? getList(slug) : undefined;
   const {
     profile,
+    units,
     startedLists,
     listStarts,
     listCompletions,
@@ -199,7 +200,7 @@ export default function ListDetailPage() {
         <PeakTable
           peaks={list.peaks}
           completed={started ? completedSlugs : new Set()}
-          units={profile?.units ?? "imperial"}
+          units={units}
         />
       </section>
 

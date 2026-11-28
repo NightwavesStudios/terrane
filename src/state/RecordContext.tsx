@@ -14,6 +14,7 @@ import { getList, PEAKS } from "../data/lists";
 import { NH48_LIST } from "../data/nh48";
 import { missingCompletions } from "../lib/completions";
 import { listProgress, statsFor, summitSlugs } from "../lib/progress";
+import type { Units } from "../lib/format";
 import { ApiError, deleteAccount, fetchAccount, saveRecord, signOutNow, updateAccountProfile } from "../lib/api";
 import { mergeRecords, recordData } from "../lib/mergeRecords";
 import type {
@@ -28,6 +29,7 @@ import type {
 } from "../types/record";
 
 const STORAGE_KEY = "terrane.record.v1";
+const UNITS_KEY = "terrane.units.v1";
 
 const EMPTY: RecordState = {
   profile: null,
@@ -43,6 +45,7 @@ type Mode = "guest" | "account";
 
 interface RecordContextValue {
   profile: Profile | null;
+  units: Units;
   startedLists: string[];
   listStarts: Record<string, ListStart>;
   badges: BadgeAward[];
@@ -58,8 +61,8 @@ interface RecordContextValue {
   progress: ReturnType<typeof listProgress>;
   progressFor: (listId: string) => ReturnType<typeof listProgress>;
   stats: ReturnType<typeof statsFor>;
-  updateProfile: (displayName: string, units: Profile["units"]) => Promise<void>;
-  setUnits: (units: Profile["units"]) => Promise<void>;
+  updateProfile: (displayName: string, units: Units) => Promise<void>;
+  setUnits: (units: Units) => Promise<void>;
   signOut: () => void;
   startList: (listId?: string) => void;
   addTrip: (input: NewTripInput) => Trip;
@@ -105,6 +108,25 @@ function hasLocalData(record: RecordState): boolean {
   return record.trips.length > 0 || record.startedLists.length > 0;
 }
 
+function readUnitsPreference(): Units {
+  if (typeof window === "undefined") return "imperial";
+  try {
+    const stored = window.localStorage.getItem(UNITS_KEY);
+    return stored === "metric" || stored === "imperial" ? stored : "imperial";
+  } catch {
+    return "imperial";
+  }
+}
+
+function storeUnitsPreference(units: Units): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(UNITS_KEY, units);
+  } catch {
+    // A blocked storage quota should not prevent the current view from changing.
+  }
+}
+
 function tripFrom(input: NewTripInput, existing?: Trip): Trip {
   const now = new Date().toISOString();
   return {
@@ -131,6 +153,7 @@ function conflictPayload(error: unknown): { revision: number; record: RecordStat
 
 export function RecordProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RecordState>(EMPTY);
+  const [localUnits, setLocalUnits] = useState<Units>(readUnitsPreference);
   const [mode, setMode] = useState<Mode>("guest");
   const [hydrated, setHydrated] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>("idle");
@@ -170,6 +193,10 @@ export function RecordProvider({ children }: { children: ReactNode }) {
         revisionRef.current = account.revision;
         stateRef.current = account.record;
         setState(account.record);
+        if (account.record.profile) {
+          setLocalUnits(account.record.profile.units);
+          storeUnitsPreference(account.record.profile.units);
+        }
         setMode("account");
         setSyncState("saved");
       } catch (error) {
@@ -267,22 +294,41 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   }, [markDirty]);
 
   const updateProfile = useCallback(
-    async (displayName: string, units: Profile["units"]) => {
+    async (displayName: string, units: Units) => {
       if (!stateRef.current.profile) throw new Error("Sign in to edit the profile.");
       const result = await updateAccountProfile({ displayName, units });
       setState((current) => ({ ...current, profile: result.profile }));
+      setLocalUnits(result.profile.units);
+      storeUnitsPreference(result.profile.units);
     },
     [],
   );
 
-  const setUnits = useCallback(
-    async (units: Profile["units"]) => {
-      const current = stateRef.current.profile;
-      if (!current) return;
-      await updateProfile(current.displayName, units);
-    },
-    [updateProfile],
-  );
+  const setUnits = useCallback(async (units: Units) => {
+    setLocalUnits(units);
+    storeUnitsPreference(units);
+
+    const current = stateRef.current.profile;
+    if (!current || current.units === units) return;
+
+    const previous = current.units;
+    setState((value) =>
+      value.profile ? { ...value, profile: { ...value.profile, units } } : value,
+    );
+    try {
+      const result = await updateAccountProfile({ units });
+      setState((value) =>
+        value.profile ? { ...value, profile: result.profile } : value,
+      );
+    } catch (error) {
+      setState((value) =>
+        value.profile
+          ? { ...value, profile: { ...value.profile, units: previous } }
+          : value,
+      );
+      throw error;
+    }
+  }, []);
 
   const signOut = useCallback(() => {
     void signOutNow()
@@ -477,6 +523,7 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrated, badgeFacts, badges, state.trips, state.profile, state.startedLists, state.listStarts, listCompletions, markDirty]);
 
+  const units = state.profile?.units ?? localUnits;
   const completedSlugs = useMemo(() => summitSlugs(state.trips), [state.trips]);
   const progress = useMemo(
     () => listProgress(state.trips, state.startedLists),
@@ -491,6 +538,7 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   const value = useMemo<RecordContextValue>(
     () => ({
       profile: state.profile,
+      units,
       startedLists: state.startedLists,
       listStarts: state.listStarts,
       badges,
@@ -521,6 +569,7 @@ export function RecordProvider({ children }: { children: ReactNode }) {
     }),
     [
       state.profile,
+      units,
       state.startedLists,
       state.listStarts,
       badges,

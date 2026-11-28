@@ -34,6 +34,7 @@ export default function PeakDetailPage() {
   const navigate = useNavigate();
   const {
     profile,
+    units,
     progressFor,
     trips,
     completedSlugs,
@@ -64,7 +65,6 @@ export default function PeakDetailPage() {
   const climbed = completedSlugs.has(peak.slug);
   const peakTrips = getPeakTrips(trips, peak.slug);
   const attempted = !climbed && peakTrips.length > 0;
-  const units = profile?.units ?? "imperial";
   const logTarget = `/log?peak=${peak.slug}`;
   const logHref = profile
     ? logTarget
