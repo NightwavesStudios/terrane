@@ -1,10 +1,27 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import { getListForPeak, getPeak } from "../data/lists";
+import { getListForPeak, getPeak, PEAKS } from "../data/lists";
 import { formatElevation } from "../lib/format";
 import { formatTripDate, getPeakTrips } from "../lib/progress";
 import { PEAK_NAMES, useRecord } from "../state/RecordContext";
+
+function sourceLabel(listId: string | undefined): string {
+  switch (listId) {
+    case "nh48":
+      return "NH48.info catalog";
+    case "co14ers":
+      return "14ers.com peak page";
+    case "munros":
+      return "DoBIH record";
+    case "adk46":
+      return "Wikipedia peak article";
+    case "catskill3500":
+      return "Catskill Hiker peak page";
+    default:
+      return "Catalogue record";
+  }
+}
 
 export default function PeakDetailPage() {
   const { slug = "" } = useParams();
@@ -30,7 +47,7 @@ export default function PeakDetailPage() {
               No peak <span className="display-italic">record.</span>
             </>
           }
-          description={`“${slug}” is not one of the 48 indexed peaks.`}
+          description={`“${slug}” is not one of the ${PEAKS.length} indexed peaks.`}
         />
         <Link to="/peaks" className="text-link">
           Back to all peaks <span aria-hidden="true">→</span>
@@ -169,23 +186,31 @@ export default function PeakDetailPage() {
               <div className="source-panel">
                 <p>
                   <strong>Name, coordinates:</strong>{" "}
-                  <a href={peak.sourceUrl} target="_blank" rel="noreferrer">
-                    NH48.info catalog
-                  </a>{" "}
-                  /{" "}
-                  <a href={peak.osmUrl} target="_blank" rel="noreferrer">
-                    OpenStreetMap
+                  <a href={peak.sourceUrl ?? primaryList?.sourceUrl} target="_blank" rel="noreferrer">
+                    {sourceLabel(primaryList?.id)}
                   </a>
+                  {peak.osmUrl ? (
+                    <>
+                      {" "}
+                      /{" "}
+                      <a href={peak.osmUrl} target="_blank" rel="noreferrer">
+                        OpenStreetMap
+                      </a>
+                    </>
+                  ) : null}
                   , checked 27 November 2026.
                 </p>
                 <p>
-                  <strong>Elevation, prominence:</strong> publisher facts via the catalog.{" "}
-                  {peak.elevationSourceUrl ? (
+                  <strong>Elevation:</strong> {peak.elevationSourceUrl ? (
                     <a href={peak.elevationSourceUrl} target="_blank" rel="noreferrer">
-                      Elevation source
+                      source record
                     </a>
-                  ) : null}{" "}
-                  Displayed in {units === "imperial" ? "feet" : "metres"}.
+                  ) : (
+                    "publisher record"
+                  )}{" "}
+                  <strong>Prominence:</strong>{" "}
+                  {peak.prominenceM === undefined ? "not supplied" : "source record"}. Displayed in{" "}
+                  {units === "imperial" ? "feet" : "metres"}.
                 </p>
                 {lists.map((list) => (
                   <p key={list.id}>
@@ -209,7 +234,7 @@ export default function PeakDetailPage() {
                 <Icon name="pin" size={24} />
               </span>
               <span className="detail-map__label">
-                {peak.lat?.toFixed(3)}, {peak.lon?.toFixed(3)} · White Mountains
+                {peak.lat?.toFixed(3)}, {peak.lon?.toFixed(3)} · {peak.range ?? primaryList?.title ?? "Catalogue"}
               </span>
             </div>
 

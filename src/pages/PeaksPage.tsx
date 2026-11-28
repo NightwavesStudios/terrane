@@ -120,7 +120,7 @@ export default function PeaksPage() {
 
       <p className="page-footnote">
         NH 48 facts come from the <a href="https://nh48.info/catalog">NH48.info catalog</a>. Colorado facts use
-        NGS 2024 elevations and 14ers.com coordinates.         Munro facts use the Database of British and Irish Hills v18
+        NGS 2024 elevations and 14ers.com coordinates. Munro facts use the Database of British and Irish Hills v18
         (CC BY 4.0); Adirondack and Catskill facts are attributed on the list pages. Every peak page links its
         field-level sources; no list is presented as official.
       </p>

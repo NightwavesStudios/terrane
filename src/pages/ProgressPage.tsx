@@ -220,7 +220,7 @@ export default function ProgressPage() {
         <aside className="progress-side">
           <p className="eyebrow">Portable</p>
           <h2>Export the record.</h2>
-          <p>JSON keeps every field and both list progresses. CSV is readable in a spreadsheet.</p>
+          <p>JSON keeps every field and every list progress. CSV is readable in a spreadsheet.</p>
           <div className="form-actions">
             <button type="button" className="button" onClick={() => exportJson(record)}>
               JSON

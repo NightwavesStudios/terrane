@@ -77,13 +77,13 @@ export function exportJson(state: RecordState) {
   );
 }
 
-export function exportCsv(state: RecordState) {
+export function buildCsv(state: RecordState): string {
   const rows = [
     ["trip_id", "date", "precision", "source", "peak_slug", "peak_name", "outcome", "title", "notes"],
     ...state.trips.flatMap((trip) =>
       trip.peaks.map((peak) => [
         trip.id,
-        formatTripDate(trip),
+        trip.date,
         trip.precision,
         trip.source,
         peak.slug,
@@ -94,9 +94,13 @@ export function exportCsv(state: RecordState) {
       ]),
     ),
   ];
+  return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+export function exportCsv(state: RecordState) {
   download(
     "terrane-record.csv",
-    rows.map((row) => row.map(csvCell).join(",")).join("\n"),
+    buildCsv(state),
     "text/csv;charset=utf-8",
   );
 }

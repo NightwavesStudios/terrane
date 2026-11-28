@@ -47,7 +47,7 @@ describe("App", () => {
     expect(html).toContain("Mount Tecumseh");
   });
 
-  it("renders the sign-in surface and both list sources", () => {
+  it("renders the sign-in surface and all list sources", () => {
     const signIn = renderAt("/signin");
     expect(signIn).toContain("A record that");
     expect(signIn).toContain("Local-first");
@@ -64,5 +64,22 @@ describe("App", () => {
     expect(html).toContain("All 58 peaks");
     expect(html).toContain("Colorado Mountain Club recognises 54");
     expect(html).toContain("Mount Elbert");
+  });
+
+  it("labels peak sources and maps by the peak's list", () => {
+    const adk = renderAt("/peaks/mount-marcy");
+    expect(adk).toContain("Wikipedia peak article");
+    expect(adk).toContain("Adirondack High Peaks");
+    expect(adk).not.toContain("NH48.info catalog");
+
+    const catskills = renderAt("/peaks/slide");
+    expect(catskills).toContain("Catskill Hiker peak page");
+    expect(catskills).toContain("Southern Catskills");
+
+    const colorado = renderAt("/peaks/mount-elbert");
+    expect(colorado).toContain("14ers.com peak page");
+
+    const munros = renderAt("/peaks/ben-nevis-beinn-nibheis");
+    expect(munros).toContain("DoBIH record");
   });
 });
