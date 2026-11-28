@@ -8,10 +8,11 @@ import {
   type IControl,
 } from "maplibre-gl";
 import type { Peak } from "../types/geography";
+import type { Units } from "../lib/format";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { peakFocusPadding, peakFocusZoom, worldZoom } from "../lib/camera";
-import { createStyle } from "../map/style";
+import { createStyle, peakLabelField } from "../map/style";
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -37,6 +38,11 @@ function terrainExaggeration(zoom: number): number {
     if (zoom <= z1) return v0 + ((zoom - z0) / (z1 - z0)) * (v1 - v0);
   }
   return stops[stops.length - 1][1];
+}
+
+function applyPeakLabelUnits(map: MapLibreMap, units: Units) {
+  if (!map.getLayer("label-peak")) return;
+  map.setLayoutProperty("label-peak", "text-field", peakLabelField(units));
 }
 
 /** The old way back to the opening camera. */
@@ -79,18 +85,32 @@ class ResetControl implements IControl {
 
 interface Props {
   peaks?: Peak[];
+  units?: Units;
   onSelect?: (slug: string) => void;
 }
 
-export default function MapGlobe({ peaks = [], onSelect }: Props) {
+export default function MapGlobe({ peaks = [], units = "imperial", onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
   const onSelectRef = useRef(onSelect);
+  const unitsRef = useRef(units);
+  unitsRef.current = units;
   const [failed, setFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
+
+  useEffect(() => {
+    const liveMap = mapRef.current;
+    if (!liveMap) return;
+    try {
+      applyPeakLabelUnits(liveMap, units);
+    } catch {
+      // The style will apply the latest units once it has loaded.
+    }
+  }, [units]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -273,7 +293,7 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
     try {
       map = new MapLibreMap({
         container,
-        style: createStyle({ globe: true }),
+        style: createStyle({ globe: true, units: unitsRef.current }),
         center: WORLD,
         zoom: worldZoom(container.clientWidth, container.clientHeight),
         pitch: 0,
@@ -294,6 +314,7 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
       });
 
       const liveMap = map;
+      mapRef.current = liveMap;
       liveMap.scrollZoom.setWheelZoomRate(1 / 450);
       liveMap.scrollZoom.setZoomRate(1 / 120);
 
@@ -333,6 +354,11 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
         } catch (error) {
           console.error("Terrane peak layers", error);
         }
+        try {
+          applyPeakLabelUnits(liveMap, unitsRef.current);
+        } catch {
+          // Summit labels are optional; the map remains usable without them.
+        }
       });
 
       liveMap.on("zoomend", () => applyTerrain(liveMap));
@@ -351,6 +377,7 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
         if (revealTimer !== undefined) window.clearTimeout(revealTimer);
         if (failTimer !== undefined) window.clearTimeout(failTimer);
         resizeObserver.disconnect();
+        if (mapRef.current === liveMap) mapRef.current = null;
         liveMap.remove();
         stage?.removeAttribute("data-map");
       };

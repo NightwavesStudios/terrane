@@ -1,4 +1,5 @@
 import type { ExpressionSpecification, StyleSpecification } from "maplibre-gl";
+import type { Units } from "../lib/format";
 import {
   CLIMATE,
   FONTS,
@@ -169,10 +170,39 @@ const TERRAIN_SOURCE = {
  * Mercator and the map reprojects, which is a visible snap and a full re-render
  * for nothing.
  */
-export function createStyle({ globe = false }: { globe?: boolean } = {}): StyleSpecification {
+export function createStyle({
+  globe = false,
+  units = "metric",
+}: { globe?: boolean; units?: Units } = {}): StyleSpecification {
   const style = structuredClone(MAP_STYLE);
   if (globe) style.projection = { type: "globe" };
+  const peakLabels = style.layers.find((layer) => layer.id === "label-peak");
+  if (peakLabels?.type === "symbol") {
+    peakLabels.layout = { ...peakLabels.layout, "text-field": peakLabelField(units) };
+  }
   return style;
+}
+
+/** Keep basemap summit elevations in the same unit as the record. */
+export function peakLabelField(units: Units): ExpressionSpecification {
+  const elevation =
+    units === "imperial"
+      ? [
+          "concat",
+          ["to-string", ["round", ["*", ["to-number", ["get", "ele"]], 3.28084]]],
+          " ft",
+        ]
+      : ["concat", ["to-string", ["get", "ele"]], " m"];
+
+  return [
+    "format",
+    ["coalesce", ["get", "name:en"], ["get", "name"]],
+    {},
+    "\n",
+    {},
+    ["case", ["has", "ele"], elevation, ""],
+    { "font-scale": 0.72 },
+  ] as unknown as ExpressionSpecification;
 }
 
 const MAP_STYLE: StyleSpecification = {
@@ -1094,15 +1124,7 @@ const MAP_STYLE: StyleSpecification = {
         ],
       ],
       layout: {
-        "text-field": [
-          "format",
-          ["coalesce", ["get", "name:en"], ["get", "name"]],
-          {},
-          "\n",
-          {},
-          ["case", ["has", "ele"], ["concat", ["to-string", ["get", "ele"]], " m"], ""],
-          { "font-scale": 0.72 },
-        ],
+        "text-field": peakLabelField("metric"),
         "text-font": FONTS.regular,
         "text-size": ["interpolate", ["linear"], ["zoom"], 9.5, 9.5, 14, 11],
         "text-letter-spacing": 0.02,

@@ -20,7 +20,7 @@ export default function ExplorePage() {
   return (
     <section className="home" aria-label="Terrane globe">
       <Suspense fallback={<div className="globe" aria-hidden="true" />}>
-        <Globe peaks={PEAKS} onSelect={setSelectedSlug} />
+        <Globe peaks={PEAKS} units={units} onSelect={setSelectedSlug} />
       </Suspense>
       <div className="globe-veil" aria-hidden="true" />
       <div className="vignette" aria-hidden="true" />
