@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import BadgeCase from "../components/BadgeCase";
 import EmptyState from "../components/EmptyState";
@@ -20,7 +21,11 @@ export default function ProgressPage() {
     badgeFacts,
     stats,
     progressFor,
+    localRecord,
+    importLocalRecord,
   } = useRecord();
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
   const record = { profile, startedLists, listStarts, badges, listCompletions, trips };
   const startedCount = LISTS.filter((list) => progressFor(list.id).started).length;
   const recapYear = recapYears(trips)[0];
@@ -39,12 +44,12 @@ export default function ProgressPage() {
               Your first <span className="display-italic">ascent</span> starts here.
             </>
           }
-          description="One summit is enough to begin a record. The table fills in as you climb."
+          description="One summit is enough to begin a record. Sign in with a passkey to keep it across devices."
         />
         <EmptyState
           eyebrow="No record yet"
           title="Start with one summit."
-          description="Start a list or log a climb. Your record stays private in this browser."
+          description="Start a list or log a climb. Your account keeps the record private and in sync."
         >
           <Link
             to={`/signin?returnTo=${encodeURIComponent("/lists/nh48?start=1")}`}
@@ -73,6 +78,42 @@ export default function ProgressPage() {
           stats.trips === 1 ? "trip" : "trips"
         } · ${startedCount} of ${LISTS.length} lists started`}
       />
+
+      {localRecord?.trips.length ? (
+        <section className="local-migration" aria-label="Import local climbs">
+          <div>
+            <p className="eyebrow">From this browser</p>
+            <strong>
+              {localRecord.trips.length} earlier{" "}
+              {localRecord.trips.length === 1 ? "climb" : "climbs"} can join this record.
+            </strong>
+            <span>They stay here until you choose to add them.</span>
+            {importError ? (
+              <span className="form-error" role="alert">
+                {importError}
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="button button--bright"
+            disabled={importing}
+            onClick={() => {
+              setImporting(true);
+              setImportError("");
+              void importLocalRecord()
+                .catch((error) => {
+                  setImportError(
+                    error instanceof Error ? error.message : "The import did not finish.",
+                  );
+                })
+                .finally(() => setImporting(false));
+            }}
+          >
+            {importing ? "Importing…" : "Import climbs"}
+          </button>
+        </section>
+      ) : null}
 
       <section className="record-stats" aria-label="Record summary">
         <div>
@@ -207,7 +248,9 @@ export default function ProgressPage() {
 
       <BadgeCase facts={badgeFacts} awards={badges} trips={trips} />
 
-      <p className="page-footnote">Stored on this device. Export anytime from Settings.</p>
+      <p className="page-footnote">
+        Synced to your Terrane account. Export or delete it anytime from Settings.
+      </p>
     </div>
   );
 }

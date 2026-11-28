@@ -135,8 +135,15 @@ export default function DataPage() {
             are published.
           </p>
           <p>
-            The record is stored in this browser with <code>localStorage</code>. There is no production account,
-            database, email or server-side backup in this workspace. Export is real and removes lock-in.
+            Signed-in records are stored in Terrane's D1 account database and reached through a
+            secure, HTTP-only passkey session. Accounts use a passkey on your device and a one-time
+            recovery key, never a password. Browse signed out without creating an account. A record
+            made in this browser before accounts existed can be imported from Settings; exports
+            always remain available and never include the publisher's licensed artwork.
+          </p>
+          <p>
+            Account data is separate from the sourced catalogue and is never mixed into the open
+            peak layer. The peak index remains bundled and auditable while the atlas is gated.
           </p>
           <div className="form-actions">
             <Link to="/progress" className="button">Your record</Link>

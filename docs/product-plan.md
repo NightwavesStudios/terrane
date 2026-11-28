@@ -1,10 +1,10 @@
 # Terrane — Product Plan v3.0
 
-**Status:** canonical build plan · v3.0 · 27 November 2026
+**Status:** canonical build plan · v3.0 · updated 28 November 2026
 **Supersedes:** v2.0 (`docs/product-plan.md`) and the v1.0 shareable artifact
 **Primary user:** the list-driven climber with an existing history
 **First build:** the NH 48 vertical slice — 48 peaks, one list, one complete loop
-**Stack:** React 19 + Vite SPA · Hono API · Postgres 17 + PostGIS on Neon · field-level provenance
+**Stack:** React 19 + Vite SPA · Hono API · target Postgres 17 + PostGIS on Neon · Phase A deployed on Sites D1 + WebAuthn passkeys (ADR-003) · field-level provenance
 **North star:** monthly active record keepers, not weekly logged summits
 **Destination:** a global atlas of the world's mountains and peaks, plus the sourced experiences around them
 
@@ -20,6 +20,8 @@ The fixed decisions from the previous round still hold:
 4. **Ten badges launch.** The other 33 stay in `data/badges.json` as a documented backlog. They are not deleted and not promised.
 
 The plan is deliberately narrower than v2.0. The product is a trusted record for people pursuing named peak lists, with a global atlas as the way in. The destination is broader: every named mountain and peak we can source with integrity, plus other sourced ways to encounter the landscape. The NH 48 slice is the proof that the record deserves that atlas; it is not the ceiling.
+
+> **Implementation status (28 November 2026).** Phases A–D exist in the app. Phase A's real account and persistence layer is deployed to the Freebuff Sites preview: WebAuthn passkeys, recovery keys, D1 profiles/records/sessions and local-record import (ADR-003). `npm test` and `npm run build` pass, and the browser flow was exercised at 320 px, 390 px and desktop. The Phase A validation gate — legal review, server-side gate events and the 10-user cohort — and production publication remain open. Phase E remains gated. §12.6 is the exact open list.
 
 ---
 
@@ -340,7 +342,9 @@ This is the minimum schema for the slice and the public-beta direction. Exact DD
 
 **Trip rules.** A trip is a day or outing, not a checkmark. A pure attempt is valid. A repeat grows total ascents but not unique peaks. Deleting a trip removes it from stats immediately; badges are not revoked except for fraud, and self-reported past climbs are never downgraded. A saved trip can be edited or deleted in Phase A; a mistake must not require starting over.
 
-**Auth tables.** Better Auth owns `user`, `session`, `account` and `verification`. `app_user` is the Terrane profile keyed to the auth user id and is created on first sign-in. Do not build password tables or duplicate credentials.
+**Auth tables (target).** Better Auth owns `user`, `session`, `account` and `verification`. `app_user` is the Terrane profile keyed to the auth user id and is created on first sign-in. Do not build password tables or duplicate credentials.
+
+**Phase A implementation (ADR-003).** The Sites deployment uses D1 tables for the profile, the revisioned record document, sessions, WebAuthn credentials, single-use challenges and recovery-key hashes. Auth is passkey-first with a recovery key; no password, email magic link or OAuth dependency. This is the working Phase A exception, not the global store: the Postgres/Better Auth schema above remains the destination for Phase E scale, and a future move must not run two credential stores.
 
 **No GPX in the slice.** GPX import is a later convenience, never the definition of a valid ascent. When it arrives, it suggests matches and the user confirms; thresholds are calibrated on real tracks, not treated as universal truth.
 
@@ -388,12 +392,12 @@ The slice is not a demo. It is the first real product, with real data and real u
 - `/peaks` with real rows, search and simple filters; no prominence filter unless the data supports it.
 - `/peaks/:slug` with identity, known attributes, list membership, your record and data sources. Nearby peaks are a Phase B candidate, not a Phase A blocker or a Phase A–B commitment.
 - `/lists` and `/lists/:slug` with publisher, edition, rules, explicit **Start the list**, progress, remaining peaks and export.
-- `/signin` with email magic link and one OAuth provider (Google or Apple); no passwords. `returnTo` preserves the exact peak, list or log intent. If email delivery is blocked in readiness, OAuth-only is the documented fallback.
+- `/signin` with a WebAuthn passkey account and a one-time recovery key (ADR-003); no passwords, magic links or OAuth in the Phase A Sites deployment. `returnTo` preserves the exact peak, list or log intent. The target Neon deployment may move to Better Auth, but must preserve the passkey-first posture or migrate credentials deliberately.
 - `/log` quick log: peak(s), date, outcome, save. Edit/delete immediately after save.
 - Manual backfill: year/month/day precision, multi-peak, 20 climbs without a modal per climb.
 - `/progress` with the NH 48 ring, remaining count, recent climbs and basic stats.
 - JSON and CSV export of all trips and list progress. GPX of remaining list peaks is Phase B; no track export yet.
-- `/settings` with units, optional home region, privacy and delete account.
+- `/settings` with name, units, passkey management, recovery-key rotation, local-record import, export and account deletion.
 - One flow end to end: globe/search → peak → list → sign-in `returnTo` → start list → backfill/log → progress → export. No fifth nav tab; **Log a climb** is a persistent action.
 
 **Out of scope for the slice**
@@ -616,7 +620,7 @@ The backlog is not a roadmap. Elevation/prominence/geography marks wait for reli
 | DELETE | `/api/me` | required | Delete account and schedule purge |
 | GET | `/api/data-sources` | none | Sources, licences, attribution and checked dates |
 
-Conventions: JSON; cursor pagination (`nextCursor`); ISO dates; metres stored, units rendered; RFC 7807 errors; `ETag` on public reads; `private, no-store` on `/api/me/*` and progress; httpOnly session cookie; same-origin/CSRF on mutations; no secrets or internal IDs in responses. Better Auth owns `/api/auth/*`; do not hand-roll sessions. `POST /api/lists/:slug/start` is idempotent; repeating it returns the existing `user_list` and progress.
+Conventions: JSON; cursor pagination (`nextCursor`); ISO dates; metres stored, units rendered; RFC 7807 errors; `ETag` on public reads; `private, no-store` on `/api/me/*` and progress; httpOnly session cookie; same-origin/CSRF on mutations; no secrets or internal IDs in responses. In the Phase A Sites deployment, `/api/auth/*` is a D1-backed WebAuthn passkey service (ADR-003); the target Neon deployment may hand `/api/auth/*` to Better Auth, but must not add passwords or duplicate credential stores. `POST /api/lists/:slug/start` is idempotent; repeating it returns the existing `user_list` and progress.
 
 No photo, GPX, route, condition, report, nearby-peak, public-profile or custom-list endpoint in the slice. Nearby peaks and custom lists are Phase B/C.
 
@@ -761,7 +765,7 @@ This phase closes the dependencies that otherwise stop the slice mid-build. It i
 |---|---|---|
 | Data and provenance | Steward + engineer | NH 48 seed, region context, source manifest, field-level checks |
 | Platform and API | Engineer | Neon, Vercel, migrations, seed reset, REST contract, fixtures |
-| Auth and account | Engineer | Better Auth, `app_user`, `user_list`, return-to, settings, delete |
+| Auth and account | Engineer | D1 passkey accounts (ADR-003), local-record import, return-to, settings, delete; Better Auth is the target-stack migration |
 | Explore | Designer + engineer | Real search, peak pages, 48-point globe, accessible list fallback |
 | Lists | Engineer | NH 48 start, ring, remaining peaks, per-peak status |
 | Journal | Engineer | Quick log, manual backfill, edit/delete |
@@ -859,7 +863,28 @@ Stop conditions: if D90 retention is below the gate, do not expand the catalogue
 - **No global ingest in Phase A.** The atlas grows in Phase E, after the record loop is proven.
 - **No new surface without a gate.** Every addition must answer which phase gate it serves.
 - **Every phase ends clean.** Tests, typecheck, build, docs, runbook, no dead code, no duplicate plan.
-- **The app build has not started.** Phase A begins only after explicit approval of this plan.
+- **Implementation status lives in §12.6.** Phases A–D are built; Phase A's account layer is the D1/passkey exception in ADR-003. Do not use this roadmap's historical checkboxes as evidence that a gate passed.
+
+### 12.6 Implementation status and remaining work
+
+**Phase A implementation is complete** for the app's own scope: the five-list catalogue, search and peak pages, list start, quick log/backfill, progress, passport/completions, CSV import, export, settings, and — added on 28 November 2026 — real passkey accounts with D1 persistence, recovery keys, local-record import and account deletion. Evidence: `npm test` (81 tests across 18 files, including D1 auth integration), `npm run build`, and a deployed-preview browser pass covering fresh account, empty state, saved climb, reload, sign-out, passkey return, recovery-key return in a fresh context, account deletion, and 320/390/desktop layouts.
+
+| Phase | Code | Validation gate |
+|---|---|---|
+| **0 — Readiness** | Source pack and list data present | Open: legal/licensing review; no owner for the 10-user cohort |
+| **A — NH 48 / account layer** | **Complete in the Sites preview** | Open: production publication, server-side gate events, 10-user cohort/retention |
+| **B — Archive depth + Colorado** | Shipped | Open: the real 20-climb timing/merge test and the user-demand gate |
+| **C — Passport + Munros** | Shipped | Open: the badge-value and Munros-completeness gate review |
+| **D — Earn expansion** | ADK 46 and current Catskill 33 shipped; later items untouched | Open by design: correction workflow, SEO, photos/GPX, offline, paid experiments, public profiles |
+| **E — Global atlas + experiences** | Not started | Gated by Phase D and §13.6; needs the Postgres/PostGIS migration |
+
+**Open items after this phase, in order:**
+
+1. **Production publication** is not done. The production environment has no published deployment and starts with an empty D1 database. Publishing needs the owner's authorization; preview and production use different WebAuthn RP IDs, so preview passkeys will not carry over.
+2. **Phase A gate evidence** is not complete. The legal/licensing review (ADR-002), the server-side event set in §11.4 and the 10-user cohort have not run. Do not mark the Phase A gate passed from the browser pass alone.
+3. **Target-stack migration** is deferred. D1 is the Phase A store, not the global atlas store. Phase E needs the Postgres/PostGIS schema and an account migration decision; do not run D1 and Better Auth credential stores in parallel.
+4. **Phase D expansion** remains intentionally unbuilt: the correction queue, list-page SEO, optional photos/GPX, offline records, paid convenience and public profiles. They stay behind their gates.
+5. **Production health and restore** need a post-publish check: `/api/health`, sign-in, a record save/reload, account isolation and a D1 restore/export check.
 
 ### Not in v1
 
@@ -1004,7 +1029,7 @@ Do not build patches or print until users have completed lists and asked. Do not
 | Public profiles | Not before retention and explicit demand | Phase D |
 | Paid tier | Do not design until retention; test offline/print | Phase D |
 | ADK/Catskills | Only after the first three lists are stable | Phase D |
-| Auth if email is blocked | OAuth-only for the slice; add magic link later | Phase 0 |
+| Auth fallback | Passkey plus one-time recovery key is the Phase A path (ADR-003); no email/OAuth dependency. Target-stack Better Auth can revisit providers without adding passwords. | Phase A / migration |
 | First experience kinds | Ranges, parks, scenic corridors and viewpoints; no routes or conditions | Phase E |
 | Global source order | Permissive base first; OSM as a separate ODbL layer only after review | Phase E |
 | Coverage target | Report coverage by region; never promise “all” | Phase E |
@@ -1016,7 +1041,7 @@ The primary user, NH 48 slice, field-level provenance, ten launch badges, the gl
 
 ## 15. Next ten tasks
 
-Steps 1–2 of the earlier list are complete: this file is canonical and the ten launch badges are flagged and tested. The app build has not started. These ten tasks close the Phase 0 blockers; Phase A code begins only after they pass.
+This list is retained as the Phase 0 readiness record, not as current status. The app build and Phases A–D have since shipped, and the Phase A account layer is deployed on D1 with passkeys (ADR-003). Several items below — the prototype/cohort, Neon/Better Auth provisioning and the final gate review — are still open or deferred to the target-stack migration. §12.6 is the live remaining-work list.
 
 1. **Approve the Phase A scope and estimate.** 6–9 weeks, explicit non-goals, no Phase B work in the branch. *Output:* a signed critical path and a named owner.
 2. **Assemble the NH 48 source pack.** 48 names, coordinates, elevation/highpoint sources, list membership, publisher edition and rules. *Output:* every field has a source; unknown fields are null.

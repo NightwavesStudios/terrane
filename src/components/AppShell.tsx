@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import PrimaryNav from "./PrimaryNav";
+import SyncBanner from "./SyncBanner";
 
 export default function AppShell() {
   const location = useLocation();
@@ -16,6 +17,7 @@ export default function AppShell() {
         Skip to content
       </a>
       <PrimaryNav />
+      <SyncBanner />
       <main id="main" className="app-main">
         <Outlet />
       </main>

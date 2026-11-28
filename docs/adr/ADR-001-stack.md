@@ -4,6 +4,7 @@
 - **Date:** 2026-11-27
 - **Deciders:** Terrane product/engineering
 - **Supersedes:** the provisional stack table in the previous product plan
+- **Phase A exception:** [ADR-003](ADR-003-phase-a-accounts.md) deploys the current record/account layer on Cloudflare Sites D1 with WebAuthn passkeys because Neon/Better Auth credentials were not available. The target stack below is unchanged for the global atlas.
 
 ## Context
 

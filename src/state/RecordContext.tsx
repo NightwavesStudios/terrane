@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -13,6 +14,8 @@ import { getList, PEAKS } from "../data/lists";
 import { NH48_LIST } from "../data/nh48";
 import { missingCompletions } from "../lib/completions";
 import { listProgress, statsFor, summitSlugs } from "../lib/progress";
+import { ApiError, deleteAccount, fetchAccount, saveRecord, signOutNow, updateAccountProfile } from "../lib/api";
+import { mergeRecords, recordData } from "../lib/mergeRecords";
 import type {
   BadgeAward,
   ListCompletion,
@@ -35,6 +38,9 @@ const EMPTY: RecordState = {
   trips: [],
 };
 
+type SyncState = "idle" | "saving" | "saved" | "error";
+type Mode = "guest" | "account";
+
 interface RecordContextValue {
   profile: Profile | null;
   startedLists: string[];
@@ -44,13 +50,16 @@ interface RecordContextValue {
   badgeFacts: ReturnType<typeof buildFacts>;
   trips: Trip[];
   hydrated: boolean;
+  mode: Mode;
+  syncState: SyncState;
+  syncError: string;
+  localRecord: RecordState | null;
   completedSlugs: Set<string>;
   progress: ReturnType<typeof listProgress>;
   progressFor: (listId: string) => ReturnType<typeof listProgress>;
   stats: ReturnType<typeof statsFor>;
-  signIn: (displayName: string, email: string) => void;
-  updateProfile: (displayName: string, email: string, units?: Profile["units"]) => void;
-  setUnits: (units: Profile["units"]) => void;
+  updateProfile: (displayName: string, units: Profile["units"]) => Promise<void>;
+  setUnits: (units: Profile["units"]) => Promise<void>;
   signOut: () => void;
   startList: (listId?: string) => void;
   addTrip: (input: NewTripInput) => Trip;
@@ -58,7 +67,9 @@ interface RecordContextValue {
   mergeTripPeaks: (id: string, peaks: TripPeak[]) => void;
   updateTrip: (id: string, input: NewTripInput) => void;
   deleteTrip: (id: string) => void;
-  deleteRecord: () => void;
+  deleteRecord: () => Promise<void>;
+  importLocalRecord: () => Promise<void>;
+  retrySync: () => void;
 }
 
 const RecordContext = createContext<RecordContextValue | null>(null);
@@ -90,6 +101,10 @@ function readStored(): RecordState {
   }
 }
 
+function hasLocalData(record: RecordState): boolean {
+  return record.trips.length > 0 || record.startedLists.length > 0;
+}
+
 function tripFrom(input: NewTripInput, existing?: Trip): Trip {
   const now = new Date().toISOString();
   return {
@@ -107,131 +122,308 @@ function tripFrom(input: NewTripInput, existing?: Trip): Trip {
   };
 }
 
+function conflictPayload(error: unknown): { revision: number; record: RecordState } | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null;
+  const payload = error.payload as { revision?: unknown; record?: unknown } | null;
+  if (!payload || typeof payload.revision !== "number" || !payload.record) return null;
+  return { revision: payload.revision, record: payload.record as RecordState };
+}
+
 export function RecordProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<RecordState>(EMPTY);
+  const [mode, setMode] = useState<Mode>("guest");
   const [hydrated, setHydrated] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [syncError, setSyncError] = useState("");
+  const [localRecord, setLocalRecord] = useState<RecordState | null>(null);
+  const [saveTick, setSaveTick] = useState(0);
+
+  const stateRef = useRef(state);
+  const modeRef = useRef(mode);
+  const hydratedRef = useRef(hydrated);
+  const revisionRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const inFlightRef = useRef(false);
+  const flushRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
-    setState(readStored());
-    setHydrated(true);
-  }, []);
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
-    if (!hydrated || typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+    modeRef.current = mode;
+  }, [mode]);
 
-  const signIn = useCallback((displayName: string, email: string) => {
-    setState((current) => ({
-      ...current,
-      profile: {
-        id: current.profile?.id ?? newId(),
-        displayName: displayName.trim() || "Climber",
-        email: email.trim(),
-        units: current.profile?.units ?? "imperial",
-        createdAt: current.profile?.createdAt ?? new Date().toISOString(),
-      },
-    }));
+  useEffect(() => {
+    hydratedRef.current = hydrated;
+  }, [hydrated]);
+
+  useEffect(() => {
+    const stored = readStored();
+    setLocalRecord(hasLocalData(stored) ? stored : null);
+
+    let cancelled = false;
+    async function boot() {
+      try {
+        const account = await fetchAccount();
+        if (cancelled) return;
+        revisionRef.current = account.revision;
+        stateRef.current = account.record;
+        setState(account.record);
+        setMode("account");
+        setSyncState("saved");
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ApiError && (error.status === 401 || error.status === 404)) {
+          setMode("guest");
+          setState(EMPTY);
+        } else {
+          setMode("guest");
+          setState(EMPTY);
+          setSyncState("error");
+          setSyncError(
+            error instanceof Error
+              ? error.message
+              : "The account service could not be reached.",
+          );
+        }
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    }
+
+    void boot();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const markDirty = useCallback(() => {
+    dirtyRef.current = true;
+    setSaveTick((value) => value + 1);
+  }, []);
+
+  flushRef.current = async () => {
+    if (
+      !hydratedRef.current ||
+      modeRef.current !== "account" ||
+      !dirtyRef.current ||
+      inFlightRef.current
+    ) {
+      return;
+    }
+
+    const snapshot = stateRef.current;
+    dirtyRef.current = false;
+    inFlightRef.current = true;
+    setSyncState("saving");
+
+    try {
+      const result = await saveRecord(recordData(snapshot), revisionRef.current);
+      revisionRef.current = result.revision;
+      setSyncState("saved");
+      setSyncError("");
+    } catch (error) {
+      const conflict = conflictPayload(error);
+      if (conflict) {
+        const merged = mergeRecords(conflict.record, snapshot);
+        revisionRef.current = conflict.revision;
+        stateRef.current = merged;
+        setState(merged);
+        dirtyRef.current = true;
+        setSyncError("This record changed in another session. Both copies were merged.");
+        setSyncState("saving");
+      } else if (error instanceof ApiError && error.status === 401) {
+        modeRef.current = "guest";
+        setMode("guest");
+        setState(EMPTY);
+        setSyncState("idle");
+        setSyncError("Your session expired. Sign in again to keep syncing.");
+      } else {
+        dirtyRef.current = true;
+        setSyncState("error");
+        setSyncError(
+          error instanceof Error ? error.message : "The record could not be saved.",
+        );
+      }
+    } finally {
+      inFlightRef.current = false;
+      if (dirtyRef.current && modeRef.current === "account") {
+        window.setTimeout(() => void flushRef.current(), 600);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!hydrated || mode !== "account" || !dirtyRef.current) return;
+    const timer = window.setTimeout(() => void flushRef.current(), 350);
+    return () => window.clearTimeout(timer);
+  }, [state, mode, hydrated, saveTick]);
+
+  const retrySync = useCallback(() => {
+    setSyncError("");
+    setSyncState("saving");
+    markDirty();
+  }, [markDirty]);
 
   const updateProfile = useCallback(
-    (displayName: string, email: string, units?: Profile["units"]) => {
-      setState((current) => ({
-        ...current,
-        profile: current.profile
-          ? {
-              ...current.profile,
-              displayName: displayName.trim() || current.profile.displayName,
-              email: email.trim(),
-              units: units ?? current.profile.units,
-            }
-          : current.profile,
-      }));
+    async (displayName: string, units: Profile["units"]) => {
+      if (!stateRef.current.profile) throw new Error("Sign in to edit the profile.");
+      const result = await updateAccountProfile({ displayName, units });
+      setState((current) => ({ ...current, profile: result.profile }));
     },
     [],
   );
 
-  const setUnits = useCallback((units: Profile["units"]) => {
-    setState((current) => ({
-      ...current,
-      profile: current.profile ? { ...current.profile, units } : current.profile,
-    }));
-  }, []);
+  const setUnits = useCallback(
+    async (units: Profile["units"]) => {
+      const current = stateRef.current.profile;
+      if (!current) return;
+      await updateProfile(current.displayName, units);
+    },
+    [updateProfile],
+  );
 
   const signOut = useCallback(() => {
-    setState(EMPTY);
+    void signOutNow()
+      .catch(() => undefined)
+      .finally(() => window.location.assign("/"));
   }, []);
 
-  const startList = useCallback((listId: string = NH48_LIST.id) => {
-    setState((current) => {
-      if (current.startedLists.includes(listId)) return current;
+  const startList = useCallback(
+    (listId: string = NH48_LIST.id) => {
+      if (!stateRef.current.profile) return;
       const list = getList(listId);
-      return {
+      if (!list) return;
+      setState((current) => {
+        if (current.startedLists.includes(listId)) return current;
+        return {
+          ...current,
+          startedLists: [...current.startedLists, listId],
+          listStarts: {
+            ...current.listStarts,
+            [listId]: {
+              version: list.version,
+              edition: list.edition,
+              peakSlugs: list.peaks.map((peak) => peak.slug),
+              startedAt: new Date().toISOString(),
+            },
+          },
+        };
+      });
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const addTrip = useCallback(
+    (input: NewTripInput) => {
+      const trip = tripFrom(input);
+      setState((current) => ({ ...current, trips: [trip, ...current.trips] }));
+      markDirty();
+      return trip;
+    },
+    [markDirty],
+  );
+
+  const importTrips = useCallback(
+    (inputs: NewTripInput[]) => {
+      const created = inputs.map((input) => tripFrom(input));
+      if (created.length) {
+        setState((current) => ({ ...current, trips: [...created, ...current.trips] }));
+        markDirty();
+      }
+      return created;
+    },
+    [markDirty],
+  );
+
+  const mergeTripPeaks = useCallback(
+    (id: string, peaks: TripPeak[]) => {
+      setState((current) => ({
         ...current,
-        startedLists: [...current.startedLists, listId],
-        listStarts: list
-          ? {
-              ...current.listStarts,
-              [listId]: {
-                version: list.version,
-                edition: list.edition,
-                peakSlugs: list.peaks.map((peak) => peak.slug),
-                startedAt: new Date().toISOString(),
-              },
-            }
-          : current.listStarts,
-      };
-    });
-  }, []);
+        trips: current.trips.map((trip) => {
+          if (trip.id !== id) return trip;
+          const missing = peaks.filter(
+            (peak) => !trip.peaks.some((existing) => existing.slug === peak.slug),
+          );
+          return missing.length
+            ? { ...trip, peaks: [...trip.peaks, ...missing], updatedAt: new Date().toISOString() }
+            : trip;
+        }),
+      }));
+      markDirty();
+    },
+    [markDirty],
+  );
 
-  const addTrip = useCallback((input: NewTripInput) => {
-    const trip = tripFrom(input);
-    setState((current) => ({ ...current, trips: [trip, ...current.trips] }));
-    return trip;
-  }, []);
+  const updateTrip = useCallback(
+    (id: string, input: NewTripInput) => {
+      setState((current) => ({
+        ...current,
+        trips: current.trips.map((trip) =>
+          trip.id === id ? tripFrom(input, trip) : trip,
+        ),
+      }));
+      markDirty();
+    },
+    [markDirty],
+  );
 
-  const importTrips = useCallback((inputs: NewTripInput[]) => {
-    const created = inputs.map((input) => tripFrom(input));
-    if (created.length) {
-      setState((current) => ({ ...current, trips: [...created, ...current.trips] }));
+  const deleteTrip = useCallback(
+    (id: string) => {
+      setState((current) => ({
+        ...current,
+        trips: current.trips.filter((trip) => trip.id !== id),
+      }));
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const deleteRecord = useCallback(async () => {
+    if (modeRef.current === "account") {
+      await deleteAccount();
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.location.assign("/");
+      return;
     }
-    return created;
-  }, []);
-
-  const mergeTripPeaks = useCallback((id: string, peaks: TripPeak[]) => {
-    setState((current) => ({
-      ...current,
-      trips: current.trips.map((trip) => {
-        if (trip.id !== id) return trip;
-        const missing = peaks.filter(
-          (peak) => !trip.peaks.some((existing) => existing.slug === peak.slug),
-        );
-        return missing.length
-          ? { ...trip, peaks: [...trip.peaks, ...missing], updatedAt: new Date().toISOString() }
-          : trip;
-      }),
-    }));
-  }, []);
-
-  const updateTrip = useCallback((id: string, input: NewTripInput) => {
-    setState((current) => ({
-      ...current,
-      trips: current.trips.map((trip) =>
-        trip.id === id ? tripFrom(input, trip) : trip,
-      ),
-    }));
-  }, []);
-
-  const deleteTrip = useCallback((id: string) => {
-    setState((current) => ({
-      ...current,
-      trips: current.trips.filter((trip) => trip.id !== id),
-    }));
-  }, []);
-
-  const deleteRecord = useCallback(() => {
+    window.localStorage.removeItem(STORAGE_KEY);
+    setLocalRecord(null);
     setState(EMPTY);
   }, []);
+
+  const importLocalRecord = useCallback(async () => {
+    const local = localRecord;
+    const current = stateRef.current;
+    if (!local || !current.profile) return;
+
+    let merged = mergeRecords(current, local);
+    setSyncState("saving");
+    try {
+      let result;
+      try {
+        result = await saveRecord(recordData(merged), revisionRef.current);
+      } catch (error) {
+        const conflict = conflictPayload(error);
+        if (!conflict) throw error;
+        merged = mergeRecords(conflict.record, merged);
+        revisionRef.current = conflict.revision;
+        result = await saveRecord(recordData(merged), conflict.revision);
+      }
+      revisionRef.current = result.revision;
+      stateRef.current = merged;
+      setState(merged);
+      setLocalRecord(null);
+      window.localStorage.removeItem(STORAGE_KEY);
+      setSyncState("saved");
+      setSyncError("");
+    } catch (error) {
+      setSyncState("error");
+      setSyncError(error instanceof Error ? error.message : "The local record could not be imported.");
+      throw error;
+    }
+  }, [localRecord]);
 
   const badges = state.badges ?? [];
   const listCompletions = state.listCompletions ?? [];
@@ -248,7 +440,7 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !state.profile) return;
     const missing = missingCompletions(
       state.trips,
       state.startedLists,
@@ -260,11 +452,12 @@ export function RecordProvider({ children }: { children: ReactNode }) {
         ...current,
         listCompletions: [...(current.listCompletions ?? []), ...missing],
       }));
+      markDirty();
     }
-  }, [hydrated, state.trips, state.startedLists, state.listStarts, listCompletions]);
+  }, [hydrated, state.trips, state.startedLists, state.listStarts, listCompletions, state.profile, markDirty]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !state.profile) return;
     const missing = missingLaunchAwards(badgeFacts, badges).map((award) => ({
       ...award,
       sourceTripId: sourceTripForBadge(award.badgeId, {
@@ -280,8 +473,9 @@ export function RecordProvider({ children }: { children: ReactNode }) {
         ...current,
         badges: [...(current.badges ?? []), ...missing],
       }));
+      markDirty();
     }
-  }, [hydrated, badgeFacts, badges, state.trips]);
+  }, [hydrated, badgeFacts, badges, state.trips, state.profile, state.startedLists, state.listStarts, listCompletions, markDirty]);
 
   const completedSlugs = useMemo(() => summitSlugs(state.trips), [state.trips]);
   const progress = useMemo(
@@ -304,11 +498,14 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       badgeFacts,
       trips: state.trips,
       hydrated,
+      mode,
+      syncState,
+      syncError,
+      localRecord,
       completedSlugs,
       progress,
       progressFor,
       stats,
-      signIn,
       updateProfile,
       setUnits,
       signOut,
@@ -319,6 +516,8 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       updateTrip,
       deleteTrip,
       deleteRecord,
+      importLocalRecord,
+      retrySync,
     }),
     [
       state.profile,
@@ -329,11 +528,14 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       badgeFacts,
       state.trips,
       hydrated,
+      mode,
+      syncState,
+      syncError,
+      localRecord,
       completedSlugs,
       progress,
       progressFor,
       stats,
-      signIn,
       updateProfile,
       setUnits,
       signOut,
@@ -344,6 +546,8 @@ export function RecordProvider({ children }: { children: ReactNode }) {
       updateTrip,
       deleteTrip,
       deleteRecord,
+      importLocalRecord,
+      retrySync,
     ],
   );
 
