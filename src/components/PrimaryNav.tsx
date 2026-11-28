@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
+import UnitsToggle from "./UnitsToggle";
 import { useRecord } from "../state/RecordContext";
 
 interface NavItem {
@@ -55,6 +56,7 @@ export default function PrimaryNav() {
         </nav>
 
         <div className="header-actions">
+          {!onSignIn ? <UnitsToggle /> : null}
           {!onSignIn ? (
             <NavLink
               to={accountHref}

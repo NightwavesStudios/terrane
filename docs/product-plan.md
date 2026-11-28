@@ -39,7 +39,7 @@ The curious visitor can use the globe and catalogue without an account. Guest br
 | **Settings** | Passkey account, display name, units, sync status, local-record import, export and account deletion. |
 | **Accounts** | WebAuthn passkeys plus a one-time recovery key; D1-backed profiles, revisioned records and sessions. |
 
-Release checks: `npm test` (81 tests) and `npm run build` pass. The deployed preview browser pass covers account creation, persistence, recovery, deletion and 320/390/desktop layouts.
+Release checks: `npm test` (85 tests) and `npm run build` pass. The deployed preview browser pass covers account creation, persistence, recovery, deletion and 320/390/desktop layouts.
 
 ## Product rules
 

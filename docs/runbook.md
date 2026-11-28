@@ -42,6 +42,7 @@ Do not test account flows on the Vercel URL. Verify `/`, `/progress`, `/lists/nh
 - **D1 `webauthn_flows`** — single-use registration/authentication challenges, five-minute expiry.
 - **D1 `recovery_keys`** — SHA-256 hash of the one-time recovery key; the plaintext is shown once.
 - **`localStorage` `terrane.record.v1`** — guest record and pre-account record. It is not uploaded unless the user chooses Import from Settings or Progress.
+- **`localStorage` `terrane.units.v1`** — guest elevation-unit preference (`imperial` or `metric`). Signed-in accounts keep the same choice on the profile.
 - No third-party analytics, pixel, email provider or PII collection is configured.
 
 Signing out deletes the D1 session; it does not delete the record. Delete account removes the profile, record, sessions, passkeys, recovery key and pending WebAuthn flows.
@@ -73,7 +74,7 @@ Settings → Import CSV. Use the in-app template or the format in `docs/data-sou
 
 Last checked 28 November 2026:
 
-- `npm test` — 81 tests across 18 files, including the D1 repository and the passkey account API against Miniflare D1.
+- `npm test` — 85 tests across 19 files, including the D1 repository and the passkey account API against Miniflare D1.
 - `npm run build` — SPA and Worker bundle succeed; the only warning is the existing MapLibre chunk size.
 - Deployed preview browser pass — fresh passkey account at 320 px, empty record, saved NH 48 climb, reload persistence, sign-out, passkey sign-in with the same credential, recovery-key sign-in in a separate context, and account deletion. Layout checks at 320, 390 and 1440 px showed no horizontal overflow; `Discover` and the compact account header remained intact.
 - The WebAuthn browser pass used a software authenticator producing valid attestations and assertions; the server verified them with `@simplewebauthn/server`. This is not a real Face ID/Touch ID hardware test.

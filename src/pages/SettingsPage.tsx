@@ -8,6 +8,7 @@ import { useRecord } from "../state/RecordContext";
 export default function SettingsPage() {
   const {
     profile,
+    units,
     startedLists,
     listStarts,
     badges,
@@ -18,13 +19,13 @@ export default function SettingsPage() {
     syncError,
     localRecord,
     updateProfile,
+    setUnits,
     signOut,
     deleteRecord,
     importLocalRecord,
     retrySync,
   } = useRecord();
   const [name, setName] = useState(profile?.displayName ?? "");
-  const [units, setLocalUnits] = useState(profile?.units ?? "imperial");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
@@ -36,7 +37,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!profile) return;
     setName(profile.displayName);
-    setLocalUnits(profile.units);
   }, [profile]);
 
   if (!hydrated) return <div className="content-page" aria-busy="true" />;
@@ -57,6 +57,18 @@ export default function SettingsPage() {
       setMessage("");
       setError(caught instanceof Error ? caught.message : "The profile could not be saved.");
     }
+  }
+
+  function changeUnits(next: typeof units) {
+    setMessage("");
+    setError("");
+    void setUnits(next)
+      .then(() => setMessage("Elevation units updated."))
+      .catch((caught) => {
+        setError(
+          caught instanceof Error ? caught.message : "The units could not be saved.",
+        );
+      });
   }
 
   function removeRecord() {
@@ -158,14 +170,17 @@ export default function SettingsPage() {
             <input value={profile.email || "No email on this account"} readOnly disabled />
           </label>
           <label className="form-field">
-            <span>Units</span>
+            <span>Elevation units</span>
             <select
               value={units}
-              onChange={(event) => setLocalUnits(event.target.value as typeof units)}
+              onChange={(event) => changeUnits(event.target.value as typeof units)}
             >
-              <option value="imperial">Feet / miles</option>
-              <option value="metric">Metres / kilometres</option>
+              <option value="imperial">Feet (ft)</option>
+              <option value="metric">Metres (m)</option>
             </select>
+            <small className="form-hint form-hint--start">
+              Used across the globe, lists and peak pages.
+            </small>
           </label>
           {message ? (
             <p className="form-success" role="status">

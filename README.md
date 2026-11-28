@@ -22,8 +22,9 @@ key) plus a one-time recovery key shown at account creation. There is no
 password, magic link or OAuth dependency. Profiles, records, sessions, passkeys
 and recovery hashes live in a Cloudflare D1 database through the Freebuff Sites
 deployment; the browser keeps only the session cookie (`HttpOnly`, `Secure`,
-`SameSite=Lax`) and the pre-account guest record in `localStorage` under
-`terrane.record.v1`.
+`SameSite=Lax`), the pre-account guest record in `localStorage` under
+`terrane.record.v1`, and the guest elevation-unit preference under
+`terrane.units.v1`. Signed-in accounts keep the unit preference on the profile.
 
 A guest record can be merged into an account from Progress or Settings; it is
 never uploaded implicitly. Export always remains available and account deletion
