@@ -10,7 +10,7 @@ import {
 import type { Peak } from "../types/geography";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { worldZoom } from "../lib/camera";
+import { peakFocusPadding, peakFocusZoom, worldZoom } from "../lib/camera";
 import { createStyle } from "../map/style";
 
 setWorkerUrl(maplibreWorkerUrl);
@@ -208,7 +208,34 @@ export default function MapGlobe({ peaks = [], onSelect }: Props) {
       });
 
       liveMap.on("click", "peak-points", (event) => {
-        const slug = event.features?.[0]?.properties?.slug as string | undefined;
+        const feature = event.features?.[0];
+        const slug = feature?.properties?.slug as string | undefined;
+        const coordinates = (feature?.geometry as { coordinates?: [number, number] } | undefined)
+          ?.coordinates;
+
+        if (coordinates) {
+          const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const center: [number, number] = [coordinates[0], coordinates[1]];
+          const zoom = peakFocusZoom(liveMap.getZoom());
+          const padding = peakFocusPadding(window.innerWidth);
+          liveMap.stop();
+          if (reducedMotion) {
+            liveMap.jumpTo({ center, zoom });
+          } else {
+            liveMap.flyTo({
+              center,
+              zoom,
+              pitch: 30,
+              bearing: liveMap.getBearing(),
+              padding,
+              curve: 1.25,
+              speed: 1.05,
+              maxDuration: 1100,
+              essential: true,
+            });
+          }
+        }
+
         if (slug) onSelectRef.current?.(slug);
       });
 

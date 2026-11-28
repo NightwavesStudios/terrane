@@ -1,7 +1,12 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
-import { getListForPeak, getPeak, PEAKS } from "../data/lists";
+import {
+  getListForPeak,
+  getPeak,
+  PEAKS,
+  type MountainList,
+} from "../data/lists";
 import { formatElevation } from "../lib/format";
 import { formatTripDate, getPeakTrips } from "../lib/progress";
 import { PEAK_NAMES, useRecord } from "../state/RecordContext";
@@ -32,7 +37,6 @@ export default function PeakDetailPage() {
     progressFor,
     trips,
     completedSlugs,
-    startedLists,
     startList,
   } = useRecord();
 
@@ -59,24 +63,28 @@ export default function PeakDetailPage() {
   const primaryList = lists[0];
   const climbed = completedSlugs.has(peak.slug);
   const peakTrips = getPeakTrips(trips, peak.slug);
+  const attempted = !climbed && peakTrips.length > 0;
   const units = profile?.units ?? "imperial";
   const logTarget = `/log?peak=${peak.slug}`;
   const logHref = profile
     ? logTarget
     : `/signin?returnTo=${encodeURIComponent(logTarget)}`;
-  const listStarted = primaryList ? startedLists.includes(primaryList.id) : false;
-  const progress = primaryList ? progressFor(primaryList.id) : null;
+  const status = climbed ? "Climbed" : attempted ? "Attempted" : "Not climbed";
+  const sourceHref = peak.sourceUrl ?? primaryList?.sourceUrl;
+  const coordinates =
+    typeof peak.lat === "number" && typeof peak.lon === "number"
+      ? `${peak.lat.toFixed(4)}, ${peak.lon.toFixed(4)}`
+      : "Unknown";
 
-  function start() {
-    if (!primaryList) return;
+  function startListFor(list: MountainList) {
     if (!profile) {
       navigate(
-        `/signin?returnTo=${encodeURIComponent(`/lists/${primaryList.slug}?start=1`)}`,
+        `/signin?returnTo=${encodeURIComponent(`/lists/${list.slug}?start=1`)}`,
       );
       return;
     }
-    startList(primaryList.id);
-    navigate(`/lists/${primaryList.slug}`);
+    startList(list.id);
+    navigate(`/lists/${list.slug}`);
   }
 
   return (
@@ -86,77 +94,79 @@ export default function PeakDetailPage() {
       </Link>
 
       <article className="peak-detail">
-        <header className="peak-detail__header">
-          <div>
+        <header className="peak-hero">
+          <div className="peak-hero__intro">
             <p className="eyebrow">
-              Peaks / {primaryList?.title ?? "Catalogue"} / <span>#{peak.rank}</span>
+              {primaryList?.title ?? "Catalogue"}
+              {typeof peak.rank === "number" ? (
+                <>
+                  {" "}
+                  <span aria-hidden="true">·</span> #{peak.rank}
+                </>
+              ) : null}
             </p>
             <h1>{peak.name}</h1>
-            <p className="peak-detail__lede">
-              A {formatElevation(peak.elevationM, units, peak.elevationFt)} summit in the {peak.range}.{" "}
-              {primaryList ? `Part of ${primaryList.title}, ${primaryList.edition}.` : null}
+            <p className="peak-hero__lede">
+              {formatElevation(peak.elevationM, units, peak.elevationFt)}
+              {peak.range ? ` · ${peak.range}` : null}
             </p>
           </div>
-          <span className="status-pill">{climbed ? "In your record" : "On your list"}</span>
+
+          <div className="peak-hero__aside">
+            <span
+              className={`peak-status${climbed ? " is-climbed" : attempted ? " is-attempted" : ""}`}
+            >
+              <i aria-hidden="true" />
+              {status}
+            </span>
+            <div className="peak-hero__actions">
+              <Link to={logHref} className="button button--bright">
+                <Icon name="check" size={16} />
+                {climbed ? "Log another climb" : "Log this climb"}
+              </Link>
+              {primaryList ? (
+                <Link to={`/lists/${primaryList.slug}`} className="button">
+                  <Icon name="list" size={16} /> Open list
+                </Link>
+              ) : null}
+            </div>
+            {!profile ? (
+              <p className="peak-hero__note">
+                Sign in to save this climb to your private record.
+              </p>
+            ) : null}
+          </div>
         </header>
 
-        <div className="peak-detail__layout">
-          <div className="peak-detail__main">
-            <section className="detail-section">
-              <div className="section-heading">
-                <span>01</span>
-                <h2>Profile</h2>
-              </div>
-              <dl className="detail-fields">
-                <div className="detail-field">
-                  <dt>Elevation</dt>
-                  <dd>{formatElevation(peak.elevationM, units, peak.elevationFt)}</dd>
-                </div>
-                <div className="detail-field">
-                  <dt>Prominence</dt>
-                  <dd>{formatElevation(peak.prominenceM, units, peak.prominenceFt)}</dd>
-                </div>
-                <div className="detail-field">
-                  <dt>Range</dt>
-                  <dd>{peak.range}</dd>
-                </div>
-                <div className="detail-field">
-                  <dt>Coordinates</dt>
-                  <dd>
-                    {peak.lat?.toFixed(4)}, {peak.lon?.toFixed(4)}
-                  </dd>
-                </div>
-              </dl>
-            </section>
+        <dl className="peak-facts" aria-label={`${peak.name} facts`}>
+          <div>
+            <dt>Elevation</dt>
+            <dd>{formatElevation(peak.elevationM, units, peak.elevationFt)}</dd>
+          </div>
+          <div>
+            <dt>Prominence</dt>
+            <dd>{formatElevation(peak.prominenceM, units, peak.prominenceFt)}</dd>
+          </div>
+          <div>
+            <dt>Range</dt>
+            <dd>{peak.range ?? "Unknown"}</dd>
+          </div>
+          <div>
+            <dt>Coordinates</dt>
+            <dd className="peak-facts__coordinates">{coordinates}</dd>
+          </div>
+        </dl>
 
-            <section className="detail-section">
-              <div className="section-heading">
-                <span>02</span>
-                <h2>List membership</h2>
-              </div>
-              {lists.map((list) => (
-                <p className="detail-copy" key={list.id}>
-                  Required peak in the <Link to={`/lists/${list.slug}`}>{list.title}</Link>, published by{" "}
-                  {list.publisher}. {list.rules}
-                </p>
-              ))}
-              {primaryList ? (
-                !listStarted ? (
-                  <button type="button" className="button button--bright" onClick={start}>
-                    <Icon name="list" size={16} /> Start {primaryList.title}
-                  </button>
-                ) : (
-                  <Link to={`/lists/${primaryList.slug}`} className="text-link">
-                    {progress?.percent ?? 0}% of the list complete <span aria-hidden="true">→</span>
-                  </Link>
-                )
-              ) : null}
-            </section>
-
-            <section className="detail-section">
-              <div className="section-heading">
-                <span>03</span>
+        <div className="peak-body">
+          <div className="peak-body__main">
+            <section className="peak-section">
+              <div className="peak-section__head">
                 <h2>Your record</h2>
+                <span>
+                  {peakTrips.length
+                    ? `${peakTrips.length} recorded`
+                    : "No climbs yet"}
+                </span>
               </div>
               {peakTrips.length ? (
                 <div className="trip-list">
@@ -164,95 +174,126 @@ export default function PeakDetailPage() {
                     <Link key={trip.id} to={`/log?trip=${trip.id}`} className="trip-row">
                       <span>
                         <strong>{formatTripDate(trip)}</strong>
-                        <small>{trip.peaks.map((item) => PEAK_NAMES.get(item.slug) ?? item.slug).join(", ")}</small>
+                        <small>
+                          {trip.title ||
+                            trip.peaks
+                              .map((item) => PEAK_NAMES.get(item.slug) ?? item.slug)
+                              .join(", ")}
+                        </small>
                       </span>
-                      <span className="trip-row__outcome">{trip.peaks[0]?.outcome ?? "summit"}</span>
+                      <span className="trip-row__outcome">
+                        {trip.peaks[0]?.outcome ?? "summit"}
+                      </span>
                     </Link>
                   ))}
                 </div>
               ) : (
                 <p className="detail-copy">
-                  No recorded climb yet. Log this summit or add it from your history.
+                  No climb recorded yet. Your ascents, attempts and notes will appear here.
                 </p>
               )}
             </section>
 
-            <section className="detail-section">
-              <div className="section-heading">
-                <span>04</span>
-                <h2>How we know</h2>
+            <section className="peak-section">
+              <div className="peak-section__head">
+                <h2>Lists</h2>
+                <span>
+                  {lists.length} {lists.length === 1 ? "list" : "lists"}
+                </span>
               </div>
-              <div className="source-panel">
-                <p>
-                  <strong>Name, coordinates:</strong>{" "}
-                  <a href={peak.sourceUrl ?? primaryList?.sourceUrl} target="_blank" rel="noreferrer">
-                    {sourceLabel(primaryList?.id)}
-                  </a>
-                  {peak.osmUrl ? (
-                    <>
-                      {" "}
-                      /{" "}
-                      <a href={peak.osmUrl} target="_blank" rel="noreferrer">
-                        OpenStreetMap
-                      </a>
-                    </>
-                  ) : null}
-                  , checked 27 November 2026.
-                </p>
-                <p>
-                  <strong>Elevation:</strong>{" "}
-                  {peak.elevationSourceUrl ? (
-                    <a href={peak.elevationSourceUrl} target="_blank" rel="noreferrer">
-                      source record
-                    </a>
-                  ) : (
-                    "publisher record"
-                  )}
-                  . <strong>Prominence:</strong>{" "}
-                  {peak.prominenceM === undefined ? "not supplied" : "source record"}. Displayed in{" "}
-                  {units === "imperial" ? "feet" : "metres"}.
-                </p>
-                {lists.map((list) => (
-                  <p key={list.id}>
-                    <strong>List membership:</strong> {list.publisher}, {list.edition}.{" "}
-                    <a href={list.sourceUrl} target="_blank" rel="noreferrer">
-                      Publisher source
-                    </a>
-                    .
-                  </p>
-                ))}
+              <div className="peak-list-rows">
+                {lists.map((list) => {
+                  const listState = progressFor(list.id);
+                  return (
+                    <div className="peak-list-row" key={list.id}>
+                      <div className="peak-list-row__copy">
+                        <Link to={`/lists/${list.slug}`}>{list.title}</Link>
+                        <p>
+                          {list.publisher} · {list.edition}
+                        </p>
+                      </div>
+                      {listState.started ? (
+                        <div className="peak-list-row__standing">
+                          <strong>{listState.percent}%</strong>
+                          <span>
+                            {listState.completed} of {listState.total}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="button button--small"
+                          onClick={() => startListFor(list)}
+                        >
+                          <Icon name="list" size={14} /> Start list
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </div>
 
-          <aside className="peak-detail__aside">
-            <div className="detail-map" aria-label={`Location of ${peak.name}`}>
-              <span className="detail-map__grid" aria-hidden="true" />
-              <span className="detail-map__ring detail-map__ring--one" aria-hidden="true" />
-              <span className="detail-map__ring detail-map__ring--two" aria-hidden="true" />
-              <span className="detail-map__pin">
-                <Icon name="pin" size={24} />
-              </span>
-              <span className="detail-map__label">
-                {peak.lat?.toFixed(3)}, {peak.lon?.toFixed(3)} · {peak.range ?? primaryList?.title ?? "Catalogue"}
-              </span>
-            </div>
-
-            <div className="detail-actions">
-              <Link to={logHref} className="button button--bright">
-                <Icon name="check" size={17} /> Log this climb
-              </Link>
-              {primaryList ? (
-                <Link to={`/lists/${primaryList.slug}`} className="button">
-                  <Icon name="list" size={17} /> Open the list
-                </Link>
+          <aside className="peak-body__aside">
+            <section className="peak-sources" aria-labelledby="peak-sources-title">
+              <p className="eyebrow">Sources</p>
+              <h2 id="peak-sources-title">Where this comes from</h2>
+              <p>
+                Peak facts from{" "}
+                {sourceHref ? (
+                  <a href={sourceHref} target="_blank" rel="noreferrer">
+                    {sourceLabel(primaryList?.id)}
+                  </a>
+                ) : (
+                  sourceLabel(primaryList?.id)
+                )}
+                {peak.osmUrl ? (
+                  <>
+                    {" "}
+                    and{" "}
+                    <a href={peak.osmUrl} target="_blank" rel="noreferrer">
+                      OpenStreetMap
+                    </a>
+                  </>
+                ) : null}
+                . Checked 27 November 2026.
+              </p>
+              {peak.prominenceM === undefined ? (
+                <p className="peak-sources__note">
+                  Prominence is not supplied by the source.
+                </p>
               ) : null}
-            </div>
-            <p className="muted-note">
-              {profile
-                ? "Saved on this device. Your record is private."
-                : "Sign in to keep a private record on this device."}
-            </p>
+              <div className="peak-sources__links">
+                {sourceHref ? (
+                  <a href={sourceHref} target="_blank" rel="noreferrer">
+                    Peak record <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+                {peak.elevationSourceUrl ? (
+                  <a href={peak.elevationSourceUrl} target="_blank" rel="noreferrer">
+                    Elevation source <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+                {peak.osmUrl ? (
+                  <a href={peak.osmUrl} target="_blank" rel="noreferrer">
+                    OpenStreetMap <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+                {primaryList ? (
+                  <a href={primaryList.sourceUrl} target="_blank" rel="noreferrer">
+                    List publisher <span aria-hidden="true">↗</span>
+                  </a>
+                ) : null}
+              </div>
+              {primaryList ? (
+                <p className="peak-sources__note">
+                  Membership follows {primaryList.publisher}, {primaryList.edition}.
+                  {primaryList.license ? ` ${primaryList.license}.` : ""} Terrane is
+                  not the official record.
+                </p>
+              ) : null}
+            </section>
           </aside>
         </div>
       </article>
