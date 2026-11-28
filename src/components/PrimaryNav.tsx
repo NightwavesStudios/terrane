@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
 import { useRecord } from "../state/RecordContext";
@@ -28,7 +28,10 @@ function initials(name: string): string {
 
 export default function PrimaryNav() {
   const { profile } = useRecord();
-  const accountHref = profile ? "/settings" : "/signin";
+  const { pathname } = useLocation();
+  const accountHref = profile ? "/settings" : "/signin?mode=signin";
+  const onSignIn = pathname === "/signin";
+  const showLogCta = !/^\/(log|signin|lists\/|peaks\/)/.test(pathname);
 
   return (
     <>
@@ -52,20 +55,24 @@ export default function PrimaryNav() {
         </nav>
 
         <div className="header-actions">
-          <NavLink
-            to={accountHref}
-            className="account-chip"
-            aria-label={profile ? `Open ${profile.displayName}'s record settings` : "Sign in or create a record"}
-          >
-            <span className={`account-chip__avatar${profile ? "" : " account-chip__avatar--guest"}`}>
-              {profile ? initials(profile.displayName) : <Icon name="user" size={16} />}
-            </span>
-            <span className="account-chip__name">{profile?.displayName ?? "Sign in"}</span>
-          </NavLink>
-          <NavLink to="/log" className="nav-cta">
-            <Icon name="plus" size={15} />
-            Log a climb
-          </NavLink>
+          {!onSignIn ? (
+            <NavLink
+              to={accountHref}
+              className="account-chip"
+              aria-label={profile ? `Open ${profile.displayName}'s record settings` : "Sign in or create a record"}
+            >
+              <span className={`account-chip__avatar${profile ? "" : " account-chip__avatar--guest"}`}>
+                {profile ? initials(profile.displayName) : <Icon name="user" size={16} />}
+              </span>
+              <span className="account-chip__name">{profile?.displayName ?? "Sign in"}</span>
+            </NavLink>
+          ) : null}
+          {showLogCta ? (
+            <NavLink to="/log" className="nav-cta">
+              <Icon name="plus" size={15} />
+              Log a climb
+            </NavLink>
+          ) : null}
         </div>
       </header>
 

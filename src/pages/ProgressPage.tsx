@@ -4,6 +4,7 @@ import BadgeCase from "../components/BadgeCase";
 import EmptyState from "../components/EmptyState";
 import Icon from "../components/Icon";
 import PageHeader from "../components/PageHeader";
+import ProgressRing from "../components/ProgressRing";
 import { LISTS } from "../data/lists";
 import { exportCsv, exportJson } from "../lib/export";
 import { formatTripDate, tripPeakNames } from "../lib/progress";
@@ -33,6 +34,10 @@ export default function ProgressPage() {
   const listRows = [...LISTS].sort(
     (a, b) => Number(progressFor(b.id).started) - Number(progressFor(a.id).started),
   );
+  const focusList = [...LISTS]
+    .filter((list) => progressFor(list.id).started)
+    .sort((a, b) => progressFor(b.id).percent - progressFor(a.id).percent)[0];
+  const focusProgress = focusList ? progressFor(focusList.id) : null;
 
   if (!profile) {
     return (
@@ -78,6 +83,30 @@ export default function ProgressPage() {
           stats.trips === 1 ? "trip" : "trips"
         } · ${startedCount} of ${LISTS.length} lists started`}
       />
+
+      {focusList && focusProgress ? (
+        <section className="record-focus" aria-labelledby="focus-list-title">
+          <ProgressRing
+            completed={focusProgress.completed}
+            total={focusProgress.total}
+            label="peaks"
+          />
+          <div className="record-focus__copy">
+            <p className="eyebrow">Current list</p>
+            <h2 id="focus-list-title">{focusList.title}</h2>
+            <p>
+              {focusProgress.remaining
+                ? `${focusProgress.remaining} ${
+                    focusProgress.remaining === 1 ? "peak" : "peaks"
+                  } to go`
+                : "Complete"}
+            </p>
+          </div>
+          <Link to={`/lists/${focusList.slug}`} className="button">
+            Open list <Icon name="arrow" size={15} />
+          </Link>
+        </section>
+      ) : null}
 
       {localRecord?.trips.length ? (
         <section className="local-migration" aria-label="Import local climbs">
@@ -143,7 +172,6 @@ export default function ProgressPage() {
             <p className="eyebrow">Lists</p>
             <h2 id="lists-progress-title">Progress by list</h2>
           </div>
-          <span className="panel-heading__meta">{trips.length} trips on record</span>
         </div>
 
         <div className="progress-table">
@@ -183,7 +211,6 @@ export default function ProgressPage() {
               <p className="eyebrow">Climbs</p>
               <h2 id="recent-trips-title">Recent trips</h2>
             </div>
-            <span className="panel-heading__meta">{trips.length} total</span>
           </div>
           {trips.length ? (
             <div className="trip-table">
@@ -211,8 +238,8 @@ export default function ProgressPage() {
         <aside className="record-side">
           <section className="side-card">
             <p className="eyebrow">Portable</p>
-            <h2>Take it with you.</h2>
-            <p>JSON keeps every field. CSV opens in a spreadsheet.</p>
+            <h2>Export</h2>
+            <p>JSON or CSV.</p>
             <div className="side-actions">
               <button type="button" className="button" onClick={() => exportJson(record)}>
                 JSON
@@ -228,12 +255,12 @@ export default function ProgressPage() {
 
           <section className="side-card side-card--year">
             <p className="eyebrow">{recapYear}</p>
-            <h2>{recap.trips ? `${recap.summits} summits` : "The year is open"}</h2>
-            <p>
-              {recap.trips
-                ? `${recap.trips} ${recap.trips === 1 ? "trip" : "trips"} · ${recap.uniquePeaks} unique`
-                : "Nothing is filled in for you."}
-            </p>
+            <h2>{recap.trips ? `${recap.summits} summits` : "No summits yet"}</h2>
+            {recap.trips ? (
+              <p>
+                {recap.trips} {recap.trips === 1 ? "trip" : "trips"} · {recap.uniquePeaks} unique
+              </p>
+            ) : null}
             <div className="recap-months" aria-label={`${recapYear} months with summits`}>
               {recap.months.map((count, index) => (
                 <span key={index} title={`${count} ${count === 1 ? "trip" : "trips"}`}>
@@ -247,10 +274,6 @@ export default function ProgressPage() {
       </div>
 
       <BadgeCase facts={badgeFacts} awards={badges} trips={trips} />
-
-      <p className="page-footnote">
-        Synced to your Terrane account. Export or delete it anytime from Settings.
-      </p>
     </div>
   );
 }

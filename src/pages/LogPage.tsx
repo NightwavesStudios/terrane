@@ -141,9 +141,7 @@ function LogForm({ editing, initialPeak, mode, listPeaks, returnTo }: FormProps)
                 );
               })}
             </div>
-          ) : (
-            <p className="form-empty">Choose the summit or summits in this trip.</p>
-          )}
+          ) : null}
           <label className="form-field">
             <span>Add a peak</span>
             <select
@@ -164,7 +162,6 @@ function LogForm({ editing, initialPeak, mode, listPeaks, returnTo }: FormProps)
         <section className="form-section">
           <div className="form-section__head">
             <h2>When</h2>
-            <span className="form-hint">Date precision is kept</span>
           </div>
           <div className="form-grid">
             <label className="form-field">
@@ -346,11 +343,7 @@ export default function LogPage() {
             )}
           </>
         }
-        description={
-          list
-            ? `Inside ${list.title}. Choose one or more peaks, then save.`
-            : "Choose the peak, the date and the outcome. Notes can wait."
-        }
+        description={list?.title}
       />
 
       <LogForm

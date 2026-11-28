@@ -34,10 +34,10 @@ export default function BadgeCase({ facts, awards, trips }: Props) {
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Passport</p>
-          <h2 id="passport-title">Marks from the record</h2>
+          <h2 id="passport-title">Marks</h2>
         </div>
         <span className="panel-heading__meta">
-          {earned} of {items.length} earned · no points
+          {earned} of {items.length} earned
         </span>
       </div>
       <div className="badge-grid">
@@ -57,7 +57,7 @@ export default function BadgeCase({ facts, awards, trips }: Props) {
               <div className="badge-card__copy">
                 <p className="eyebrow">{isEarned ? "Earned" : "Not yet"}</p>
                 <h3>{badge.name}</h3>
-                <p>{badge.description}</p>
+                {!isEarned ? <p>{badge.description}</p> : null}
                 {isEarned && award ? (
                   <p className="badge-card__meta">
                     {awardDate(award.earnedAt)}
@@ -72,9 +72,7 @@ export default function BadgeCase({ facts, awards, trips }: Props) {
                     <span><i style={{ width: `${progress.pct}%` }} /></span>
                     <small>{progress.current}/{progress.target} {progress.unit}</small>
                   </div>
-                ) : (
-                  <p className="badge-card__meta">From the record</p>
-                )}
+                ) : null}
               </div>
             </article>
           );

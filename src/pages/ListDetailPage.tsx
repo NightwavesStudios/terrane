@@ -73,11 +73,7 @@ export default function ListDetailPage() {
         <Icon name="arrow" size={15} /> Back to lists
       </Link>
 
-      <PageHeader
-        eyebrow={`Lists / ${list.publisher}`}
-        title={<>{list.title}.</>}
-        description={list.description}
-      />
+      <PageHeader eyebrow={`Lists / ${list.publisher}`} title={<>{list.title}.</>} />
 
       <section className="list-summary">
         <div className="list-summary__progress">
@@ -103,11 +99,6 @@ export default function ListDetailPage() {
                 ? `${displayRemaining} ${displayRemaining === 1 ? "peak" : "peaks"} to go.`
                 : `${list.peaks.length} peaks, one list.`}
           </h2>
-          <p>
-            {started
-              ? `${displayCompleted} climbed, ${displayRemaining} remaining. Your history counts.`
-              : "Start the list, then add the climbs you already have."}
-          </p>
           <div className="list-summary__actions">
             {started ? (
               <Link to={`/log?list=${list.id}`} className="button button--bright">
@@ -115,7 +106,7 @@ export default function ListDetailPage() {
               </Link>
             ) : (
               <button type="button" className="button button--bright" onClick={start}>
-                <Icon name="check" size={16} /> Start {list.title}
+                <Icon name="check" size={16} /> Start list
               </button>
             )}
             {started && profile ? (

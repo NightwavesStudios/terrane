@@ -49,8 +49,9 @@ describe("App", () => {
 
   it("renders the local-record surface and all list sources", () => {
     const signIn = renderAt("/signin");
-    expect(signIn).toContain("Keep your");
-    expect(signIn).toContain("No password");
+    expect(signIn).toContain("Passkey account");
+    expect(signIn).toContain("Create account");
+    expect(signIn).toContain("Sign in");
 
     const data = renderAt("/about/data");
     expect(data).toContain("Data &amp;");
